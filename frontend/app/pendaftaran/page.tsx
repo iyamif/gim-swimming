@@ -96,7 +96,7 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo/logo1.jpeg"
+            src="/icon.png"
             alt="GIM Swimming Logo"
             className="h-14 w-auto mx-auto rounded-xl object-contain bg-white mb-4"
           />

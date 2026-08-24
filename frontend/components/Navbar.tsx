@@ -12,7 +12,7 @@ export default function Navbar() {
         <a href="#" className="flex items-center gap-2 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo/logo1.jpeg"
+            src="/icon.png"
             alt="GIM Swimming Logo"
             className="h-9 sm:h-12 w-auto rounded-lg sm:rounded-xl object-contain bg-white"
           />

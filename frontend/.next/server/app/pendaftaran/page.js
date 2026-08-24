@@ -1,5 +1,5 @@
 var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/pendaftaran/page.js")
-R.c("server/chunks/ssr/[root-of-the-server]__1p6mqco._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__14dah57._.js")
 R.c("server/chunks/ssr/node_modules_next_dist_1n3w9lb._.js")
 R.c("server/chunks/ssr/[root-of-the-server]__08wq1wk._.js")
 R.c("server/chunks/ssr/[root-of-the-server]__0j26pto._.js")
@@ -9,5 +9,5 @@ R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidde
 R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_0l_sp0x.js")
 R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_0q-w892.js")
 R.c("server/chunks/ssr/_next-internal_server_app_pendaftaran_page_actions_041qw16.js")
-R.m(93348)
-module.exports=R.m(93348).exports
+R.m(34829)
+module.exports=R.m(34829).exports
