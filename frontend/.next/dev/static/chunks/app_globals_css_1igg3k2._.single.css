@@ -999,10 +999,6 @@
     }
   }
 
-  .border-slate-800 {
-    border-color: var(--color-slate-800);
-  }
-
   .border-slate-900 {
     border-color: var(--color-slate-900);
   }
