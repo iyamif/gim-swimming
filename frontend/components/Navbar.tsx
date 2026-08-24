@@ -14,7 +14,7 @@ export default function Navbar() {
           <img
             src="/icon.png"
             alt="GIM Swimming Logo"
-            className="h-9 sm:h-12 w-auto rounded-lg sm:rounded-xl object-contain bg-white"
+            className="h-9 sm:h-12 w-auto object-contain"
           />
           <div>
             <p className="text-xs sm:text-base md:text-lg font-black tracking-tight text-slate-900 leading-none">
