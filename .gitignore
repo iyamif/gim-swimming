@@ -1,0 +1,36 @@
+# Next.js Build Files (Ignore entire directory)
+**/frontend/.next/
+**/.next/
+**/out/
+
+# Node Package Manager dependencies
+**/node_modules/
+**/jspm_packages/
+**/web_modules/
+
+# OS metadata
+**/.DS_Store
+**/Thumbs.db
+
+# Environment variables & local configurations
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# Build artifacts
+**/build/
+**/dist/
+
+# NPM & Package managers lock / logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+# IDE / Editor folders
+**/.idea/
+**/.vscode/
+*.swp
+*.swo
