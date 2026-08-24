@@ -1,6 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+
 export default function FloatingWA() {
+  const pathname = usePathname();
+  const [shouldShift, setShouldShift] = useState(false);
+
+  useEffect(() => {
+    const role = localStorage.getItem("gim_swimming_role");
+    const isDashboardPage = pathname === "/apps";
+    setShouldShift(isDashboardPage && (role === "admin" || role === "pelatih"));
+  }, [pathname]);
+
   const whatsappUrl = "https://wa.me/6285353333220?text=Halo%20Admin%20GIM%20Swimming%2C%20saya%20ingin%20tanya%20mengenai%20jadwal%20dan%20kelas%20berenang.";
 
   return (
@@ -8,7 +20,9 @@ export default function FloatingWA() {
       href={whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-6 right-6 z-40 flex items-center justify-center h-14 w-14 rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:bg-[#128C7E] hover:scale-110 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+      className={`fixed ${
+        shouldShift ? "bottom-24 md:bottom-6" : "bottom-6"
+      } right-6 z-40 flex items-center justify-center h-14 w-14 rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:bg-[#128C7E] hover:scale-110 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2`}
       aria-label="Contact WhatsApp Admin"
     >
       {/* Tooltip / Label */}

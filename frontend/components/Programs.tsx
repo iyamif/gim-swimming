@@ -1,46 +1,49 @@
 const programs = [
   {
-    title: "Kids Swimming",
-    price: "Rp 400.000",
+    title: "Baby Swimming",
+    price: "Rp 350.000",
     period: "/ bulan",
-    description: "Program berenang menyenangkan khusus anak-anak untuk melatih keberanian & teknik dasar motorik.",
+    description: "Program baby swimming yang menyenangkan dan aman untuk membantu si kecil mengenal air, melatih keberanian, serta menstimulasi perkembangan motorik dan koordinasi sejak dini.",
     level: "Usia 4–12 tahun",
     features: [
       "4x Sesi Latihan / Bulan",
-      "Durasi 60 Menit per Sesi",
-      "Maksimal 5 Anak per Kelas",
+      "Durasi 30 Menit per Sesi",
+      "1 Siswa - 1 Instruktur (Private)",
       "Instruktur Ramah & Sabar",
       "Ujian Level Berkala"
     ],
-    pendaftaranParam: "Kids Swimming (Usia 4–12)"
+    pendaftaranParam: "Baby Swimming (Usia 0– 2 tahun)"
   },
   {
-    title: "Beginner Class",
-    price: "Rp 500.000",
+    title: "Latihan Prestasi",
+    price: "Rp 400.000",
     period: "/ bulan",
-    description: "Latihan pemula dewasa untuk membangun mental berani, teknik meluncur, dan pernapasan air.",
+    description: "Latihan berenang intensif untuk mengembangkan teknik, daya tahan, kecepatan, dan mental kompetitif guna membantu atlet mencapai prestasi terbaik.",
     level: "Remaja & Dewasa",
     features: [
-      "4x Sesi Latihan / Bulan",
-      "Durasi 60 Menit per Sesi",
-      "Maksimal 6 Siswa per Kelas",
-      "Materi Latihan Bertahap",
-      "Evaluasi Teknik Meluncur"
+      "12x Sesi Latihan / Bulan",
+      "Durasi 150 Menit per Sesi",
+      "Jadwal Senin, Rabu & Jumat ",
+      "Jam 15.00 - 17.30",
+      "siswa Berjumlah lebih dari 3 - 10 orang",
+      "Anak Wajib Mempunyai Alat Latihan"
+
     ],
-    pendaftaranParam: "Beginner (Pemula)"
+    pendaftaranParam: "Prestasi (Latihan Prestasi)"
   },
   {
     title: "Private Class",
-    price: "Rp 1.200.000",
+    price: "Rp 350.000",
     period: "/ paket",
     description: "Paket pendampingan privat eksklusif dengan koreksi teknik instan dan jadwal fleksibel.",
     level: "Semua Usia",
     features: [
       "4x Sesi Latihan Privat",
       "Durasi 60 Menit per Sesi",
-      "1 Siswa - 1 Instruktur",
+      "1 Siswa - 1 Instruktur (Private)",
+      "Konfirmasi Kehadiran Sehari Sebelum Jadwal Latihan.",
       "Bebas Pilih Jadwal Latihan",
-      "Bebas Pilih Lokasi Kolam"
+      //  "Apabila Pelatih sudah dikolam, siswa tidak hadir maka di pertemuan hangus"
     ],
     pendaftaranParam: "Private Class (1-on-1)",
     popular: true
@@ -69,11 +72,10 @@ export default function Programs() {
           {programs.map((program) => (
             <div
               key={program.title}
-              className={`relative flex flex-col rounded-3xl p-8 bg-white transition duration-300 hover:-translate-y-2 hover:shadow-2xl border ${
-                program.popular
-                  ? "border-cyan-400 border-2 shadow-xl ring-4 ring-cyan-400/5"
-                  : "border-slate-200"
-              }`}
+              className={`relative flex flex-col rounded-3xl p-8 bg-white transition duration-300 hover:-translate-y-2 hover:shadow-2xl border ${program.popular
+                ? "border-cyan-400 border-2 shadow-xl ring-4 ring-cyan-400/5"
+                : "border-slate-200"
+                }`}
             >
               {program.popular && (
                 <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-cyan-400 px-4 py-1 text-xs font-bold text-white uppercase tracking-wider shadow-md">
@@ -129,11 +131,10 @@ export default function Programs() {
               {/* Action Button */}
               <a
                 href={`/pendaftaran?program=${encodeURIComponent(program.pendaftaranParam)}`}
-                className={`block w-full py-3 rounded-full text-center text-sm font-bold transition ${
-                  program.popular
-                    ? "bg-cyan-400 text-white hover:bg-cyan-300 shadow-md hover:shadow-lg"
-                    : "border border-cyan-400 bg-white text-cyan-500 hover:bg-cyan-50"
-                }`}
+                className={`block w-full py-3 rounded-full text-center text-sm font-bold transition ${program.popular
+                  ? "bg-cyan-400 text-white hover:bg-cyan-300 shadow-md hover:shadow-lg"
+                  : "border border-cyan-400 bg-white text-cyan-500 hover:bg-cyan-50"
+                  }`}
               >
                 Pilih Paket & Daftar →
               </a>

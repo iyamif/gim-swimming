@@ -1,9 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import LoginModal from "./LoginModal";
 
 export default function Navbar() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("gim_swimming_user");
+    if (savedUser) {
+      setIsLoggedIn(true);
+      setUsername(savedUser);
+    }
+  }, []);
+
+  const handleLoginSuccess = (name: string, role: string) => {
+    setIsLoggedIn(true);
+    setUsername(name);
+    localStorage.setItem("gim_swimming_user", name);
+    localStorage.setItem("gim_swimming_role", role);
+    setIsLoginModalOpen(false);
+    router.push("/apps");
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUsername("");
+    localStorage.removeItem("gim_swimming_user");
+    localStorage.removeItem("gim_swimming_role");
+    setIsOpen(false);
+  };
 
   return (
     <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-100 bg-white/80 backdrop-blur-md">
@@ -56,6 +87,33 @@ export default function Navbar() {
 
         {/* CTA and Menu Button */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {isLoggedIn ? (
+            <div className="hidden md:flex items-center gap-3">
+              <span className="text-sm font-semibold text-slate-600">
+                Halo, <span className="text-cyan-600 font-bold">{username}</span>
+              </span>
+              <a
+                href="/apps"
+                className="rounded-full bg-cyan-50 px-4 py-2.5 text-sm font-bold text-cyan-600 hover:bg-cyan-100 transition cursor-pointer"
+              >
+                Buka Apps
+              </a>
+              <button
+                onClick={handleLogout}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-650 hover:text-red-500 hover:border-red-200 transition cursor-pointer"
+              >
+                Keluar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="hidden md:block rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-cyan-500 hover:border-cyan-200 transition cursor-pointer"
+            >
+              Masuk
+            </button>
+          )}
+
           <a
             href="/pendaftaran"
             className="rounded-full bg-cyan-400 px-3 py-2 text-xs sm:px-5 sm:py-2.5 sm:text-sm font-bold text-white transition hover:bg-cyan-300"
@@ -128,9 +186,48 @@ export default function Navbar() {
             >
               Testimoni
             </a>
+
+             {/* Mobile Login/Logout Menu Option */}
+            {isLoggedIn ? (
+              <div className="mt-2 pt-3 border-t border-slate-100 flex flex-col gap-2">
+                <p className="text-xs font-semibold text-slate-400">
+                  Masuk sebagai: <span className="text-cyan-600 font-bold">{username}</span>
+                </p>
+                <a
+                  href="/apps"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full text-left text-sm font-bold text-cyan-500 hover:text-cyan-600 py-1.5 transition cursor-pointer"
+                >
+                  Buka Apps Dashboard
+                </a>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left text-sm font-bold text-red-500 hover:text-red-650 transition cursor-pointer"
+                >
+                  Keluar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsLoginModalOpen(true);
+                }}
+                className="w-full text-left text-sm font-bold text-slate-600 hover:text-cyan-500 py-1.5 border-t border-slate-100 transition cursor-pointer"
+              >
+                Login
+              </button>
+            )}
           </nav>
         </div>
       )}
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </header>
   );
 }
