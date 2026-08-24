@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cyan-50: #eff6ff;
+  --color-cyan-100: #dbeafe;
+  --color-cyan-200: #bfdbfe;
+  --color-cyan-300: #60a5fa;
+  --color-cyan-400: #2563eb;
+  --color-cyan-500: #1d4ed8;
+  --color-cyan-600: #1e40af;
+  --color-cyan-700: #1d4ed8;
+  --color-cyan-800: #1e3a8a;
+  --color-cyan-900: #172554;
+  --color-cyan-950: #172554;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #061827;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
