@@ -43,7 +43,7 @@ export default function AppsPage() {
   const [mounted, setMounted] = useState(false);
   const [sessionUser, setSessionUser] = useState("");
   const [sessionRole, setSessionRole] = useState("");
-  
+
   // Navigation tab state (for Admin & Pelatih only)
   const [activeTab, setActiveTab] = useState("dashboard");
 
@@ -116,7 +116,7 @@ export default function AppsPage() {
   const [formPelatih, setFormPelatih] = useState({ name: "", spec: "", phone: "", email: "", class: "Beginner" });
   const [formAbsensi, setFormAbsensi] = useState<Record<string, "Hadir" | "Sakit" | "Izin" | "Alpa">>({});
   const [absensiClass, setAbsensiClass] = useState("Beginner");
-  
+
   // Selected student details popup
   const [selectedStudentLogs, setSelectedStudentLogs] = useState<Student | null>(null);
 
@@ -150,7 +150,7 @@ export default function AppsPage() {
   // RBAC Access Helper
   const hasAccess = (tabName: string): boolean => {
     if (!sessionRole) return false;
-    
+
     // Module permissions matrix
     const accessMatrix: Record<string, string[]> = {
       dashboard: ["admin", "pelatih"],
@@ -191,7 +191,7 @@ export default function AppsPage() {
     };
 
     setStudents([...students, newStudent]);
-    
+
     // Create matching invoice for new student
     const newInvoice: Invoice = {
       id: "inv" + (invoices.length + 1),
@@ -233,14 +233,14 @@ export default function AppsPage() {
   // Handler: Submit Attendance
   const handleAbsensiSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const today = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
     const updatedStudents = students.map(student => {
       if (student.class === absensiClass) {
         const studentStatus = formAbsensi[student.id] || "Hadir";
         const newLogs = [{ date: today, status: studentStatus }, ...student.logs];
-        
+
         // Recalculate attendance rate
         const presentCount = newLogs.filter(l => l.status === "Hadir" || l.status === "Izin" || l.status === "Sakit").length;
         const totalCount = newLogs.length;
@@ -330,7 +330,7 @@ export default function AppsPage() {
 
         {/* Scrollable Single Page Feed Body */}
         <div className="flex-1 max-w-xl mx-auto w-full px-4 py-5 space-y-4">
-          
+
           {/* PROFILE SUMMARY BAR */}
           <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-cyan-50 flex items-center justify-center text-2xl text-cyan-500 shrink-0 border border-cyan-100/50">
@@ -352,25 +352,23 @@ export default function AppsPage() {
 
           {/* ACTIVE INVOICE & TUITION ACTION PANEL (Soft color theme) */}
           {rianInvoice && (
-            <div className={`p-5 rounded-3xl border shadow-sm space-y-4 ${
-              rianInvoice.status === "Lunas"
+            <div className={`p-5 rounded-3xl border shadow-sm space-y-4 ${rianInvoice.status === "Lunas"
                 ? "bg-emerald-50/40 border-emerald-100"
                 : rianInvoice.status === "Menunggu Konfirmasi"
                   ? "bg-amber-50/40 border-amber-100"
                   : "bg-rose-50/40 border-rose-100"
-            }`}>
+              }`}>
               <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                 <div>
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Invoice Administrasi SPP</span>
                   <h3 className="text-xs font-bold text-slate-800 mt-0.5">{rianInvoice.desc}</h3>
                 </div>
-                <span className={`inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider uppercase border ${
-                  rianInvoice.status === "Lunas"
+                <span className={`inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider uppercase border ${rianInvoice.status === "Lunas"
                     ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                     : rianInvoice.status === "Menunggu Konfirmasi"
                       ? "bg-amber-100 text-amber-700 border-amber-200"
                       : "bg-rose-100 text-rose-700 border-rose-200"
-                }`}>
+                  }`}>
                   {rianInvoice.status}
                 </span>
               </div>
@@ -419,7 +417,7 @@ export default function AppsPage() {
             <h4 className="text-xs font-bold text-slate-950 flex items-center gap-2">
               <span>🏊‍♂️</span> Jadwal Renang & Informasi Instruktur
             </h4>
-            
+
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
               <div className="flex justify-between items-start">
                 <div>
@@ -455,16 +453,15 @@ export default function AppsPage() {
               <h4 className="text-xs font-bold text-slate-950 flex items-center gap-2">
                 <span>📋</span> Status Presensi Latihan Siswa
               </h4>
-              
-              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black border ${
-                lastSession.status === "Hadir"
+
+              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black border ${lastSession.status === "Hadir"
                   ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                   : lastSession.status === "Sakit"
                     ? "bg-blue-50 text-blue-700 border-blue-100"
                     : lastSession.status === "Izin"
                       ? "bg-amber-50 text-amber-700 border-amber-100"
                       : "bg-rose-50 text-rose-700 border-rose-100"
-              }`}>
+                }`}>
                 Sesi Terakhir: {lastSession.status}
               </span>
             </div>
@@ -473,7 +470,7 @@ export default function AppsPage() {
               <p className="text-xs text-slate-400 italic py-4 text-center">Belum ada histori latihan.</p>
             ) : (
               <div className="space-y-2">
-                
+
                 {/* Accordion trigger */}
                 <button
                   onClick={() => setShowParentHistory(!showParentHistory)}
@@ -488,15 +485,14 @@ export default function AppsPage() {
                     {rianData.logs.map((log, idx) => (
                       <div key={idx} className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-slate-50/50 border border-slate-100/60">
                         <span className="font-semibold text-slate-600">{log.date}</span>
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
-                          log.status === "Hadir"
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black ${log.status === "Hadir"
                             ? "bg-emerald-50 text-emerald-700"
                             : log.status === "Sakit"
                               ? "bg-blue-50 text-blue-700"
                               : log.status === "Izin"
                                 ? "bg-amber-50 text-amber-700"
                                 : "bg-rose-50 text-rose-700"
-                        }`}>
+                          }`}>
                           {log.status}
                         </span>
                       </div>
@@ -512,7 +508,7 @@ export default function AppsPage() {
             <h4 className="text-xs font-bold text-slate-950 flex items-center gap-2">
               <span>📈</span> Grafik Evaluasi Kemampuan Anak
             </h4>
-            
+
             <div className="space-y-3">
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
@@ -551,7 +547,7 @@ export default function AppsPage() {
             <h4 className="text-xs font-bold text-slate-950">
               📢 Pengumuman Akademik
             </h4>
-            
+
             <div className="space-y-2 text-xs">
               <div className="p-3 bg-cyan-50/40 border border-cyan-100/50 rounded-2xl">
                 <p className="font-bold text-slate-800">Ujian Naik Tingkatan Renang</p>
@@ -572,14 +568,13 @@ export default function AppsPage() {
   // ==========================================
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden text-slate-800 font-sans">
-      
+
       {/* Toast Alert Banner */}
       {toastMessage && (
-        <div className={`fixed top-5 right-5 z-[9999] flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl border animate-bounce ${
-          toastType === "success" 
-            ? "bg-emerald-50 border-emerald-100 text-emerald-700" 
+        <div className={`fixed top-5 right-5 z-[9999] flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl border animate-bounce ${toastType === "success"
+            ? "bg-emerald-50 border-emerald-100 text-emerald-700"
             : "bg-rose-50 border-rose-100 text-rose-700"
-        }`}>
+          }`}>
           <span className="text-lg">{toastType === "success" ? "✅" : "❌"}</span>
           <span className="text-xs font-bold">{toastMessage}</span>
         </div>
@@ -587,7 +582,7 @@ export default function AppsPage() {
 
       {/* Desktop Sidebar (Minimalist white style) */}
       <aside className="hidden md:flex flex-col w-64 border-r border-slate-100 bg-white text-slate-700">
-        
+
         {/* Brand Logo Header */}
         <div className="flex h-20 items-center px-6 border-b border-slate-100">
           <a href="#" className="flex items-center gap-2">
@@ -605,11 +600,10 @@ export default function AppsPage() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-2xl transition-all duration-200 cursor-pointer ${
-                  isActive 
-                    ? "bg-cyan-50/70 text-cyan-600 border-l-4 border-cyan-400" 
+                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-2xl transition-all duration-200 cursor-pointer ${isActive
+                    ? "bg-cyan-50/70 text-cyan-600 border-l-4 border-cyan-400"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <span className="text-base">{item.icon}</span>
                 <span>{item.fullLabel}</span>
@@ -640,9 +634,8 @@ export default function AppsPage() {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-                isActive ? "text-cyan-500 font-bold" : "text-slate-400 hover:text-slate-600"
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${isActive ? "text-cyan-500 font-bold" : "text-slate-400 hover:text-slate-600"
+                }`}
             >
               <span className="text-lg mb-0.5">{item.icon}</span>
               <span className="text-[9px] tracking-tight">{item.label}</span>
@@ -653,7 +646,7 @@ export default function AppsPage() {
 
       {/* Main Workspace Layout */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        
+
         {/* Top Navbar Header */}
         <header className="flex h-20 items-center justify-between border-b border-slate-100 bg-white px-6">
           <div>
@@ -664,13 +657,12 @@ export default function AppsPage() {
 
           <div className="flex items-center gap-3">
             {/* Dynamic Role Badge (soft pastel design) */}
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-              sessionRole === "admin" 
-                ? "bg-cyan-50 text-cyan-600 border-cyan-100" 
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${sessionRole === "admin"
+                ? "bg-cyan-50 text-cyan-600 border-cyan-100"
                 : sessionRole === "pelatih"
                   ? "bg-blue-50 text-blue-600 border-blue-100"
                   : "bg-purple-50 text-purple-600 border-purple-100"
-            }`}>
+              }`}>
               {sessionRole}
             </span>
 
@@ -686,11 +678,11 @@ export default function AppsPage() {
 
         {/* Tab Content Panel */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
-          
+
           {/* TAB 1: Dashboard Overview */}
           {activeTab === "dashboard" && (
             <div className="space-y-5">
-              
+
               {/* Greetings Header (Soft colors, simplified layout) */}
               <div className="p-6 rounded-3xl bg-gradient-to-br from-cyan-50 to-blue-50/30 text-slate-800 relative overflow-hidden border border-cyan-100/50">
                 <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-1">
@@ -763,13 +755,13 @@ export default function AppsPage() {
                 <h4 className="text-xs font-bold text-slate-900">
                   📢 Pengumuman & Jadwal Kolam
                 </h4>
-                
+
                 <div className="space-y-2 text-xs">
                   <div className="p-3 bg-cyan-50/40 border border-cyan-100/50 rounded-2xl">
                     <p className="font-bold text-slate-800">Ujian Kenaikan Tingkatan Renang</p>
                     <p className="text-slate-550 mt-1 leading-relaxed text-[10px]">Diselenggarakan pada tanggal 14 September 2026. Mohon untuk menyiapkan laporan kehadiran kesiapan ujian siswa.</p>
                   </div>
-                  
+
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl">
                     <p className="font-bold text-slate-800">Pembersihan Berkala Kolam Utama A</p>
                     <p className="text-slate-550 mt-1 leading-relaxed text-[10px]">Dilaksanakan rutin setiap Senin pagi (08:00 - 11:00 WIB). Sesi kelas pagi digeser ke area Kolam B.</p>
@@ -783,11 +775,11 @@ export default function AppsPage() {
           {/* TAB 2: Keuangan */}
           {activeTab === "keuangan" && hasAccess("keuangan") && (
             <div className="space-y-5">
-              
+
               {/* ADMIN VIEW */}
               {sessionRole === "admin" && (
                 <div className="space-y-5">
-                  
+
                   {/* Verification approvals panel */}
                   <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm">
                     <h3 className="text-xs font-bold text-slate-900 mb-4">
@@ -852,13 +844,12 @@ export default function AppsPage() {
                               <td className="py-3 px-3 text-slate-500">{inv.desc}</td>
                               <td className="py-3 px-3 font-bold text-slate-700">Rp {inv.amount.toLocaleString("id-ID")}</td>
                               <td className="py-3 px-3 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${
-                                  inv.status === "Lunas"
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${inv.status === "Lunas"
                                     ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                                     : inv.status === "Menunggu Konfirmasi"
                                       ? "bg-amber-50 text-amber-700 border-amber-100"
                                       : "bg-rose-50 text-rose-700 border-rose-100"
-                                }`}>
+                                  }`}>
                                   {inv.status}
                                 </span>
                               </td>
@@ -878,7 +869,7 @@ export default function AppsPage() {
           {/* TAB 3: Daftar Hadir Siswa */}
           {activeTab === "daftar_hadir" && (
             <div className="space-y-5">
-              
+
               {/* ADMIN & PELATIH VIEW */}
               {sessionRole === "admin" || sessionRole === "pelatih" ? (
                 <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm">
@@ -904,8 +895,8 @@ export default function AppsPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {students.map((student) => (
-                          <tr 
-                            key={student.id} 
+                          <tr
+                            key={student.id}
                             onClick={() => setSelectedStudentLogs(student)}
                             className="hover:bg-slate-50/70 transition cursor-pointer"
                           >
@@ -929,12 +920,12 @@ export default function AppsPage() {
               {/* Student detail calendar overlay popup */}
               {selectedStudentLogs && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                  <div 
+                  <div
                     onClick={() => setSelectedStudentLogs(null)}
                     className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
                   />
                   <div className="relative z-10 w-full max-w-sm bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl my-auto">
-                    
+
                     <h3 className="text-base font-black text-slate-900 border-b border-slate-100 pb-3 mb-4">
                       Histori Presensi: {selectedStudentLogs.name}
                     </h3>
@@ -946,15 +937,14 @@ export default function AppsPage() {
                         selectedStudentLogs.logs.map((log, idx) => (
                           <div key={idx} className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                             <span className="font-bold text-slate-700">{log.date}</span>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                              log.status === "Hadir"
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${log.status === "Hadir"
                                 ? "bg-emerald-50 text-emerald-700"
                                 : log.status === "Sakit"
                                   ? "bg-blue-50 text-blue-700"
                                   : log.status === "Izin"
                                     ? "bg-amber-50 text-amber-700"
                                     : "bg-rose-50 text-rose-700"
-                            }`}>
+                              }`}>
                               {log.status}
                             </span>
                           </div>
@@ -978,10 +968,10 @@ export default function AppsPage() {
           {/* TAB 4: Absensi */}
           {activeTab === "absensi" && hasAccess("absensi") && (
             <div className="space-y-5">
-              
+
               <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm">
                 <form onSubmit={handleAbsensiSubmit} className="space-y-5">
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">Pilih Kelas</label>
@@ -989,7 +979,7 @@ export default function AppsPage() {
                         value={absensiClass}
                         onChange={(e) => {
                           setAbsensiClass(e.target.value);
-                          setFormAbsensi({}); 
+                          setFormAbsensi({});
                         }}
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white cursor-pointer"
                       >
@@ -1012,7 +1002,7 @@ export default function AppsPage() {
 
                   <div className="border-t border-slate-100 pt-5 space-y-4">
                     <h4 className="text-xs font-bold text-slate-800">Catat Kehadiran Siswa:</h4>
-                    
+
                     {students.filter(s => s.class === absensiClass).length === 0 ? (
                       <p className="text-xs text-slate-400 italic text-center py-4">Tidak ada siswa terdaftar di kelas ini.</p>
                     ) : (
@@ -1020,7 +1010,7 @@ export default function AppsPage() {
                         {students.filter(s => s.class === absensiClass).map((student) => (
                           <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 gap-2.5">
                             <span className="text-xs font-bold text-slate-900">{student.name}</span>
-                            
+
                             <div className="flex gap-1.5 flex-wrap">
                               {["Hadir", "Sakit", "Izin", "Alpa"].map((status) => {
                                 const currentStatus = formAbsensi[student.id] || "Hadir";
@@ -1029,8 +1019,7 @@ export default function AppsPage() {
                                     key={status}
                                     type="button"
                                     onClick={() => setFormAbsensi(prev => ({ ...prev, [student.id]: status as any }))}
-                                    className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition duration-200 cursor-pointer ${
-                                      currentStatus === status
+                                    className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition duration-200 cursor-pointer ${currentStatus === status
                                         ? status === "Hadir"
                                           ? "bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm"
                                           : status === "Sakit"
@@ -1039,7 +1028,7 @@ export default function AppsPage() {
                                               ? "bg-amber-50 text-amber-700 border-amber-250 shadow-sm"
                                               : "bg-rose-50 text-rose-700 border-rose-250 shadow-sm"
                                         : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                                    }`}
+                                      }`}
                                   >
                                     {status}
                                   </button>
@@ -1069,12 +1058,12 @@ export default function AppsPage() {
           {/* TAB 5: Create Pelatih/Siswa */}
           {activeTab === "create" && hasAccess("create") && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              
+
               <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3">
                   Pendaftaran Siswa Baru
                 </h3>
-                
+
                 <form onSubmit={handleAddSiswaSubmit} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">Nama Siswa</label>
@@ -1148,7 +1137,7 @@ export default function AppsPage() {
                 <h3 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-3">
                   Pendaftaran Pelatih Baru
                 </h3>
-                
+
                 <form onSubmit={handleAddPelatihSubmit} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">Nama Instruktur</label>

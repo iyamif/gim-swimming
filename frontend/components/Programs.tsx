@@ -4,7 +4,7 @@ const programs = [
     price: "Rp 350.000",
     period: "/ bulan",
     description: "Program baby swimming yang menyenangkan dan aman untuk membantu si kecil mengenal air, melatih keberanian, serta menstimulasi perkembangan motorik dan koordinasi sejak dini.",
-    level: "Usia 4–12 tahun",
+    level: "Usia 0–1 tahun",
     features: [
       "4x Sesi Latihan / Bulan",
       "Durasi 30 Menit per Sesi",

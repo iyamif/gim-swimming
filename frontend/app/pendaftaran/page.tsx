@@ -7,7 +7,7 @@ export default function Pendaftaran() {
   const [formData, setFormData] = useState({
     nama: "",
     usia: "",
-    program: "Kids Swimming (Usia 4–12)",
+    program: "Kids Swimming (Usia 0–12 bulan)",
     whatsapp: "",
     jadwal: "",
     catatan: "",
@@ -16,7 +16,7 @@ export default function Pendaftaran() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const programsList = [
-    "Kids Swimming (Usia 4–12)",
+    "Kids Swimming (Usia 0–12 bulan)",
     "Beginner (Pemula)",
     "Private Class (1-on-1)",
   ];
@@ -56,7 +56,7 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
 
     // Encode text for URL
     const encodedText = encodeURIComponent(text);
-    const whatsappUrl = `https://wa.me/6285353333220?text=${encodedText}`;
+    const whatsappUrl = `https://wa.me/628973180423?text=${encodedText}`;
 
     // Open WhatsApp in a new window/tab
     window.open(whatsappUrl, "_blank");
@@ -256,7 +256,7 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
               <button
                 onClick={() => {
                   const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:\n\n*Nama Lengkap*: ${formData.nama}\n*Usia*: ${formData.usia} tahun\n*Pilihan Program*: ${formData.program}\n*Nomor WhatsApp*: ${formData.whatsapp}\n*Jadwal yang Diinginkan*: ${formData.jadwal || "-"}\n*Catatan Tambahan*: ${formData.catatan || "-"}\n\nMohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
-                  window.open(`https://wa.me/6285353333220?text=${encodeURIComponent(text)}`, "_blank");
+                  window.open(`https://wa.me/628973180423?text=${encodeURIComponent(text)}`, "_blank");
                 }}
                 className="w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-md hover:bg-emerald-600 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer"
               >
