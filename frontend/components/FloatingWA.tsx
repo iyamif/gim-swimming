@@ -1,7 +1,7 @@
 "use client";
 
 export default function FloatingWA() {
-  const whatsappUrl = "https://wa.me/628123456789?text=Halo%20Admin%20GIM%20Swimming%2C%20saya%20ingin%20tanya%20mengenai%20jadwal%20dan%20kelas%20berenang.";
+  const whatsappUrl = "https://wa.me/6285353333220?text=Halo%20Admin%20GIM%20Swimming%2C%20saya%20ingin%20tanya%20mengenai%20jadwal%20dan%20kelas%20berenang.";
 
   return (
     <a

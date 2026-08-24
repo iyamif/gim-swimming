@@ -32,7 +32,7 @@ export default function Hero() {
             </a>
 
             <a
-              href="https://wa.me/628123456789?text=Halo%20Admin%20GIM%20Swimming%2C%20saya%20ingin%20tanya%20mengenai%20jadwal%20dan%20kelas%20berenang."
+              href="https://wa.me/6285353333220?text=Halo%20Admin%20GIM%20Swimming%2C%20saya%20ingin%20tanya%20mengenai%20jadwal%20dan%20kelas%20berenang."
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-500 bg-white px-7 py-3.5 text-center font-bold text-emerald-600 transition hover:bg-emerald-50 shadow-sm"

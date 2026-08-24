@@ -46,6 +46,12 @@ export default function Navbar() {
           >
             Keunggulan
           </a>
+          <a
+            href="#testimoni"
+            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-505"
+          >
+            Testimoni
+          </a>
         </nav>
 
         {/* CTA and Menu Button */}
@@ -111,9 +117,16 @@ export default function Navbar() {
             <a
               href="#keunggulan"
               onClick={() => setIsOpen(false)}
-              className="text-sm font-bold text-slate-600 hover:text-cyan-500 py-1.5 transition"
+              className="text-sm font-bold text-slate-600 hover:text-cyan-500 py-1.5 border-b border-slate-50 transition"
             >
               Keunggulan
+            </a>
+            <a
+              href="#testimoni"
+              onClick={() => setIsOpen(false)}
+              className="text-sm font-bold text-slate-600 hover:text-cyan-500 py-1.5 transition"
+            >
+              Testimoni
             </a>
           </nav>
         </div>

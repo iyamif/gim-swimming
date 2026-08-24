@@ -41,7 +41,7 @@ export default function Pendaftaran() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Construct WhatsApp message template
     const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:
 
@@ -56,11 +56,11 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
 
     // Encode text for URL
     const encodedText = encodeURIComponent(text);
-    const whatsappUrl = `https://wa.me/628123456789?text=${encodedText}`;
+    const whatsappUrl = `https://wa.me/6285353333220?text=${encodedText}`;
 
     // Open WhatsApp in a new window/tab
     window.open(whatsappUrl, "_blank");
-    
+
     // Show success dialog
     setIsSubmitted(true);
   };
@@ -159,7 +159,7 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
                   required
                   value={formData.whatsapp}
                   onChange={handleChange}
-                  placeholder="Contoh: 08123456789"
+                  placeholder="Contoh: 085353333220"
                   className="w-full rounded-xl border border-slate-200/80 bg-slate-50/50 py-3 px-4 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-4 focus:ring-cyan-400/10 focus:border-cyan-400 focus:outline-none transition-all duration-300"
                 />
               </div>
@@ -256,7 +256,7 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
               <button
                 onClick={() => {
                   const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:\n\n*Nama Lengkap*: ${formData.nama}\n*Usia*: ${formData.usia} tahun\n*Pilihan Program*: ${formData.program}\n*Nomor WhatsApp*: ${formData.whatsapp}\n*Jadwal yang Diinginkan*: ${formData.jadwal || "-"}\n*Catatan Tambahan*: ${formData.catatan || "-"}\n\nMohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
-                  window.open(`https://wa.me/628123456789?text=${encodeURIComponent(text)}`, "_blank");
+                  window.open(`https://wa.me/6285353333220?text=${encodeURIComponent(text)}`, "_blank");
                 }}
                 className="w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-md hover:bg-emerald-600 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer"
               >

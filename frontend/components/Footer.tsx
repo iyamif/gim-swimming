@@ -48,6 +48,11 @@ export default function Footer() {
                 </a>
               </li>
               <li>
+                <a href="#testimoni" className="hover:text-cyan-400 transition-colors duration-200">
+                  Testimoni
+                </a>
+              </li>
+              <li>
                 <a href="/pendaftaran" className="hover:text-cyan-400 transition-colors duration-200">
                   Formulir Pendaftaran
                 </a>
@@ -89,7 +94,7 @@ export default function Footer() {
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.557-5.187-3.92-6.745-6.745l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                 </svg>
-                <a href="tel:+628123456789" className="hover:text-cyan-400 transition-colors duration-200">
+                <a href="tel:+6285353333220" className="hover:text-cyan-400 transition-colors duration-200">
                   +62 812-3456-789
                 </a>
               </li>
