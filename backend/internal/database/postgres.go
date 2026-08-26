@@ -15,10 +15,15 @@ var DB *sql.DB
 
 // ConnectDB initializes the PostgreSQL connection
 func ConnectDB(cfg *config.Config) (*sql.DB, error) {
-	log.Printf("Connecting to PostgreSQL database %s on %s:%s...", cfg.DBName, cfg.DBHost, cfg.DBPort)
-
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode)
+	var dsn string
+	if cfg.DBURL != "" {
+		log.Println("Connecting to PostgreSQL using DATABASE_URL...")
+		dsn = cfg.DBURL
+	} else {
+		log.Printf("Connecting to PostgreSQL database %s on %s:%s...", cfg.DBName, cfg.DBHost, cfg.DBPort)
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode)
+	}
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
