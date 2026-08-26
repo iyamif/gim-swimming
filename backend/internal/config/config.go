@@ -48,5 +48,10 @@ func getEnv(key, defaultValue string) string {
 	if value == "" {
 		return defaultValue
 	}
+	value = strings.TrimSpace(value)
+	value = strings.ReplaceAll(value, "\n", "")
+	value = strings.ReplaceAll(value, "\r", "")
+	value = strings.ReplaceAll(value, "\\n", "")
+	value = strings.ReplaceAll(value, "\\r", "")
 	return strings.TrimSpace(value)
 }
