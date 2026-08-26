@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "../../lib/api";
 
 // Interface Definitions
 interface AttendanceLog {
@@ -120,15 +121,92 @@ export default function AppsPage() {
   // Selected student details popup
   const [selectedStudentLogs, setSelectedStudentLogs] = useState<Student | null>(null);
 
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
+
+  useEffect(() => {
+    // Register Service Worker in the browser
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => console.log("PWA Service Worker registered:", reg.scope))
+        .catch((err) => console.warn("PWA Service Worker registration failed:", err));
+    }
+
+    // Detect iOS devices
+    const isIOSDevice = typeof navigator !== "undefined" && 
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+      !(window as any).MSStream;
+    setIsIOS(isIOSDevice);
+
+    if (isIOSDevice && typeof window !== "undefined" && !window.matchMedia("(display-mode: standalone)").matches) {
+      setShowInstallBtn(true);
+    }
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent browser default installation popup
+      e.preventDefault();
+      // Store event
+      setDeferredPrompt(e);
+      // Display install button
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // If already running in standalone PWA mode, hide the install button
+    if (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) {
+      setShowInstallBtn(false);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (isIOS) {
+      setShowIOSPrompt(true);
+      return;
+    }
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`PWA install choice: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
+
   // Authenticate user session on mount
   useEffect(() => {
     setMounted(true);
     const user = localStorage.getItem("gim_swimming_user");
     const role = localStorage.getItem("gim_swimming_role");
+    const token = localStorage.getItem("gim_swimming_token");
 
-    if (user && role) {
+    if (user && role && token) {
       setSessionUser(user);
       setSessionRole(role.toLowerCase());
+
+      // Verify token with backend
+      fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error("Sesi tidak valid");
+          }
+          return res.json();
+        })
+        .catch((err) => {
+          console.warn("Auth token check failed, logging out:", err);
+          handleLogout();
+        });
     } else {
       router.push("/");
     }
@@ -144,6 +222,7 @@ export default function AppsPage() {
   const handleLogout = () => {
     localStorage.removeItem("gim_swimming_user");
     localStorage.removeItem("gim_swimming_role");
+    localStorage.removeItem("gim_swimming_token");
     router.push("/");
   };
 
@@ -320,12 +399,22 @@ export default function AppsPage() {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Dashboard Wali Murid</p>
             <h1 className="text-base font-black text-slate-900 mt-1">GIM Swimming App</h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-red-500 hover:bg-slate-50 transition cursor-pointer"
-          >
-            Keluar
-          </button>
+          <div className="flex items-center gap-2">
+            {showInstallBtn && (
+              <button
+                onClick={handleInstallClick}
+                className="rounded-xl bg-cyan-400 hover:bg-cyan-500 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1 shadow-md shadow-cyan-400/20 shrink-0"
+              >
+                <span>📥</span> <span className="hidden sm:inline">Install App</span>
+              </button>
+            )}
+            <button
+              onClick={handleLogout}
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-red-500 hover:bg-slate-50 transition cursor-pointer"
+            >
+              Keluar
+            </button>
+          </div>
         </header>
 
         {/* Scrollable Single Page Feed Body */}
@@ -657,7 +746,7 @@ export default function AppsPage() {
 
           <div className="flex items-center gap-3">
             {/* Dynamic Role Badge (soft pastel design) */}
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${sessionRole === "admin"
+            <span className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${sessionRole === "admin"
                 ? "bg-cyan-50 text-cyan-600 border-cyan-100"
                 : sessionRole === "pelatih"
                   ? "bg-blue-50 text-blue-600 border-blue-100"
@@ -665,6 +754,15 @@ export default function AppsPage() {
               }`}>
               {sessionRole}
             </span>
+
+            {showInstallBtn && (
+              <button
+                onClick={handleInstallClick}
+                className="rounded-xl bg-cyan-400 hover:bg-cyan-500 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1 shadow-md shadow-cyan-400/20 shrink-0"
+              >
+                <span>📥</span> <span className="hidden sm:inline">Install App</span>
+              </button>
+            )}
 
             {/* Logout link */}
             <button
@@ -1212,6 +1310,43 @@ export default function AppsPage() {
 
         </div>
       </main>
+
+      {/* iOS PWA Install Instructions Modal */}
+      {showIOSPrompt && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowIOSPrompt(false)} />
+          <div className="relative z-10 w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl text-center">
+            <h3 className="text-lg font-black text-slate-900 mb-2">Instal Aplikasi di iOS</h3>
+            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+              Ikuti langkah mudah ini untuk menambahkan GIM Swimming ke Layar Utama perangkat Apple Anda:
+            </p>
+            <div className="space-y-4 text-left text-xs text-slate-650 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="flex items-start gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">1</span>
+                <p>Buka portal ini menggunakan browser <strong>Safari</strong> bawaan iOS.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">2</span>
+                <p>Ketuk tombol <strong>Bagikan (Share)</strong> <span className="inline-block px-1.5 py-0.5 rounded bg-white border text-sm">📤</span> pada bagian navigasi bawah Safari.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">3</span>
+                <p>Gulir ke bawah dan ketuk opsi <strong>Tambahkan ke Layar Utama (Add to Home Screen)</strong> <span className="inline-block px-1.5 py-0.5 rounded bg-white border text-sm">➕</span>.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">4</span>
+                <p>Ketuk <strong>Tambah (Add)</strong> di pojok kanan atas untuk menyelesaikan.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowIOSPrompt(false)}
+              className="w-full rounded-xl bg-cyan-400 hover:bg-cyan-500 py-3 text-sm font-bold text-white transition duration-200"
+            >
+              Saya Mengerti
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

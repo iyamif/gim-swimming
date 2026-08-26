@@ -5,37 +5,52 @@ import { useState, useEffect, useRef } from "react";
 const activities = [
   {
     id: 1,
-    title: "Latihan Teknik Meluncur",
-    description: "Melatih keseimbangan dan keselarasan tubuh di dalam air bagi pemula.",
-    image: "/kegiatan/WhatsApp%20Image%202026-08-24%20at%2011.03.50.jpeg",
-    tag: "Gliding Technique",
-  },
-  {
-    id: 2,
-    title: "Kelas Pengenalan Air Anak",
-    description: "Membantu anak-anak beradaptasi dengan air secara bertahap dan ceria.",
-    image: "/kegiatan/WhatsApp%20Image%202026-08-24%20at%2011.03.51.jpeg",
-    tag: "Kids Class",
-  },
-  {
-    id: 3,
-    title: "Latihan Pernapasan Efektif",
-    description: "Teknik bernapas yang terarah untuk kenyamanan dan stamina selama berenang.",
-    image: "/kegiatan/WhatsApp%20Image%202026-08-24%20at%2011.03.52.jpeg",
-    tag: "Breathing Exercise",
-  },
-  {
-    id: 4,
     title: "Pendampingan Instruktur Privat",
     description: "Instruktur berlisensi fokus penuh mendampingi latihan teknik secara intensif.",
-    image: "/kegiatan/WhatsApp%20Image%202026-08-24%20at%2011.03.53.jpeg",
+    image: "/kegiatan/privat.jpeg",
     tag: "1-on-1 Lesson",
   },
   {
+    id: 2,
+    title: "GIM SWIMMING",
+    description: "Belajar berenang dengan aman dan menyenangkan",
+    image: "/kegiatan/gimswim.jpeg",
+    tag: "HAPPY SWIMMING DAYS",
+  },
+  {
+    id: 3,
+    title: "Kelas Baby Swimming ",
+    description: "Melatih keseimbangan dan keselarasan tubuh di dalam air bagi pemula.",
+    image: "/kegiatan/baby.jpeg",
+    tag: "Gliding Technique",
+  },
+  {
+    id: 4,
+    title: "Latihan Teknik Meluncur",
+    description: "Melatih keseimbangan dan keselarasan tubuh di dalam air bagi pemula.",
+    image: "/kegiatan/meluncur.jpeg",
+    tag: "Gliding Technique",
+  },
+  {
     id: 5,
+    title: "Kelas Pengenalan Air Anak",
+    description: "Membantu anak-anak beradaptasi dengan air secara bertahap dan ceria.",
+    image: "/kegiatan/private2.jpeg",
+    tag: "Kids Class",
+  },
+  {
+    id: 6,
+    title: "Latihan Pernapasan Efektif",
+    description: "Teknik bernapas yang terarah untuk kenyamanan dan stamina selama berenang.",
+    image: "/kegiatan/pernapasan.jpeg",
+    tag: "Breathing Exercise",
+  },
+
+  {
+    id: 7,
     title: "Fun Games & Water Play",
     description: "Sesi permainan edukatif untuk melatih keberanian dan kepercayaan diri di kolam.",
-    image: "/kegiatan/WhatsApp%20Image%202026-08-24%20at%2011.03.54.jpeg",
+    image: "/kegiatan/fungame.jpeg",
     tag: "Water Play",
   },
 ];
@@ -173,9 +188,8 @@ export default function HeroCarousel() {
           <button
             key={index}
             onClick={(e) => handleDotClick(e, index)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              index === currentIndex ? "w-5 bg-cyan-400" : "w-1.5 bg-white/40 hover:bg-white/60"
-            }`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${index === currentIndex ? "w-5 bg-cyan-400" : "w-1.5 bg-white/40 hover:bg-white/60"
+              }`}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}

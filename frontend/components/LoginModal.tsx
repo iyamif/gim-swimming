@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { API_BASE_URL } from "../lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   };
 
   // Normal Form Login handler
-  const handleNormalSubmit = (e: React.FormEvent) => {
+  const handleNormalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -88,22 +89,45 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     }
 
     setLoading(true);
-    // Simulate simple authentication check
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usernameOrEmail: usernameOrEmail,
+          password: password,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal melakukan login");
+      }
+
       setLoading(false);
-      const displayName = usernameOrEmail.includes("@") ? usernameOrEmail.split("@")[0] : usernameOrEmail;
-      const formattedName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+
+      // Save session credentials
+      localStorage.setItem("gim_swimming_token", result.data.token);
+
+      const user = result.data.user;
       setStep("success");
+
       setTimeout(() => {
-        onLoginSuccess(formattedName, getRoleFromUsername(usernameOrEmail));
+        onLoginSuccess(user.username, user.role);
       }, 1500);
-    }, 1200);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || "Koneksi ke server gagal. Harap pastikan server backend menyala.");
+    }
   };
 
   // Trigger Face ID scan flow
   const startFaceIdScan = () => {
     setError("");
-    
+
     // Check if username/email is provided. If not, open Face ID screen but wait for username input first.
     if (!usernameOrEmail.trim()) {
       setStep("face-scan");
@@ -175,13 +199,34 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
         stopCamera();
 
-        // Scan success, transition to success step
-        setStep("success");
-        setTimeout(() => {
-          const displayName = usernameOrEmail.includes("@") ? usernameOrEmail.split("@")[0] : usernameOrEmail;
-          const formattedName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-          onLoginSuccess(formattedName, getRoleFromUsername(usernameOrEmail));
-        }, 1500);
+        // Scan success, authenticate behind the scenes with PostgreSQL backend using default password
+        fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            usernameOrEmail: usernameOrEmail,
+            password: "password123", // Default seed password
+          }),
+        })
+          .then((res) => {
+            if (!res.ok) {
+              return res.json().then((d) => { throw new Error(d.error) });
+            }
+            return res.json();
+          })
+          .then((result) => {
+            localStorage.setItem("gim_swimming_token", result.data.token);
+            setStep("success");
+            setTimeout(() => {
+              onLoginSuccess(result.data.user.username, result.data.user.role);
+            }, 1500);
+          })
+          .catch((err) => {
+            setStep("login");
+            setError(err.message || "Autentikasi biometrik gagal. Kredensial tidak valid.");
+          });
       }
 
       setScanProgress(progress);
@@ -199,7 +244,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   return createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       {/* Custom Keyframes Style Injection for Glowing lasers and scanning effects */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes laser-slide {
           0%, 100% { top: 10%; opacity: 0.8; }
           50% { top: 90%; opacity: 0.8; }
@@ -234,7 +280,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
       {/* Modal Dialog Box (Centered layout, pure white background) */}
       <div className="relative z-[1000] w-full max-w-sm sm:max-w-md overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl transition-all duration-300 sm:p-8">
-        
+
         {/* Decorative Top Glowing Border */}
         <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 animate-pulse" />
 
@@ -254,9 +300,12 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           <div>
             <div className="text-center mb-6">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-500 border border-cyan-100">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-6 w-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icon.png"
+                  alt="GIM Swimming Logo"
+                  className="h-7 w-auto object-contain"
+                />
               </div>
               <h3 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
                 Masuk ke Akun Anda
@@ -345,24 +394,18 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   title="Login dengan Face ID"
                   aria-label="Login dengan Face ID"
                 >
-                  {/* Face ID Icon */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.8}
-                    stroke="currentColor"
-                    className="h-6 w-6 transition duration-200 group-hover:scale-110"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h.008v.008H15V9zm-3 0h.008v.008H12V9zm-3 0h.008v.008H9V9zm0 6h.008v.008H9V15zm3 0h.008v.008H12V15zm3 0h.008v.008H15V15zm0-6h.008v.008H15V9zm-3 0h.008v.008H12V9zm-3 0h.008v.008H9V9zm0 6h.008v.008H9V15zm3 0h.008v.008H12V15zm3 0h.008v.008H15V15zM2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.256 0m3.256 0a.75.75 0 101.014-1.104 4.75 4.75 0 00-6.284 0 .75.75 0 101.014 1.104m3.256 5.667c-.89.777-2.366.777-3.256 0m3.256 0a.75.75 0 111.014 1.104 4.75 4.75 0 01-6.284 0 .75.75 0 111.014-1.104" />
-                    <rect x="5.25" y="5.25" width="13.5" height="13.5" rx="3.75" />
-                  </svg>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/logo/face.png"
+                    alt="Face ID Login"
+                    className="h-6 w-6 object-contain transition duration-200 group-hover:scale-110"
+                  />
                 </button>
               </div>
             </form>
 
             {/* Demo Roles Quick Picker */}
-            <div className="mt-5 p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+            {/* <div className="mt-5 p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Pilih Akun Demo untuk Review (Klik untuk Mengisi)
               </p>
@@ -398,7 +441,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   Orang Tua
                 </button>
               </div>
-            </div>
+            </div> */}
           </div>
         )}
 
@@ -424,7 +467,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                   </svg>
                 </div>
-                
+
                 <p className="text-xs text-slate-500 text-center mb-6 max-w-[280px]">
                   Masukkan Username atau Email akun Anda untuk memverifikasi dengan Face ID
                 </p>
@@ -467,7 +510,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
                 {/* Scanning window (webcam container maintains dark contrast for laser visibility) */}
                 <div className="relative h-44 w-44 rounded-full overflow-hidden border-2 border-cyan-400 bg-slate-950 flex items-center justify-center shadow-lg shadow-cyan-400/20">
-                  
+
                   {/* Outer Pulsing Glow */}
                   <div className="absolute inset-0 border-4 border-cyan-400/20 rounded-full animate-pulse-ring pointer-events-none" />
 
@@ -503,7 +546,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
                   {/* Scanning Laser Line Overlay */}
                   <div className="absolute left-0 w-full h-[3px] bg-cyan-400 shadow-[0_0_10px_2px_rgba(34,211,238,0.7)] animate-laser pointer-events-none" />
-                  
+
                   {/* Holographic grid matrix (overlay for tech look) */}
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-[#0a1926]/10 to-[#0a1926]/40 pointer-events-none" />
                 </div>
@@ -548,7 +591,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 border border-emerald-100">
               {/* Glowing ring */}
               <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full animate-pulse-ring" />
-              
+
               {/* Animated checkmark */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"

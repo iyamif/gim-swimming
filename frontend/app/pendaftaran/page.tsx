@@ -14,11 +14,12 @@ export default function Pendaftaran() {
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const programsList = [
-    "Kids Swimming (Usia 0–12 bulan)",
-    "Beginner (Pemula)",
+    "Kids Swimming (Usia 2–3 tahun)",
     "Private Class (1-on-1)",
+    "Latihan Prestasi"
   ];
 
   useEffect(() => {
@@ -39,11 +40,32 @@ export default function Pendaftaran() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    // Construct WhatsApp message template
-    const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:
+    const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_WEBHOOK_URL;
+    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "628973180423";
+
+    try {
+      if (webhookUrl) {
+        // Send payload to Google Sheets Webhook via Apps Script
+        await fetch(webhookUrl, {
+          method: "POST",
+          mode: "no-cors", // Opaque request avoids CORS preflight failures on Web App redirects
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
+      }
+    } catch (err) {
+      console.warn("Google Sheets saving failed, proceeding to WhatsApp anyway:", err);
+    } finally {
+      setLoading(false);
+
+      // Construct WhatsApp message template
+      const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:
 
 *Nama Lengkap*: ${formData.nama}
 *Usia*: ${formData.usia} tahun
@@ -54,15 +76,16 @@ export default function Pendaftaran() {
 
 Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
 
-    // Encode text for URL
-    const encodedText = encodeURIComponent(text);
-    const whatsappUrl = `https://wa.me/628973180423?text=${encodedText}`;
+      // Encode text for URL
+      const encodedText = encodeURIComponent(text);
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedText}`;
 
-    // Open WhatsApp in a new window/tab
-    window.open(whatsappUrl, "_blank");
+      // Open WhatsApp in a new window/tab
+      window.open(whatsappUrl, "_blank");
 
-    // Show success dialog
-    setIsSubmitted(true);
+      // Show success dialog
+      setIsSubmitted(true);
+    }
   };
 
   return (
@@ -222,9 +245,20 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full rounded-xl bg-cyan-400 py-3.5 text-sm font-bold text-white shadow-md hover:bg-cyan-300 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer"
+                disabled={loading}
+                className={`w-full rounded-xl bg-cyan-400 py-3.5 text-sm font-bold text-white shadow-md hover:bg-cyan-300 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 ${loading ? "opacity-75 cursor-not-allowed" : ""}`}
               >
-                Kirim Pendaftaran via WhatsApp 🚀
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Memproses...
+                  </>
+                ) : (
+                  <>Kirim Pendaftaran via WhatsApp 🚀</>
+                )}
               </button>
             </div>
           </form>
@@ -255,8 +289,9 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
             <div className="pt-6 flex flex-col gap-3">
               <button
                 onClick={() => {
+                  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "628973180423";
                   const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:\n\n*Nama Lengkap*: ${formData.nama}\n*Usia*: ${formData.usia} tahun\n*Pilihan Program*: ${formData.program}\n*Nomor WhatsApp*: ${formData.whatsapp}\n*Jadwal yang Diinginkan*: ${formData.jadwal || "-"}\n*Catatan Tambahan*: ${formData.catatan || "-"}\n\nMohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
-                  window.open(`https://wa.me/628973180423?text=${encodeURIComponent(text)}`, "_blank");
+                  window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`, "_blank");
                 }}
                 className="w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-md hover:bg-emerald-600 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer"
               >

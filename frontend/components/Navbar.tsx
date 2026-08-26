@@ -33,6 +33,7 @@ export default function Navbar() {
     setUsername("");
     localStorage.removeItem("gim_swimming_user");
     localStorage.removeItem("gim_swimming_role");
+    localStorage.removeItem("gim_swimming_token");
     setIsOpen(false);
   };
 
