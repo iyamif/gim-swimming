@@ -44,7 +44,7 @@ export default function Navbar() {
         <a href="#" className="flex items-center gap-2 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/icon.png"
+            src="/logo/icon.png"
             alt="GIM Swimming Logo"
             className="h-9 sm:h-12 w-auto object-contain"
           />
@@ -188,7 +188,7 @@ export default function Navbar() {
               Testimoni
             </a>
 
-             {/* Mobile Login/Logout Menu Option */}
+            {/* Mobile Login/Logout Menu Option */}
             {isLoggedIn ? (
               <div className="mt-2 pt-3 border-t border-slate-100 flex flex-col gap-2">
                 <p className="text-xs font-semibold text-slate-400">

@@ -8,7 +8,7 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo/logo1.png"
+                src="/logo/icon.png"
                 alt="GIM Swimming Logo"
                 className="h-12 w-auto object-contain"
               />
