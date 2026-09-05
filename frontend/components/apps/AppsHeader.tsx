@@ -8,6 +8,7 @@ interface ParentHeaderProps {
   showInstallBtn: boolean;
   onInstallClick: () => void;
   onLogout: () => void;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export function ParentHeader({
@@ -16,9 +17,11 @@ export function ParentHeader({
   showInstallBtn,
   onInstallClick,
   onLogout,
+  onRefresh,
 }: ParentHeaderProps) {
   const [showProfileModal, setShowProfileModal] = React.useState(false);
   const [userAvatar, setUserAvatar] = React.useState<string>("");
+  const [isRefreshingLocal, setIsRefreshingLocal] = React.useState(false);
 
   const loadAvatar = () => {
     if (sessionUser) {
@@ -34,9 +37,19 @@ export function ParentHeader({
     return () => window.removeEventListener("avatar_updated", handleAvatarUpdate);
   }, [sessionUser]);
 
+  const handleManualRefresh = async () => {
+    if (onRefresh && !isRefreshingLocal) {
+      setIsRefreshingLocal(true);
+      try {
+        await onRefresh();
+      } finally {
+        setTimeout(() => setIsRefreshingLocal(false), 500);
+      }
+    }
+  };
+
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
   const isCustomImage = isImageAvatar(userAvatar);
-
 
   return (
     <>
@@ -48,6 +61,17 @@ export function ParentHeader({
           <h1 className="text-base font-black text-slate-900 mt-1">GIM Swimming App</h1>
         </div>
         <div className="flex items-center gap-2.5">
+          {onRefresh && (
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshingLocal}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 text-slate-600 hover:text-cyan-600 transition cursor-pointer disabled:opacity-60"
+              title="Perbarui Data Database"
+            >
+              <span className={`text-xs ${isRefreshingLocal ? "animate-spin" : ""}`}>🔄</span>
+            </button>
+          )}
+
           {sessionUser && (
             <button
               onClick={() => setShowProfileModal(true)}
@@ -112,6 +136,7 @@ interface AdminHeaderProps {
   showInstallBtn: boolean;
   onInstallClick: () => void;
   onLogout: () => void;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export function AdminHeader({
@@ -120,7 +145,21 @@ export function AdminHeader({
   showInstallBtn,
   onInstallClick,
   onLogout,
+  onRefresh,
 }: AdminHeaderProps) {
+  const [isRefreshingLocal, setIsRefreshingLocal] = React.useState(false);
+
+  const handleManualRefresh = async () => {
+    if (onRefresh && !isRefreshingLocal) {
+      setIsRefreshingLocal(true);
+      try {
+        await onRefresh();
+      } finally {
+        setTimeout(() => setIsRefreshingLocal(false), 500);
+      }
+    }
+  };
+
   return (
     <header className="flex h-18 sm:h-20 items-center justify-between border-b border-slate-100 bg-white px-6">
       <div>
@@ -130,6 +169,18 @@ export function AdminHeader({
       </div>
 
       <div className="flex items-center gap-3">
+        {onRefresh && (
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshingLocal}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 text-xs font-bold text-slate-600 hover:text-cyan-700 transition cursor-pointer disabled:opacity-60"
+            title="Muat Ulang Data Terbaru dari Database"
+          >
+            <span className={isRefreshingLocal ? "animate-spin inline-block" : ""}>🔄</span>
+            <span className="hidden sm:inline">Refresh Data</span>
+          </button>
+        )}
+
         {/* Dynamic Role Badge */}
         <span
           className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
@@ -172,9 +223,12 @@ export default function AppsHeader(
   if (props.role === "orang tua") {
     return (
       <ParentHeader
+        sessionUser={props.sessionUser}
+        sessionRole={props.sessionRole}
         showInstallBtn={props.showInstallBtn}
         onInstallClick={props.onInstallClick}
         onLogout={props.onLogout}
+        onRefresh={props.onRefresh}
       />
     );
   }
@@ -186,6 +240,7 @@ export default function AppsHeader(
       showInstallBtn={props.showInstallBtn}
       onInstallClick={props.onInstallClick}
       onLogout={props.onLogout}
+      onRefresh={props.onRefresh}
     />
   );
 }

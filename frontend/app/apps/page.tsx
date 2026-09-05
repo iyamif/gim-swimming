@@ -16,6 +16,7 @@ import {
   fetchInvoices,
   verifyInvoicePayment,
   uploadInvoiceReceipt,
+  syncCurrentUserAvatar,
 } from "../../lib/api";
 import { Student, Coach, Invoice, ScheduleSession, NavItem } from "../../components/apps/types";
 import ToastNotification from "../../components/apps/ToastNotification";
@@ -24,6 +25,7 @@ import { ParentHeader } from "../../components/apps/AppsHeader";
 import { DesktopSidebar, MobileBottomNav } from "../../components/apps/NavigationBar";
 import ParentBody from "../../components/apps/body/ParentBody";
 import AppsBody from "../../components/apps/body/AppsBody";
+import PullToRefresh from "../../components/apps/PullToRefresh";
 
 export default function AppsPage() {
   const router = useRouter();
@@ -88,6 +90,20 @@ export default function AppsPage() {
       setLoadingData(false);
     }
   }, []);
+
+  // Pull-to-refresh handler: reloads all database data and profile avatar
+  const handlePullRefresh = async () => {
+    try {
+      await Promise.all([
+        loadAllData(),
+        sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
+      ]);
+      triggerToast("Data terbaru berhasil dimuat dari database! ✨", "success");
+    } catch (err) {
+      console.error("Refresh error:", err);
+      triggerToast("Gagal memuat ulang data", "error");
+    }
+  };
 
   useEffect(() => {
     // Register Service Worker in the browser
@@ -389,15 +405,18 @@ export default function AppsPage() {
           showInstallBtn={showInstallBtn}
           onInstallClick={handleInstallClick}
           onLogout={handleLogout}
+          onRefresh={handlePullRefresh}
         />
 
         {currentStudent ? (
-          <ParentBody
-            student={currentStudent}
-            coach={coachData}
-            invoice={currentInvoice}
-            onUploadReceipt={handleParentUploadReceipt}
-          />
+          <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
+            <ParentBody
+              student={currentStudent}
+              coach={coachData}
+              invoice={currentInvoice}
+              onUploadReceipt={handleParentUploadReceipt}
+            />
+          </PullToRefresh>
         ) : (
           <div className="p-8 text-center text-slate-400">Memuat data siswa dari database...</div>
         )}
@@ -445,6 +464,7 @@ export default function AppsPage() {
           coaches={coaches}
           invoices={invoices}
           schedules={schedules}
+          onRefresh={handlePullRefresh}
           onAddSchedule={handleAddSchedule}
           onDeleteSchedule={handleDeleteSchedule}
           onVerifyPayment={handleAdminVerifyPayment}

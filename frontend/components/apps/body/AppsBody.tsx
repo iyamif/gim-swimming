@@ -6,6 +6,7 @@ import DaftarHadirTab from "./DaftarHadirTab";
 import AbsensiTab from "./AbsensiTab";
 import RegistrasiTab from "./RegistrasiTab";
 import JadwalTab from "./JadwalTab";
+import PullToRefresh from "../PullToRefresh";
 
 interface AppsBodyProps {
   activeTab: string;
@@ -16,6 +17,7 @@ interface AppsBodyProps {
   coaches: Coach[];
   invoices: Invoice[];
   schedules: ScheduleSession[];
+  onRefresh?: () => Promise<void>;
   onAddSchedule: (data: Omit<ScheduleSession, "id">) => void;
   onDeleteSchedule: (id: string) => void;
   onVerifyPayment: (invoiceId: string, confirm: boolean) => void;
@@ -48,6 +50,7 @@ export default function AppsBody({
   coaches,
   invoices,
   schedules,
+  onRefresh,
   onAddSchedule,
   onDeleteSchedule,
   onVerifyPayment,
@@ -55,9 +58,10 @@ export default function AppsBody({
   onAddStudent,
   onAddCoach,
 }: AppsBodyProps) {
-  return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
+  const content = (
+    <>
       {activeTab === "dashboard" && (
+
         <DashboardOverviewTab
           sessionUser={sessionUser}
           sessionRole={sessionRole}
@@ -104,6 +108,18 @@ export default function AppsBody({
           onAddStudent={onAddStudent}
           onAddCoach={onAddCoach}
         />
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
+      {onRefresh ? (
+        <PullToRefresh onRefresh={onRefresh} className="min-h-full">
+          {content}
+        </PullToRefresh>
+      ) : (
+        content
       )}
     </div>
   );

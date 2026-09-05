@@ -16,6 +16,69 @@ const PRESET_AVATARS = [
   "🏊‍♂️", "🏊‍♀️", "🤽‍♂️", "🏄‍♂️", "🤿", "🐬", "🏆", "🥇", "⭐", "👤"
 ];
 
+// Helper to compress and convert any uploaded image (JPG, JPEG, PNG, etc.) to a lightweight high-res JPEG
+function compressImage(file: File, maxDimension = 1200, quality = 0.88): Promise<{ file: File; dataUrl: string }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => {
+      resolve({ file, dataUrl: URL.createObjectURL(file) });
+    };
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => {
+        resolve({ file, dataUrl: (e.target?.result as string) || URL.createObjectURL(file) });
+      };
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          return resolve({ file, dataUrl: e.target?.result as string });
+        }
+
+        // Fill background with white in case of transparent png converted to jpeg
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              return resolve({ file, dataUrl });
+            }
+            const cleanName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+            const optimizedFile = new File([blob], cleanName, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve({ file: optimizedFile, dataUrl });
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function EditProfileModal({
   isOpen,
   onClose,
@@ -48,26 +111,28 @@ export default function EditProfileModal({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
 
-    // Limit file size to 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage("Ukuran gambar maksimal 5MB");
-      return;
-    }
-
-    setErrorMessage("");
-    setSelectedFile(file);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const resultStr = reader.result as string;
-      setPreviewAvatar(resultStr);
+    try {
+      setErrorMessage("");
+      // Compress and standardize image to high-quality JPEG
+      const { file: optimizedFile, dataUrl } = await compressImage(rawFile);
+      setSelectedFile(optimizedFile);
+      setPreviewAvatar(dataUrl);
       setIsCustomImage(true);
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error("Error processing image file:", err);
+      // Fallback to raw file
+      setSelectedFile(rawFile);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewAvatar(reader.result as string);
+        setIsCustomImage(true);
+      };
+      reader.readAsDataURL(rawFile);
+    }
   };
 
   const handleSelectPreset = (emoji: string) => {

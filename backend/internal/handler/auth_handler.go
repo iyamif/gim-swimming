@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -158,21 +159,34 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 
 	file, err := c.FormFile("avatar")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File foto profil tidak ditemukan: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File foto profil tidak ditemukan atau melebihi batas ukuran: " + err.Error()})
 		return
 	}
 
-	// Check extension
-	ext := filepath.Ext(file.Filename)
-	if ext == "" {
+	// Normalize extension (support .jpg, .jpeg, .png, .webp, etc.)
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext == ".jpeg" || ext == "" {
 		ext = ".jpg"
 	}
 
-	// Generate clean filename
+	// Generate clean unique filename
 	filename := fmt.Sprintf("avatar_%s_%d%s", username, time.Now().Unix(), ext)
 
-	// Save to frontend public/foto-profile
-	saveDir := "../frontend/public/foto-profile"
+	// Robustly find or create frontend/public/foto-profile directory
+	candidateDirs := []string{
+		"../frontend/public/foto-profile",
+		"frontend/public/foto-profile",
+		"./public/foto-profile",
+	}
+
+	saveDir := candidateDirs[0]
+	for _, dir := range candidateDirs {
+		parent := filepath.Dir(dir)
+		if _, err := os.Stat(parent); err == nil {
+			saveDir = dir
+			break
+		}
+	}
 	_ = os.MkdirAll(saveDir, 0755)
 	dst := filepath.Join(saveDir, filename)
 
