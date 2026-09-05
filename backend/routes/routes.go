@@ -11,7 +11,12 @@ import (
 )
 
 // SetupRoutes configures endpoints, middlewares, and groups for the app
-func SetupRoutes(router *gin.Engine, authHandler *handler.AuthHandler, authService service.AuthService) {
+func SetupRoutes(
+	router *gin.Engine,
+	authHandler *handler.AuthHandler,
+	appHandler *handler.AppHandler,
+	authService service.AuthService,
+) {
 	// Root and Health Check
 	router.GET("/api/v1/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -37,8 +42,39 @@ func SetupRoutes(router *gin.Engine, authHandler *handler.AuthHandler, authServi
 			authProtected.GET("/me", authHandler.Me)
 		}
 
+		// Students & Attendance Endpoints
+		studentGroup := v1.Group("/students")
+		{
+			studentGroup.GET("", appHandler.GetStudents)
+			studentGroup.POST("", appHandler.CreateStudent)
+			studentGroup.POST("/attendance", appHandler.SubmitBulkAttendance)
+		}
+
+		// Coaches Endpoints
+		coachGroup := v1.Group("/coaches")
+		{
+			coachGroup.GET("", appHandler.GetCoaches)
+			coachGroup.POST("", appHandler.CreateCoach)
+		}
+
+		// Schedules Endpoints
+		scheduleGroup := v1.Group("/schedules")
+		{
+			scheduleGroup.GET("", appHandler.GetSchedules)
+			scheduleGroup.POST("", appHandler.CreateSchedule)
+			scheduleGroup.DELETE("/:id", appHandler.DeleteSchedule)
+		}
+
+		// Invoices Endpoints
+		invoiceGroup := v1.Group("/invoices")
+		{
+			invoiceGroup.GET("", appHandler.GetInvoices)
+			invoiceGroup.POST("", appHandler.CreateInvoice)
+			invoiceGroup.PATCH("/:id/verify", appHandler.VerifyInvoice)
+			invoiceGroup.PATCH("/:id/receipt", appHandler.UploadReceipt)
+		}
+
 		// Role-based Verification Test Endpoints
-		// These simulate resources only accessible to specific roles
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.AuthMiddleware(authService), middleware.RequireRoles(model.RoleAdmin))
 		{
