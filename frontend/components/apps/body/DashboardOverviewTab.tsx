@@ -47,8 +47,10 @@ export default function DashboardOverviewTab({
   const isCustomImage = isImageAvatar(userAvatar);
 
 
-  // Week View Anchor Date (defaults to current date)
+  // Week & Month View State (defaults to current date)
+  const [calendarViewMode, setCalendarViewMode] = useState<"week" | "month">("week");
   const [weekAnchorDate, setWeekAnchorDate] = useState<Date>(new Date());
+  const [monthAnchorDate, setMonthAnchorDate] = useState<Date>(new Date());
   const [selectedDateDetails, setSelectedDateDetails] = useState<{
     dateISO: string; // YYYY-MM-DD
     dayNumber: number;
@@ -95,20 +97,73 @@ export default function DashboardOverviewTab({
 
   const weekDays = getWeekDates(weekAnchorDate);
 
-  const handlePrevWeek = () => {
-    const prev = new Date(weekAnchorDate);
-    prev.setDate(weekAnchorDate.getDate() - 7);
-    setWeekAnchorDate(prev);
+  // Calculate full month matrix (with leading/trailing padding)
+  const getMonthDays = (anchor: Date) => {
+    const year = anchor.getFullYear();
+    const month = anchor.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const startDayOfWeek = firstDayOfMonth.getDay(); // 0 = Sunday
+
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const totalDays = lastDayOfMonth.getDate();
+
+    const prevMonthLastDate = new Date(year, month, 0).getDate();
+
+    const days: { dateObj: Date; isCurrentMonth: boolean }[] = [];
+
+    // Leading padding days from previous month
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevMonthLastDate - i);
+      days.push({ dateObj: d, isCurrentMonth: false });
+    }
+
+    // Current month days
+    for (let day = 1; day <= totalDays; day++) {
+      const d = new Date(year, month, day);
+      days.push({ dateObj: d, isCurrentMonth: true });
+    }
+
+    // Trailing padding days from next month
+    const remaining = (7 - (days.length % 7)) % 7;
+    for (let i = 1; i <= remaining; i++) {
+      const d = new Date(year, month + 1, i);
+      days.push({ dateObj: d, isCurrentMonth: false });
+    }
+
+    return days;
   };
 
-  const handleNextWeek = () => {
-    const next = new Date(weekAnchorDate);
-    next.setDate(weekAnchorDate.getDate() + 7);
-    setWeekAnchorDate(next);
+  const monthDays = getMonthDays(monthAnchorDate);
+
+  const handlePrev = () => {
+    if (calendarViewMode === "week") {
+      const prev = new Date(weekAnchorDate);
+      prev.setDate(weekAnchorDate.getDate() - 7);
+      setWeekAnchorDate(prev);
+    } else {
+      const prev = new Date(monthAnchorDate);
+      prev.setMonth(monthAnchorDate.getMonth() - 1);
+      setMonthAnchorDate(prev);
+    }
   };
 
-  const handleCurrentWeek = () => {
-    setWeekAnchorDate(new Date());
+  const handleNext = () => {
+    if (calendarViewMode === "week") {
+      const next = new Date(weekAnchorDate);
+      next.setDate(weekAnchorDate.getDate() + 7);
+      setWeekAnchorDate(next);
+    } else {
+      const next = new Date(monthAnchorDate);
+      next.setMonth(monthAnchorDate.getMonth() + 1);
+      setMonthAnchorDate(next);
+    }
+  };
+
+  const handleCurrent = () => {
+    const now = new Date();
+    setWeekAnchorDate(now);
+    setMonthAnchorDate(now);
   };
 
   const isSameDay = (d1: Date, d2: Date) => {
@@ -229,6 +284,8 @@ export default function DashboardOverviewTab({
   const weekMonthLabel = firstWeekMonth === lastWeekMonth
     ? `${firstWeekMonth} ${weekDays[0].getFullYear()}`
     : `${firstWeekMonth} - ${lastWeekMonth} ${weekDays[6].getFullYear()}`;
+  const currentMonthLabel = `${monthNames[monthAnchorDate.getMonth()]} ${monthAnchorDate.getFullYear()}`;
+  const activeCalendarLabel = calendarViewMode === "week" ? weekMonthLabel : currentMonthLabel;
 
   return (
     <div className="space-y-4 pb-12 bg-[#f8fafc] min-h-full">
@@ -343,20 +400,25 @@ export default function DashboardOverviewTab({
           ========================================== */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4">
         {/* ==========================================
-            2. COMPACT WEEKLY CALENDAR STRIP (7-DAYS)
+            2. CALENDAR CARD (WEEKLY STRIP / MONTH VIEW)
             ========================================== */}
         <div className="-mt-10 relative z-20">
           <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-3">
-            {/* Header: Week Navigation & Quick Actions */}
+            {/* Header: Navigation & Quick Actions */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm">📅</span>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                    Jadwal Latihan Minggu Ini
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                      Jadwal Latihan
+                    </h3>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100/80">
+                      {calendarViewMode === "week" ? "Mingguan" : "Bulanan"}
+                    </span>
+                  </div>
                   <p className="text-[10px] text-slate-400 font-medium">
-                    {weekMonthLabel}
+                    {activeCalendarLabel}
                   </p>
                 </div>
               </div>
@@ -371,89 +433,168 @@ export default function DashboardOverviewTab({
                   + Atur Jadwal
                 </button>
                 <button
-                  onClick={handleCurrentWeek}
+                  onClick={handleCurrent}
                   className="px-2 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-bold transition cursor-pointer"
                 >
                   Hari Ini
                 </button>
                 <button
-                  onClick={handlePrevWeek}
+                  onClick={handlePrev}
                   className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
-                  title="Minggu Sebelumnya"
+                  title={calendarViewMode === "week" ? "Minggu Sebelumnya" : "Bulan Sebelumnya"}
                 >
                   ‹
                 </button>
                 <button
-                  onClick={handleNextWeek}
+                  onClick={handleNext}
                   className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
-                  title="Minggu Berikutnya"
+                  title={calendarViewMode === "week" ? "Minggu Berikutnya" : "Bulan Berikutnya"}
                 >
                   ›
                 </button>
               </div>
             </div>
 
-            {/* 7-Days Weekly Strip Capsules */}
-            <div className="grid grid-cols-7 gap-1 sm:gap-2">
-              {weekDays.map((dateObj) => {
-                const today = isSameDay(dateObj, new Date());
-                const dayOfWeek = dateObj.getDay();
-                const dayNum = dateObj.getDate();
-                const dayName = dayNamesShort[dayOfWeek];
-                const dateISO = toLocalISO(dateObj);
-                const hasSession = schedules.some((s) => s.date === dateISO);
+            {calendarViewMode === "week" ? (
+              /* 7-Days Weekly Strip Capsules */
+              <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                {weekDays.map((dateObj) => {
+                  const today = isSameDay(dateObj, new Date());
+                  const dayOfWeek = dateObj.getDay();
+                  const dayNum = dateObj.getDate();
+                  const dayName = dayNamesShort[dayOfWeek];
+                  const dateISO = toLocalISO(dateObj);
+                  const hasSession = schedules.some((s) => s.date === dateISO);
 
-                return (
-                  <button
-                    key={dateObj.toISOString()}
-                    onClick={() => handleDateClick(dateObj)}
-                    className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
-                      ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
-                      : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
-                      }`}
-                  >
-                    {/* Day Name */}
+                  return (
+                    <button
+                      key={dateObj.toISOString()}
+                      onClick={() => handleDateClick(dateObj)}
+                      className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
+                        ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
+                        : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
+                        }`}
+                    >
+                      {/* Day Name */}
+                      <span
+                        className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${today
+                          ? "text-cyan-100"
+                          : dayOfWeek === 0 || dayOfWeek === 6
+                            ? "text-cyan-600"
+                            : "text-slate-400"
+                          }`}
+                      >
+                        {dayName}
+                      </span>
+
+                      {/* Date Number */}
+                      <span className="text-xs sm:text-sm font-black">
+                        {dayNum}
+                      </span>
+
+                      {/* Active session indicator dot */}
+                      {hasSession && !today && (
+                        <span className="h-1 w-1 rounded-full bg-cyan-400 mt-1" />
+                      )}
+                      {today && (
+                        <span className="h-1 w-1 rounded-full bg-white mt-1" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Full Monthly Calendar Grid (Bulan Berjalan) */
+              <div className="space-y-1.5 pt-1">
+                {/* Weekday Columns Header */}
+                <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center">
+                  {dayNamesShort.map((dayName, idx) => (
                     <span
-                      className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${today
-                        ? "text-cyan-100"
-                        : dayOfWeek === 0 || dayOfWeek === 6
-                          ? "text-cyan-600"
-                          : "text-slate-400"
+                      key={dayName}
+                      className={`text-[10px] font-bold uppercase py-1 ${idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
                         }`}
                     >
                       {dayName}
                     </span>
+                  ))}
+                </div>
 
-                    {/* Date Number */}
-                    <span className="text-xs sm:text-sm font-black">
-                      {dayNum}
-                    </span>
+                {/* Day Cells Grid */}
+                <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                  {monthDays.map(({ dateObj, isCurrentMonth }, idx) => {
+                    const today = isSameDay(dateObj, new Date());
+                    const dayNum = dateObj.getDate();
+                    const dayOfWeek = dateObj.getDay();
+                    const dateISO = toLocalISO(dateObj);
+                    const hasSession = schedules.some((s) => s.date === dateISO);
 
-                    {/* Active session indicator dot */}
-                    {hasSession && !today && (
-                      <span className="h-1 w-1 rounded-full bg-cyan-400 mt-1" />
-                    )}
-                    {today && (
-                      <span className="h-1 w-1 rounded-full bg-white mt-1" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                    return (
+                      <button
+                        key={`${dateObj.toISOString()}-${idx}`}
+                        onClick={() => handleDateClick(dateObj)}
+                        className={`flex flex-col items-center justify-center py-2 sm:py-2.5 rounded-xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
+                          ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102 ring-2 ring-cyan-400/40"
+                          : isCurrentMonth
+                            ? "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
+                            : "bg-slate-50/30 text-slate-300 hover:text-slate-500 hover:bg-slate-100/60 border border-transparent opacity-60"
+                          }`}
+                      >
+                        <span
+                          className={`text-xs font-bold ${today
+                            ? "text-white"
+                            : isCurrentMonth
+                              ? dayOfWeek === 0 || dayOfWeek === 6
+                                ? "text-cyan-600"
+                                : "text-slate-700"
+                              : "text-slate-300"
+                            }`}
+                        >
+                          {dayNum}
+                        </span>
 
-            {/* Quick helper tip */}
-            <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100/80 pt-2">
+                        {/* Active session indicator dot */}
+                        {hasSession && !today && (
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full mt-0.5 ${isCurrentMonth ? "bg-cyan-500" : "bg-slate-300"
+                              }`}
+                          />
+                        )}
+                        {today && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-white mt-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Quick helper tip & Calendar View Mode Switch */}
+            <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100/80 pt-2.5">
               <span className="flex items-center gap-1">
                 <span className="text-xs">💡</span>
-                <span>Klik salah satu hari untuk melihat rincian jam & pelatih</span>
+                <span>Klik salah satu hari untuk melihat rincian</span>
               </span>
               <button
                 onClick={() => {
-                  if (setActiveTab) setActiveTab("jadwal");
+                  setCalendarViewMode((prev) => (prev === "week" ? "month" : "week"));
+                  if (calendarViewMode === "week") {
+                    setMonthAnchorDate(new Date());
+                  }
                 }}
-                className="font-bold text-cyan-600 hover:underline cursor-pointer"
+                className="font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-xl transition cursor-pointer flex items-center gap-1"
               >
-                Buka Menu Jadwal ›
+                {calendarViewMode === "week" ? (
+                  <>
+                    <span>📅</span>
+                    <span>month ›</span>
+                  </>
+                ) : (
+                  <>
+                    <span>‹</span>
+                    <span>weeks</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
