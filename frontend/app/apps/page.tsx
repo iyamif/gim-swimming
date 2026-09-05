@@ -46,6 +46,7 @@ export default function AppsPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [schedules, setSchedules] = useState<ScheduleSession[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -94,6 +95,7 @@ export default function AppsPage() {
   // Pull-to-refresh handler: reloads all database data and profile avatar
   const handlePullRefresh = async () => {
     try {
+      setIsRefreshing(true);
       await Promise.all([
         loadAllData(),
         sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
@@ -102,6 +104,8 @@ export default function AppsPage() {
     } catch (err) {
       console.error("Refresh error:", err);
       triggerToast("Gagal memuat ulang data", "error");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -450,6 +454,24 @@ export default function AppsPage() {
           isOpen={showIOSPrompt}
           onClose={() => setShowIOSPrompt(false)}
         />
+
+        {/* Centered Rotating Loading Screen Overlay during Refresh */}
+        {isRefreshing && (
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none transition-all duration-300 animate-fadeIn">
+            <div className="flex flex-col items-center justify-center p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md shadow-2xl border border-white/80 space-y-3.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icon.png"
+                alt="Loading"
+                className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-spin"
+                style={{ animationDuration: "1.2s" }}
+              />
+              <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-wide text-center">
+                Memuat data terbaru...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -511,6 +533,24 @@ export default function AppsPage() {
         isOpen={showIOSPrompt}
         onClose={() => setShowIOSPrompt(false)}
       />
+
+      {/* Centered Rotating Loading Screen Overlay during Refresh */}
+      {isRefreshing && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md shadow-2xl border border-white/80 space-y-3.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon.png"
+              alt="Loading"
+              className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-spin"
+              style={{ animationDuration: "1.2s" }}
+            />
+            <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-wide text-center">
+              Memuat data terbaru...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

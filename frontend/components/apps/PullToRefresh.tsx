@@ -119,7 +119,7 @@ export default function PullToRefresh({
       onTouchEnd={handleTouchEnd}
       className={`relative ${className}`}
     >
-      {/* Animated Pull Indicator Banner */}
+      {/* Animated Pull Indicator Banner (during drag) */}
       <div
         style={{
           height: `${pullDistance}px`,
@@ -143,23 +143,28 @@ export default function PullToRefresh({
               </>
             ) : (
               <>
-                <span className="animate-spin inline-block text-cyan-600 text-sm">
-                  🔄
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icon.png"
+                  alt="Loading"
+                  className="h-4 w-4 object-contain animate-spin"
+                  style={{ animationDuration: "1.2s" }}
+                />
                 <span className="text-cyan-700 font-bold">Memuat Data Terbaru...</span>
               </>
             )
           ) : (
             <>
-              <span
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icon.png"
+                alt="Pulling"
                 style={{
                   transform: `rotate(${rotateDeg}deg)`,
                   transition: "transform 0.15s ease",
                 }}
-                className="inline-block text-cyan-500 text-sm"
-              >
-                ⬇️
-              </span>
+                className="h-4 w-4 object-contain"
+              />
               <span className={progress >= 1 ? "text-cyan-600 font-black" : "text-slate-500"}>
                 {progress >= 1
                   ? "Lepaskan untuk memuat data"
@@ -169,6 +174,25 @@ export default function PullToRefresh({
           )}
         </div>
       </div>
+
+      {/* Centered Rotating Loading Screen Overlay (Center Atas, Bawah, Kiri, Kanan) */}
+      {isRefreshing && !isSuccess && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md shadow-2xl border border-white/80 space-y-3.5 scale-100">
+            {/* Rotating / Spinning app/icon.png */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon.png"
+              alt="Loading"
+              className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-spin"
+              style={{ animationDuration: "1.2s" }}
+            />
+            <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-wide text-center">
+              Memuat data terbaru...
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       {children}
