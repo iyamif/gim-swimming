@@ -189,9 +189,72 @@ export default function DashboardOverviewTab({
     });
   };
 
-  // Dynamic schedules query: check stored schedules for dateISO
+  // Helper to normalize coach names by removing common prefixes like "coach "
+  const cleanCoachName = (name: string) =>
+    (name || "").toLowerCase().replace(/^coach\s+/i, "").trim();
+
+  // Check if current user is logged in as a coach
+  const isCoachRole = sessionRole?.toLowerCase() === "pelatih";
+  const normalizedUser = (sessionUser || "").toLowerCase().trim();
+  const cleanedSessionUser = cleanCoachName(sessionUser);
+
+  // Find coach data matching sessionUser if available
+  const currentCoach = coaches.find((c) => {
+    const cClean = cleanCoachName(c.name);
+    return (
+      c.id === sessionUser ||
+      c.name.toLowerCase().trim() === normalizedUser ||
+      (cleanedSessionUser && cClean === cleanedSessionUser) ||
+      (cleanedSessionUser &&
+        (cClean.includes(cleanedSessionUser) || cleanedSessionUser.includes(cClean)))
+    );
+  });
+
+  // Filter schedules: If logged in as Pelatih, only take schedules where they are the assigned coach
+  const isScheduleForCurrentUser = (s: ScheduleSession) => {
+    if (!isCoachRole) return true; // Admin views all schedules
+
+    const sCoachId = (s.coachId || "").trim();
+    const sCoachName = (s.coachName || "").toLowerCase().trim();
+    const sCleanName = cleanCoachName(s.coachName);
+
+    // 1. Match via Coach ID
+    if (currentCoach && sCoachId && sCoachId === currentCoach.id) {
+      return true;
+    }
+    if (sCoachId && sCoachId === sessionUser) {
+      return true;
+    }
+
+    // 2. Match via Coach Object Name
+    if (currentCoach) {
+      const cClean = cleanCoachName(currentCoach.name);
+      if (
+        sCoachName === currentCoach.name.toLowerCase().trim() ||
+        (cClean && sCleanName === cClean)
+      ) {
+        return true;
+      }
+    }
+
+    // 3. Match via sessionUser name
+    if (
+      sCoachName === normalizedUser ||
+      (cleanedSessionUser && sCleanName === cleanedSessionUser) ||
+      (cleanedSessionUser &&
+        (sCleanName.includes(cleanedSessionUser) || cleanedSessionUser.includes(sCleanName)))
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const displaySchedules = schedules.filter(isScheduleForCurrentUser);
+
+  // Dynamic schedules query: check stored schedules for dateISO (filtered for current coach if coach role)
   const getSchedulesForSelectedDate = (dateISO: string, _dayOfWeek?: number) => {
-    const customForDate = schedules.filter((s) => s.date === dateISO);
+    const customForDate = displaySchedules.filter((s) => s.date === dateISO);
     return customForDate.map((cs) => {
       const coachObj = coaches.find((c) => c.id === cs.coachId || c.name === cs.coachName);
       return {
@@ -286,6 +349,13 @@ export default function DashboardOverviewTab({
     : `${firstWeekMonth} - ${lastWeekMonth} ${weekDays[6].getFullYear()}`;
   const currentMonthLabel = `${monthNames[monthAnchorDate.getMonth()]} ${monthAnchorDate.getFullYear()}`;
   const activeCalendarLabel = calendarViewMode === "week" ? weekMonthLabel : currentMonthLabel;
+
+  const todayISO = toLocalISO(new Date());
+  const now = new Date();
+  const todayFormatted = `${dayNamesFull[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  const todayCoachSchedules = isCoachRole
+    ? displaySchedules.filter((s) => s.date === todayISO)
+    : [];
 
   return (
     <div className="space-y-4 pb-12 bg-[#f8fafc] min-h-full">
@@ -411,7 +481,7 @@ export default function DashboardOverviewTab({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                      Jadwal Latihan
+                      {isCoachRole ? "Jadwal Melatih" : "Jadwal Latihan"}
                     </h3>
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100/80">
                       {calendarViewMode === "week" ? "Mingguan" : "Bulanan"}
@@ -424,14 +494,16 @@ export default function DashboardOverviewTab({
               </div>
 
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    if (setActiveTab) setActiveTab("jadwal");
-                  }}
-                  className="px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition cursor-pointer shadow-xs"
-                >
-                  + Atur Jadwal
-                </button>
+                {!isCoachRole && (
+                  <button
+                    onClick={() => {
+                      if (setActiveTab) setActiveTab("jadwal");
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition cursor-pointer shadow-xs"
+                  >
+                    + Atur Jadwal
+                  </button>
+                )}
                 <button
                   onClick={handleCurrent}
                   className="px-2 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-bold transition cursor-pointer"
@@ -464,7 +536,7 @@ export default function DashboardOverviewTab({
                   const dayNum = dateObj.getDate();
                   const dayName = dayNamesShort[dayOfWeek];
                   const dateISO = toLocalISO(dateObj);
-                  const hasSession = schedules.some((s) => s.date === dateISO);
+                  const hasSession = displaySchedules.some((s) => s.date === dateISO);
 
                   return (
                     <button
@@ -526,7 +598,7 @@ export default function DashboardOverviewTab({
                     const dayNum = dateObj.getDate();
                     const dayOfWeek = dateObj.getDay();
                     const dateISO = toLocalISO(dateObj);
-                    const hasSession = schedules.some((s) => s.date === dateISO);
+                    const hasSession = displaySchedules.some((s) => s.date === dateISO);
 
                     return (
                       <button
@@ -599,6 +671,119 @@ export default function DashboardOverviewTab({
             </div>
           </div>
         </div>
+
+        {/* ==========================================
+            JADWAL MELATIH HARI INI (PELATIH VIEW ONLY)
+            Hanya muncul jika hari ini ada jadwal melatih
+            ========================================== */}
+        {isCoachRole && todayCoachSchedules.length > 0 && (
+          <div className="rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-4 relative overflow-hidden animate-fadeIn">
+            {/* Ambient Depth Background Circles */}
+            <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-cyan-400/20 blur-lg pointer-events-none" />
+
+            {/* Container Header */}
+            <div className="flex items-center justify-between flex-wrap gap-2 relative z-10 border-b border-white/15 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white text-base shadow-xs border border-white/30">
+                  🏊‍♂️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
+                      Jadwal Melatih Hari Ini
+                    </h3>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs animate-pulse">
+                      AKTIF
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-cyan-100 font-medium">
+                    {todayFormatted} • {todayCoachSchedules.length} Sesi Terjadwal
+                  </p>
+                </div>
+              </div>
+
+              {setActiveTab && (
+                <button
+                  onClick={() => setActiveTab("absensi")}
+                  className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-cyan-50 text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <span>⏱️</span>
+                  <span>Input Presensi</span>
+                </button>
+              )}
+            </div>
+
+            {/* List of Today's Sessions */}
+            <div className="space-y-3 relative z-10">
+              {todayCoachSchedules.map((schedule, idx) => {
+                const studentList = schedule.studentNames || [];
+                return (
+                  <div
+                    key={schedule.id || idx}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-sm space-y-2.5 hover:bg-white/15 transition duration-200"
+                  >
+                    {/* Session Top Info */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/20 text-white border border-white/25">
+                            {schedule.class}
+                          </span>
+                          <h4 className="text-xs sm:text-sm font-black text-white">
+                            {schedule.title}
+                          </h4>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] font-bold">
+                        <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white border border-white/30">
+                          ⏰ {schedule.timeStart} - {schedule.timeEnd} WIB
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-white/20 text-cyan-100">
+                          📍 {schedule.poolArea}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Students List */}
+                    <div className="pt-1 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-cyan-100">
+                          Murid yang Dilatih ({studentList.length}):
+                        </span>
+                      </div>
+                      {studentList.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {studentList.map((stName, stIdx) => (
+                            <span
+                              key={stIdx}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 backdrop-blur-sm text-white text-[11px] font-semibold border border-white/25 shadow-2xs"
+                            >
+                              <span>👤</span>
+                              <span>{stName}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-cyan-100/80 italic">
+                          Belum ada siswa spesifik yang ditautkan.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Notes if any */}
+                    {schedule.notes && (
+                      <div className="p-2 rounded-xl bg-black/15 text-[10px] text-cyan-50 border border-white/10">
+                        <span className="font-bold text-amber-300">Catatan: </span>
+                        {schedule.notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ==========================================
             3. PASTEL 8-GRID FEATURE MENU WITH PAGINATION
@@ -770,17 +955,21 @@ export default function DashboardOverviewTab({
                     <span className="text-3xl">🏖️</span>
                     <h4 className="text-xs font-bold text-slate-700">Tidak Ada Sesi Terjadwal</h4>
                     <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                      Belum ada sesi latihan renang untuk tanggal ini. Anda dapat membuat jadwal baru sekarang.
+                      {isCoachRole
+                        ? "Belum ada jadwal mengajar renang untuk Anda pada tanggal ini."
+                        : "Belum ada sesi latihan renang untuk tanggal ini. Anda dapat membuat jadwal baru sekarang."}
                     </p>
-                    <button
-                      onClick={() => {
-                        setSelectedDateDetails(null);
-                        if (setActiveTab) setActiveTab("jadwal");
-                      }}
-                      className="px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer"
-                    >
-                      + Buat Jadwal Tanggal Ini
-                    </button>
+                    {!isCoachRole && (
+                      <button
+                        onClick={() => {
+                          setSelectedDateDetails(null);
+                          if (setActiveTab) setActiveTab("jadwal");
+                        }}
+                        className="px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer"
+                      >
+                        + Buat Jadwal Tanggal Ini
+                      </button>
+                    )}
                   </div>
                 );
               }
