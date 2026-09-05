@@ -94,15 +94,24 @@ export default function AppsPage() {
 
   // Pull-to-refresh handler: reloads all database data and profile avatar
   const handlePullRefresh = async () => {
+    const startTime = Date.now();
     try {
       setIsRefreshing(true);
       await Promise.all([
         loadAllData(),
         sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
       ]);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) {
+        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
+      }
       triggerToast("Data terbaru berhasil dimuat dari database! ✨", "success");
     } catch (err) {
       console.error("Refresh error:", err);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) {
+        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
+      }
       triggerToast("Gagal memuat ulang data", "error");
     } finally {
       setIsRefreshing(false);
@@ -455,20 +464,17 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Rotating Loading Screen Overlay during Refresh */}
+        {/* Centered Rotating Loading Screen Overlay during Refresh (tanpa background putih) */}
         {isRefreshing && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none transition-all duration-300 animate-fadeIn">
-            <div className="flex flex-col items-center justify-center p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md shadow-2xl border border-white/80 space-y-3.5">
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
+            <div className="flex flex-col items-center justify-center space-y-3 scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/icon.png"
                 alt="Loading"
-                className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-spin"
-                style={{ animationDuration: "1.2s" }}
+                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-spin drop-shadow-2xl"
+                style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
               />
-              <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-wide text-center">
-                Memuat data terbaru...
-              </p>
             </div>
           </div>
         )}
@@ -534,20 +540,17 @@ export default function AppsPage() {
         onClose={() => setShowIOSPrompt(false)}
       />
 
-      {/* Centered Rotating Loading Screen Overlay during Refresh */}
+      {/* Centered Rotating Loading Screen Overlay during Refresh (tanpa background putih) */}
       {isRefreshing && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none transition-all duration-300 animate-fadeIn">
-          <div className="flex flex-col items-center justify-center p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md shadow-2xl border border-white/80 space-y-3.5">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-spin"
-              style={{ animationDuration: "1.2s" }}
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-spin drop-shadow-2xl"
+              style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
             />
-            <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-wide text-center">
-              Memuat data terbaru...
-            </p>
           </div>
         </div>
       )}

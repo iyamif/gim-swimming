@@ -79,16 +79,25 @@ export default function PullToRefresh({
     setIsDragging(false);
     setPullDistance(pullThreshold);
 
+    const startTime = Date.now();
     try {
       await onRefresh();
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) {
+        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
+      }
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
         setIsRefreshing(false);
         setPullDistance(0);
-      }, 750);
+      }, 500);
     } catch (err) {
       console.error("Pull to refresh error:", err);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) {
+        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
+      }
       setIsRefreshing(false);
       setPullDistance(0);
     }
@@ -148,9 +157,8 @@ export default function PullToRefresh({
                   src="/icon.png"
                   alt="Loading"
                   className="h-4 w-4 object-contain animate-spin"
-                  style={{ animationDuration: "1.2s" }}
+                  style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
                 />
-                <span className="text-cyan-700 font-bold">Memuat Data Terbaru...</span>
               </>
             )
           ) : (
@@ -175,21 +183,18 @@ export default function PullToRefresh({
         </div>
       </div>
 
-      {/* Centered Rotating Loading Screen Overlay (Center Atas, Bawah, Kiri, Kanan) */}
+      {/* Centered Rotating Loading Screen Overlay (Center Atas, Bawah, Kiri, Kanan tanpa background putih) */}
       {isRefreshing && !isSuccess && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none transition-all duration-300 animate-fadeIn">
-          <div className="flex flex-col items-center justify-center p-6 sm:p-7 rounded-3xl bg-white/95 backdrop-blur-md shadow-2xl border border-white/80 space-y-3.5 scale-100">
-            {/* Rotating / Spinning app/icon.png */}
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
+            {/* Rotating / Spinning app/icon.png slower */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-spin"
-              style={{ animationDuration: "1.2s" }}
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-spin drop-shadow-2xl"
+              style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
             />
-            <p className="text-xs sm:text-sm font-bold text-slate-800 tracking-wide text-center">
-              Memuat data terbaru...
-            </p>
           </div>
         </div>
       )}
