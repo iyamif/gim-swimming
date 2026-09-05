@@ -104,12 +104,12 @@ export default function JadwalTab({
   // Form Inputs State
   const [formTimeStart, setFormTimeStart] = useState("15:00");
   const [formTimeEnd, setFormTimeEnd] = useState("17:00");
-  const [formClass, setFormClass] = useState("Prestasi");
-  const [formPoolArea, setFormPoolArea] = useState("312 Wera");
+  const [formClass, setFormClass] = useState("Private Class");
+  const [formPoolArea, setFormPoolArea] = useState("Nalendra");
   const [formCoachId, setFormCoachId] = useState(coaches[0]?.id || "custom");
   const [formCoachName, setFormCoachName] = useState(coaches[0]?.name || "Coach Rendi");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [customStudentInput, setCustomStudentInput] = useState("");
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formTitle, setFormTitle] = useState("");
 
@@ -234,7 +234,6 @@ export default function JadwalTab({
         setSelectedStudentIds([]);
       } else {
         setSelectedStudentIds([studentId]);
-        setCustomStudentInput("");
       }
     } else {
       setSelectedStudentIds((prev) =>
@@ -335,13 +334,8 @@ export default function JadwalTab({
       .filter((s) => selectedStudentIds.includes(s.id))
       .map((s) => s.name);
 
-    // If custom student typed, include it
-    if (customStudentInput.trim()) {
-      matchedNames.push(customStudentInput.trim());
-    }
-
     if (matchedNames.length === 0) {
-      alert("Silakan pilih atau tambahkan minimal 1 siswa untuk sesi jadwal ini.");
+      alert("Silakan pilih minimal 1 siswa untuk sesi jadwal ini.");
       return;
     }
 
@@ -358,8 +352,7 @@ export default function JadwalTab({
       const sessionSuffix = selectedDates.length > 1 ? ` (P-${idx + 1})` : "";
       const baseTitle =
         formTitle.trim() ||
-        `${formClass} (${matchedNames.slice(0, 2).join(", ")}${
-          matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
+        `${formClass} (${matchedNames.slice(0, 2).join(", ")}${matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
         })`;
 
       const title = `${baseTitle}${sessionSuffix}`;
@@ -386,7 +379,7 @@ export default function JadwalTab({
     setSelectedDates([todayStr]);
     setIsCalendarOpen(false);
     setSelectedStudentIds([]);
-    setCustomStudentInput("");
+    setStudentSearchQuery("");
     setFormNotes("");
     setFormTitle("");
   };
@@ -468,8 +461,8 @@ export default function JadwalTab({
               key={cls}
               onClick={() => setFilterClass(cls)}
               className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer shrink-0 ${filterClass === cls
-                  ? "bg-cyan-500 text-white shadow-xs"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
+                ? "bg-cyan-500 text-white shadow-xs"
+                : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
                 }`}
             >
               {cls}
@@ -651,7 +644,85 @@ export default function JadwalTab({
                 </div>
               )}
 
-              {/* 1. Interactive Multi-Date Picker Calendar Section */}
+              {/* 1. Program Kelas & Kolam (Side-by-Side 2 Kolom) */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full items-start">
+                <div className="w-full min-w-0">
+                  <div className="flex items-center justify-between mb-1.5 h-6">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Program Kelas
+                    </label>
+                    {formClass === "Private Class" ? (
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
+                        1 Siswa
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                        Multi
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={formClass}
+                    onChange={(e) => handleClassChange(e.target.value)}
+                    className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
+                  >
+                    <option value="Private Class">Private Class (1-on-1)</option>
+                    <option value="Prestasi">Prestasi</option>
+                    <option value="Kids Swimming">Kids Swimming Class</option>
+                  </select>
+                </div>
+
+                <div className="w-full min-w-0">
+                  <div className="flex items-center justify-between mb-1.5 h-6">
+                    <label className="block text-xs font-bold text-slate-700 truncate">
+                      Lokasi Kolam
+                    </label>
+                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
+                      📍 Area
+                    </span>
+                  </div>
+                  <select
+                    value={formPoolArea}
+                    onChange={(e) => setFormPoolArea(e.target.value)}
+                    className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
+                  >
+                    <option value="Nalendra">Nalendra</option>
+                    <option value="312 Wera">312 Wera</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 2. Coach Selection */}
+              <div className="w-full">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Pilih Pelatih / Instruktur
+                </label>
+                <select
+                  value={formCoachId}
+                  onChange={(e) => handleCoachChange(e.target.value)}
+                  className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer mb-1.5 min-h-[46px]"
+                >
+                  {coaches.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.spec})
+                    </option>
+                  ))}
+                  <option value="custom">✏️ Masukkan Pelatih Lainnya / Custom...</option>
+                </select>
+
+                {formCoachId === "custom" && (
+                  <input
+                    type="text"
+                    required
+                    value={formCoachName}
+                    onChange={(e) => setFormCoachName(e.target.value)}
+                    placeholder="Ketik nama pelatih (misal: Coach Rendi)"
+                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition mt-1.5 min-h-[46px]"
+                  />
+                )}
+              </div>
+
+              {/* 3. Interactive Multi-Date Picker Calendar Section */}
               <div className="w-full space-y-2 relative" ref={calendarRef}>
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
@@ -675,11 +746,10 @@ export default function JadwalTab({
                       setIsCalendarOpen((prev) => !prev);
                     }
                   }}
-                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
-                    isCalendarOpen
-                      ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
-                      : "border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300"
-                  }`}
+                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isCalendarOpen
+                    ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
+                    : "border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300"
+                    }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -714,9 +784,8 @@ export default function JadwalTab({
                         {selectedDates.length}/4 Sesi
                       </span>
                       <span
-                        className={`text-slate-400 text-xs transition-transform duration-200 ${
-                          isCalendarOpen ? "rotate-180 text-cyan-600" : ""
-                        }`}
+                        className={`text-slate-400 text-xs transition-transform duration-200 ${isCalendarOpen ? "rotate-180 text-cyan-600" : ""
+                          }`}
                       >
                         ▼
                       </span>
@@ -763,9 +832,8 @@ export default function JadwalTab({
                       {DAY_NAMES_INDO.map((dayName, idx) => (
                         <span
                           key={dayName}
-                          className={`text-[10px] font-black uppercase tracking-wider py-1 ${
-                            idx === 0 ? "text-rose-500" : "text-slate-400"
-                          }`}
+                          className={`text-[10px] font-black uppercase tracking-wider py-1 ${idx === 0 ? "text-rose-500" : "text-slate-400"
+                            }`}
                         >
                           {dayName}
                         </span>
@@ -802,15 +870,14 @@ export default function JadwalTab({
                             type="button"
                             disabled={isPast}
                             onClick={() => handleToggleDate(dateStr)}
-                            className={`h-8 sm:h-9 rounded-xl text-xs font-bold transition relative flex flex-col items-center justify-center cursor-pointer active:scale-95 ${
-                              isPast
-                                ? "text-slate-300 bg-slate-50/50 cursor-not-allowed opacity-40"
-                                : isSelected
+                            className={`h-8 sm:h-9 rounded-xl text-xs font-bold transition relative flex flex-col items-center justify-center cursor-pointer active:scale-95 ${isPast
+                              ? "text-slate-300 bg-slate-50/50 cursor-not-allowed opacity-40"
+                              : isSelected
                                 ? "bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-105 z-10 ring-2 ring-cyan-300"
                                 : isToday
-                                ? "border-2 border-cyan-500 text-cyan-700 bg-cyan-50/60 font-extrabold hover:bg-cyan-100"
-                                : "hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 bg-slate-50/80"
-                            }`}
+                                  ? "border-2 border-cyan-500 text-cyan-700 bg-cyan-50/60 font-extrabold hover:bg-cyan-100"
+                                  : "hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 bg-slate-50/80"
+                              }`}
                           >
                             <span>{dayNum}</span>
                             {isSelected && (
@@ -895,7 +962,7 @@ export default function JadwalTab({
                 )}
               </div>
 
-              {/* 2. Time Start & Time End Range (Side-by-Side 2 Columns) */}
+              {/* 4. Time Start & Time End Range (Side-by-Side 2 Columns) */}
               <div className="w-full">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-slate-700">
@@ -959,82 +1026,7 @@ export default function JadwalTab({
                 </div>
               </div>
 
-              {/* 3. Program Kelas & Kolam (Side-by-Side 2 Kolom) */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full">
-                <div className="w-full min-w-0">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Program Kelas
-                    </label>
-                    {formClass === "Private Class" ? (
-                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                        1 Siswa
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
-                        Multi
-                      </span>
-                    )}
-                  </div>
-                  <select
-                    value={formClass}
-                    onChange={(e) => handleClassChange(e.target.value)}
-                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition min-h-[46px]"
-                  >
-                    <option value="Prestasi">Prestasi</option>
-                    <option value="Private Class">Private Class (1-on-1)</option>
-                    <option value="Kids Swimming">Kids Swimming Class</option>
-                  </select>
-                </div>
-
-                <div className="w-full min-w-0">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700 truncate">
-                      Lokasi Kolam
-                    </label>
-                  </div>
-                  <select
-                    value={formPoolArea}
-                    onChange={(e) => setFormPoolArea(e.target.value)}
-                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition min-h-[46px]"
-                  >
-                    <option value="Nalendra">Nalendra</option>
-                    <option value="312 Wera">312 Wera</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 4. Coach Selection */}
-              <div className="w-full">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Pilih Pelatih / Instruktur
-                </label>
-                <select
-                  value={formCoachId}
-                  onChange={(e) => handleCoachChange(e.target.value)}
-                  className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer mb-1.5 min-h-[46px]"
-                >
-                  {coaches.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.spec})
-                    </option>
-                  ))}
-                  <option value="custom">✏️ Masukkan Pelatih Lainnya / Custom...</option>
-                </select>
-
-                {formCoachId === "custom" && (
-                  <input
-                    type="text"
-                    required
-                    value={formCoachName}
-                    onChange={(e) => setFormCoachName(e.target.value)}
-                    placeholder="Ketik nama pelatih (misal: Coach Rendi)"
-                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition mt-1.5 min-h-[46px]"
-                  />
-                )}
-              </div>
-
-              {/* 5. Student Assignment */}
+              {/* 5. Student Assignment with Search */}
               <div className="space-y-2 w-full">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
@@ -1049,53 +1041,107 @@ export default function JadwalTab({
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 max-h-36 overflow-y-auto space-y-1.5 w-full box-border">
-                  {students.map((student) => {
-                    const isChecked = selectedStudentIds.includes(student.id);
-                    return (
-                      <label
-                        key={student.id}
-                        className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
-                            ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
-                            : "hover:bg-white border border-transparent"
-                          }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <input
-                            type={formClass === "Private Class" ? "radio" : "checkbox"}
-                            name={formClass === "Private Class" ? "privateStudentRadio" : undefined}
-                            checked={isChecked}
-                            onChange={() => toggleStudentSelection(student.id)}
-                            className="text-cyan-600 focus:ring-cyan-500 h-4 w-4 cursor-pointer shrink-0"
-                          />
-                          <span className="truncate">{student.name}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
-                          {student.class}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {/* Optional Custom Student Name */}
-                <div>
+                {/* Search Student Input Bar */}
+                <div className="relative w-full">
                   <input
                     type="text"
-                    value={customStudentInput}
-                    onChange={(e) => {
-                      setCustomStudentInput(e.target.value);
-                      if (formClass === "Private Class" && e.target.value.trim()) {
-                        setSelectedStudentIds([]);
-                      }
-                    }}
-                    placeholder={
-                      formClass === "Private Class"
-                        ? "Atau ketik 1 nama siswa privat baru..."
-                        : "Atau ketik nama siswa baru (misal: Andre)..."
-                    }
-                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition min-h-[46px]"
+                    value={studentSearchQuery}
+                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                    placeholder="Ketik untuk cari nama siswa (misal: Andre)..."
+                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition min-h-[44px]"
                   />
+                  <span className="absolute left-3 top-3 text-xs text-slate-400 pointer-events-none">
+                    🔍
+                  </span>
+                  {studentSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentSearchQuery("")}
+                      className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600 font-bold p-0.5 cursor-pointer"
+                      title="Hapus pencarian"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Selected Students Badges / Chips */}
+                {/* {selectedStudentIds.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 bg-cyan-50/70 rounded-2xl border border-cyan-200/80 animate-fadeIn">
+                    <span className="text-[10px] font-black text-cyan-800 mr-0.5 uppercase tracking-wider">
+                      Terpilih:
+                    </span>
+                    {students
+                      .filter((s) => selectedStudentIds.includes(s.id))
+                      .map((s) => (
+                        <span
+                          key={s.id}
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-cyan-200 text-cyan-950 text-[11px] font-bold shadow-2xs animate-fadeIn"
+                        >
+                          <span>👤 {s.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleStudentSelection(s.id)}
+                            className="text-cyan-600 hover:text-rose-600 font-black cursor-pointer text-xs"
+                            title="Batalkan pilihan"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                  </div>
+                )} */}
+
+                {/* Filtered Students List Box */}
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 max-h-36 overflow-y-auto space-y-1.5 w-full box-border">
+                  {students.filter((student) => {
+                    const q = studentSearchQuery.toLowerCase().trim();
+                    if (!q) return true;
+                    return (
+                      student.name.toLowerCase().includes(q) ||
+                      student.class.toLowerCase().includes(q)
+                    );
+                  }).length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-4 italic">
+                      Tidak ditemukan siswa dengan kata kunci &quot;{studentSearchQuery}&quot;
+                    </p>
+                  ) : (
+                    students
+                      .filter((student) => {
+                        const q = studentSearchQuery.toLowerCase().trim();
+                        if (!q) return true;
+                        return (
+                          student.name.toLowerCase().includes(q) ||
+                          student.class.toLowerCase().includes(q)
+                        );
+                      })
+                      .map((student) => {
+                        const isChecked = selectedStudentIds.includes(student.id);
+                        return (
+                          <label
+                            key={student.id}
+                            className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
+                              ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
+                              : "hover:bg-white border border-transparent"
+                              }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type={formClass === "Private Class" ? "radio" : "checkbox"}
+                                name={formClass === "Private Class" ? "privateStudentRadio" : undefined}
+                                checked={isChecked}
+                                onChange={() => toggleStudentSelection(student.id)}
+                                className="text-cyan-600 focus:ring-cyan-500 h-4 w-4 cursor-pointer shrink-0"
+                              />
+                              <span className="truncate">{student.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                              {student.class}
+                            </span>
+                          </label>
+                        );
+                      })
+                  )}
                 </div>
               </div>
 
@@ -1118,19 +1164,18 @@ export default function JadwalTab({
                 <button
                   type="submit"
                   disabled={conflictingSchedules.length > 0 || selectedDates.length === 0}
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${
-                    conflictingSchedules.length > 0 || selectedDates.length === 0
-                      ? "bg-slate-400 cursor-not-allowed opacity-75"
-                      : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
-                  }`}
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedules.length > 0 || selectedDates.length === 0
+                    ? "bg-slate-400 cursor-not-allowed opacity-75"
+                    : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
+                    }`}
                 >
                   {conflictingSchedules.length > 0
                     ? `⚠️ ${conflictingSchedules.length} Jadwal Bentrok (Perbaiki Waktu)`
                     : selectedDates.length === 0
-                    ? "Pilih Tanggal Pertemuan Terlebih Dahulu"
-                    : selectedDates.length > 1
-                    ? `Simpan & Tambahkan ${selectedDates.length} Jadwal Sekaligus`
-                    : "Simpan & Tambahkan Jadwal"}
+                      ? "Pilih Tanggal Pertemuan Terlebih Dahulu"
+                      : selectedDates.length > 1
+                        ? `Simpan & Tambahkan ${selectedDates.length} Jadwal Sekaligus`
+                        : "Simpan & Tambahkan Jadwal"}
                 </button>
                 <button
                   type="button"
