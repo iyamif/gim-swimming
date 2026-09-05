@@ -134,12 +134,12 @@ export default function DashboardOverviewTab({
     });
   };
 
-  // Dynamic schedules query: check stored custom schedules for dateISO, otherwise fall back to regular recurring patterns
-  const getSchedulesForSelectedDate = (dateISO: string, dayOfWeek: number) => {
-    // 1. First check if any specific date custom schedule matches dateISO
+  // Dynamic schedules query: check stored schedules for dateISO
+  const getSchedulesForSelectedDate = (dateISO: string, _dayOfWeek?: number) => {
     const customForDate = schedules.filter((s) => s.date === dateISO);
-    if (customForDate.length > 0) {
-      return customForDate.map((cs) => ({
+    return customForDate.map((cs) => {
+      const coachObj = coaches.find((c) => c.id === cs.coachId || c.name === cs.coachName);
+      return {
         id: cs.id,
         time: `${cs.timeStart} - ${cs.timeEnd} WIB`,
         sessionTitle: cs.title,
@@ -147,116 +147,21 @@ export default function DashboardOverviewTab({
         coach: {
           name: cs.coachName,
           spec: cs.class,
-          phone: cs.coachPhone || "08123456780",
+          phone: cs.coachPhone || coachObj?.phone || "08123456780",
         },
-        students: cs.studentNames.map((name, idx) => ({
-          id: cs.studentIds[idx] || `st-${idx}`,
-          name,
-          attendanceRate: "100%",
-        })),
+        students: (cs.studentNames || []).map((name, idx) => {
+          const studentObj = students.find((st) => st.id === cs.studentIds?.[idx] || st.name === name);
+          return {
+            id: cs.studentIds?.[idx] || `st-${idx}`,
+            name,
+            attendanceRate: studentObj?.attendanceRate || "100%",
+          };
+        }),
         type: cs.class,
         notes: cs.notes,
         isCustom: true,
-      }));
-    }
-
-    // 2. If no custom schedule, generate standard recurring class template for the day of week
-    const beginnerCoach = coaches.find((c) => c.class === "Beginner") || coaches[0] || {
-      name: "Coach Adi",
-      spec: "Instruktur Utama",
-      phone: "085353333220",
-    };
-    const kidsCoach = coaches.find((c) => c.class === "Kids Swimming") || coaches[1] || {
-      name: "Coach Linda",
-      spec: "Kids Swimming Specialist",
-      phone: "08123456780",
-    };
-
-    const beginnerStudents = students.filter((s) => s.class === "Beginner");
-    const kidsStudents = students.filter((s) => s.class === "Kids Swimming");
-    const privateStudents = students.filter((s) => s.class === "Private Class");
-
-    if (dayOfWeek === 6 || dayOfWeek === 0) {
-      // Weekend (Sabtu & Minggu)
-      return [
-        {
-          id: "rec-w1",
-          time: "08:00 - 10:00 WIB",
-          sessionTitle: "Beginner Class (Sesi Pagi)",
-          poolArea: "Kolam Utama A",
-          coach: beginnerCoach,
-          students: beginnerStudents.length > 0 ? beginnerStudents : [{ id: "s1", name: "Rian", attendanceRate: "80%" }],
-          type: "Beginner Class",
-          notes: "Latihan teknik meluncur & pernapasan dasar",
-          isCustom: false,
-        },
-        {
-          id: "rec-w2",
-          time: "10:00 - 11:30 WIB",
-          sessionTitle: "Kids Swimming Class",
-          poolArea: "Kolam Anak B",
-          coach: kidsCoach,
-          students: kidsStudents.length > 0 ? kidsStudents : [{ id: "s2", name: "Budi", attendanceRate: "100%" }],
-          type: "Kids Swimming",
-          notes: "Pengenalan air & stamina anak",
-          isCustom: false,
-        },
-        {
-          id: "rec-w3",
-          time: "15:00 - 17:00 WIB",
-          sessionTitle: "Beginner Class (Sesi Sore)",
-          poolArea: "Kolam Utama A",
-          coach: beginnerCoach,
-          students: beginnerStudents,
-          type: "Beginner Class",
-          notes: "Latihan gaya dada & ketahanan stamina",
-          isCustom: false,
-        },
-      ];
-    } else if (dayOfWeek === 2 || dayOfWeek === 4) {
-      // Tuesday & Thursday (Selasa & Kamis)
-      return [
-        {
-          id: "rec-t1",
-          time: "15:30 - 17:30 WIB",
-          sessionTitle: "Beginner Class (Sore)",
-          poolArea: "Kolam Utama A",
-          coach: beginnerCoach,
-          students: beginnerStudents,
-          type: "Beginner Class",
-          notes: "Latihan teknik pernapasan",
-          isCustom: false,
-        },
-        {
-          id: "rec-t2",
-          time: "16:00 - 17:30 WIB",
-          sessionTitle: "Kids Swimming Class (Sore)",
-          poolArea: "Kolam Anak B",
-          coach: kidsCoach,
-          students: kidsStudents,
-          type: "Kids Swimming",
-          notes: "Latihan mengapung & gerakan kaki",
-          isCustom: false,
-        },
-      ];
-    } else if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
-      // Monday, Wednesday, Friday
-      return [
-        {
-          id: "rec-p1",
-          time: "14:00 - 16:00 WIB",
-          sessionTitle: "Private Class (1-on-1)",
-          poolArea: "Kolam B (Area Khusus)",
-          coach: beginnerCoach,
-          students: privateStudents.length > 0 ? privateStudents : [{ id: "s3", name: "Siti", attendanceRate: "50%" }],
-          type: "Private Class",
-          notes: "Sesi intensif privat instruktur",
-          isCustom: false,
-        },
-      ];
-    }
-
-    return [];
+      };
+    });
   };
 
   // 8 Feature Quick Menu Grid Items
@@ -496,8 +401,7 @@ export default function DashboardOverviewTab({
                 const dayNum = dateObj.getDate();
                 const dayName = dayNamesShort[dayOfWeek];
                 const dateISO = toLocalISO(dateObj);
-                const hasCustomSchedule = schedules.some((s) => s.date === dateISO);
-                const hasSession = hasCustomSchedule || dayOfWeek !== 5; // Has session most days
+                const hasSession = schedules.some((s) => s.date === dateISO);
 
                 return (
                   <button
