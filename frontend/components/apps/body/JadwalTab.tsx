@@ -1,5 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ScheduleSession, Student, Coach } from "../types";
+
+const MONTH_NAMES_INDO = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+
+const DAY_NAMES_INDO = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 interface JadwalTabProps {
   schedules: ScheduleSession[];
@@ -31,10 +48,60 @@ export default function JadwalTab({
     return `${year}-${month}-${day}`;
   };
 
+  // Helper to add days to ISO date string (YYYY-MM-DD)
+  const addDaysToDate = (baseDateStr: string, days: number) => {
+    if (!baseDateStr) return "";
+    try {
+      const d = new Date(baseDateStr + "T00:00:00");
+      d.setDate(d.getDate() + days);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return baseDateStr;
+    }
+  };
+
+  const formatShortDateIndo = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString("id-ID", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatFullDateIndo = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   const todayStr = getTodayString();
 
-  // Form State
-  const [formDate, setFormDate] = useState(todayStr);
+  // Selected Dates State (Default to 1 date = today)
+  const [selectedDates, setSelectedDates] = useState<string[]>([todayStr]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth()); // 0-11
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  // Form Inputs State
   const [formTimeStart, setFormTimeStart] = useState("15:00");
   const [formTimeEnd, setFormTimeEnd] = useState("17:00");
   const [formClass, setFormClass] = useState("Prestasi");
@@ -45,6 +112,85 @@ export default function JadwalTab({
   const [customStudentInput, setCustomStudentInput] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formTitle, setFormTitle] = useState("");
+
+  // Close calendar popover on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (
+        calendarRef.current &&
+        !calendarRef.current.contains(event.target as Node)
+      ) {
+        setIsCalendarOpen(false);
+      }
+    };
+
+    if (isCalendarOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isCalendarOpen]);
+
+  // Calendar month navigation
+  const handlePrevCalMonth = () => {
+    if (calMonth === 0) {
+      setCalMonth(11);
+      setCalYear((y) => y - 1);
+    } else {
+      setCalMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextCalMonth = () => {
+    if (calMonth === 11) {
+      setCalMonth(0);
+      setCalYear((y) => y + 1);
+    } else {
+      setCalMonth((m) => m + 1);
+    }
+  };
+
+  // Toggle or add date in calendar (up to 4 dates max)
+  const handleToggleDate = (dateStr: string) => {
+    if (dateStr < todayStr) return; // Disallow past dates
+
+    if (selectedDates.includes(dateStr)) {
+      // Unselect date
+      if (selectedDates.length === 1) {
+        setSelectedDates([]);
+      } else {
+        setSelectedDates((prev) => prev.filter((d) => d !== dateStr));
+      }
+    } else {
+      // Add date
+      if (selectedDates.length >= 4) {
+        alert(
+          "Maksimal 4 tanggal latihan telah dipilih! Silakan klik pada tanggal yang aktif untuk membatalkan sebelum memilih tanggal baru."
+        );
+        return;
+      }
+      setSelectedDates((prev) => [...prev, dateStr].sort());
+    }
+  };
+
+  // Handler: Quick Auto-Add 4 Weekly Meetings (+7 days each)
+  const handleAutoAdd4Weekly = () => {
+    const base = selectedDates[0] || todayStr;
+    setSelectedDates([
+      base,
+      addDaysToDate(base, 7),
+      addDaysToDate(base, 14),
+      addDaysToDate(base, 21),
+    ].sort());
+  };
+
+  // Handler: Remove specific date
+  const handleRemoveDate = (index: number) => {
+    setSelectedDates((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Quick time preset buttons
   const timePresets = [
@@ -117,31 +263,43 @@ export default function JadwalTab({
   const cleanName = (name: string) =>
     (name || "").toLowerCase().replace(/^coach\s+/i, "").trim();
 
-  // Real-time detection of coach time conflict on the selected date and time range
-  const conflictingSchedule = (() => {
-    if (!formCoachName.trim() || !formDate || !formTimeStart || !formTimeEnd) return null;
+  // Real-time detection of coach time conflict on all selected dates
+  const conflictingSchedules = (() => {
+    if (!formCoachName.trim() || !formTimeStart || !formTimeEnd) return [];
     const targetClean = cleanName(formCoachName);
 
-    return schedules.find((s) => {
-      if (s.date !== formDate) return false;
+    const list: { date: string; session: ScheduleSession; index: number }[] = [];
 
-      const sClean = cleanName(s.coachName);
-      const isSameCoach =
-        (formCoachId && s.coachId && formCoachId !== "custom" && s.coachId === formCoachId) ||
-        (targetClean && sClean === targetClean);
+    selectedDates.forEach((d, idx) => {
+      if (!d) return;
+      const match = schedules.find((s) => {
+        if (s.date !== d) return false;
 
-      if (!isSameCoach) return false;
+        const sClean = cleanName(s.coachName);
+        const isSameCoach =
+          (formCoachId && s.coachId && formCoachId !== "custom" && s.coachId === formCoachId) ||
+          (targetClean && sClean === targetClean);
 
-      return isTimeOverlap(formTimeStart, formTimeEnd, s.timeStart, s.timeEnd);
+        if (!isSameCoach) return false;
+
+        return isTimeOverlap(formTimeStart, formTimeEnd, s.timeStart, s.timeEnd);
+      });
+
+      if (match) {
+        list.push({ date: d, session: match, index: idx });
+      }
     });
+
+    return list;
   })();
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // 1. Validate past date
-    if (formDate < todayStr) {
-      alert("Tanggal latihan tidak boleh memilih tanggal yang sudah lewat!");
+    const hasPastDate = selectedDates.some((d) => !d || d < todayStr);
+    if (hasPastDate) {
+      alert("Ada tanggal pertemuan yang sudah lewat atau belum diisi! Silakan periksa kembali tanggal latihan.");
       return;
     }
 
@@ -157,12 +315,17 @@ export default function JadwalTab({
       return;
     }
 
-    // 4. Validate coach schedule conflict (1 pelatih tidak bisa melatih 2 murid/sesi berbeda di jam dan hari yang sama)
-    if (conflictingSchedule) {
+    // 4. Validate coach schedule conflict
+    if (conflictingSchedules.length > 0) {
+      const conflictDetails = conflictingSchedules
+        .map(
+          (c) =>
+            `• Pertemuan ${c.index + 1} (${formatDateIndo(c.date)}): Bentrok dengan sesi "${c.session.title}" (${c.session.timeStart} - ${c.session.timeEnd} WIB di ${c.session.poolArea})`
+        )
+        .join("\n");
+
       alert(
-        `⚠️ BENTROK JADWAL PELATIH!\n\nPelatih "${formCoachName}" sudah memiliki jadwal sesi "${conflictingSchedule.title}" pada tanggal ${formatDateIndo(
-          formDate
-        )} jam ${conflictingSchedule.timeStart} - ${conflictingSchedule.timeEnd} WIB di ${conflictingSchedule.poolArea}.\n\nPelatih tidak dapat melatih sesi lain di waktu yang bersamaan. Silakan sesuaikan jam atau pilih pelatih lain.`
+        `⚠️ BENTROK JADWAL PELATIH!\n\nPelatih "${formCoachName}" memiliki jadwal bentrok pada tanggal berikut:\n\n${conflictDetails}\n\nSilakan sesuaikan jam atau ganti tanggal/pelatih.`
       );
       return;
     }
@@ -190,29 +353,38 @@ export default function JadwalTab({
 
     const selectedCoach = coaches.find((c) => c.id === formCoachId);
 
-    const title =
-      formTitle.trim() ||
-      `${formClass} (${matchedNames.slice(0, 2).join(", ")}${matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
-      })`;
+    // 7. Save sessions individually one-by-one into database
+    selectedDates.forEach((d, idx) => {
+      const sessionSuffix = selectedDates.length > 1 ? ` (P-${idx + 1})` : "";
+      const baseTitle =
+        formTitle.trim() ||
+        `${formClass} (${matchedNames.slice(0, 2).join(", ")}${
+          matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
+        })`;
 
-    onAddSchedule({
-      title,
-      class: formClass,
-      date: formDate,
-      timeStart: formTimeStart,
-      timeEnd: formTimeEnd,
-      poolArea: formPoolArea,
-      coachId: formCoachId,
-      coachName: formCoachName.trim(),
-      coachPhone: selectedCoach?.phone || "08123456780",
-      studentIds: selectedStudentIds,
-      studentNames: matchedNames,
-      notes: formNotes,
-      status: "Active",
+      const title = `${baseTitle}${sessionSuffix}`;
+
+      onAddSchedule({
+        title,
+        class: formClass,
+        date: d,
+        timeStart: formTimeStart,
+        timeEnd: formTimeEnd,
+        poolArea: formPoolArea,
+        coachId: formCoachId,
+        coachName: formCoachName.trim(),
+        coachPhone: selectedCoach?.phone || "08123456780",
+        studentIds: selectedStudentIds,
+        studentNames: matchedNames,
+        notes: formNotes,
+        status: "Active",
+      });
     });
 
     // Reset & Close Modal
     setShowAddModal(false);
+    setSelectedDates([todayStr]);
+    setIsCalendarOpen(false);
     setSelectedStudentIds([]);
     setCustomStudentInput("");
     setFormNotes("");
@@ -460,38 +632,267 @@ export default function JadwalTab({
 
             <form onSubmit={handleFormSubmit} className="space-y-4">
               {/* Real-time Coach Conflict Warning Banner */}
-              {conflictingSchedule && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs space-y-1 animate-fadeIn">
+              {conflictingSchedules.length > 0 && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs space-y-1.5 animate-fadeIn">
                   <div className="flex items-center gap-2 font-black text-rose-700">
                     <span className="text-sm">⚠️</span>
-                    <span>BENTROK JADWAL PELATIH!</span>
+                    <span>BENTROK JADWAL PELATIH ({conflictingSchedules.length} Sesi Terdeteksi)!</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-rose-700">
-                    Pelatih <strong>{formCoachName}</strong> sudah memiliki jadwal <strong>{conflictingSchedule.title}</strong> pada jam{" "}
-                    <strong>{conflictingSchedule.timeStart} - {conflictingSchedule.timeEnd} WIB</strong> di{" "}
-                    <strong>{conflictingSchedule.poolArea}</strong>. Pelatih tidak dapat melatih sesi lain di waktu bersamaan.
+                    Pelatih <strong>{formCoachName}</strong> sudah memiliki jadwal di waktu yang sama:
                   </p>
+                  <ul className="text-[11px] space-y-1 pl-2 list-disc list-inside text-rose-800 font-medium">
+                    {conflictingSchedules.map((c, i) => (
+                      <li key={i}>
+                        <strong>Pertemuan {c.index + 1} ({formatShortDateIndo(c.date)})</strong>: {c.session.title} ({c.session.timeStart} - {c.session.timeEnd} WIB di {c.session.poolArea})
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
-              {/* 1. Date Picker */}
-              <div className="w-full">
-                <div className="flex items-center justify-between mb-1.5">
+              {/* 1. Interactive Multi-Date Picker Calendar Section */}
+              <div className="w-full space-y-2 relative" ref={calendarRef}>
+                <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
                     Tanggal Latihan
                   </label>
                   <span className="text-[10px] text-cyan-600 font-bold bg-cyan-50 px-2 py-0.5 rounded">
-                    Minimal Hari Ini
+                    {selectedDates.length === 0
+                      ? "Pilih 1 s/d 4 Tanggal"
+                      : `${selectedDates.length} Tanggal Terpilih (Maks. 4)`}
                   </span>
                 </div>
-                <input
-                  type="date"
-                  required
-                  min={todayStr}
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition min-h-[46px]"
-                />
+
+                {/* Clickable Input Trigger Button */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIsCalendarOpen((prev) => !prev)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsCalendarOpen((prev) => !prev);
+                    }
+                  }}
+                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
+                    isCalendarOpen
+                      ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
+                      : "border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-cyan-100/80 text-cyan-700 text-xs shrink-0">
+                        📅
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        {selectedDates.length === 0 ? (
+                          <span className="text-xs text-slate-400 font-medium">
+                            Klik di sini untuk memilih tanggal (bisa s/d 4 tanggal)...
+                          </span>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {selectedDates.map((d, idx) => (
+                              <span
+                                key={d}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800 bg-white border border-slate-200/80 px-2 py-0.5 rounded-lg shadow-2xs"
+                              >
+                                <span className="text-cyan-600 font-black">
+                                  {selectedDates.length > 1 ? `P-${idx + 1}:` : ""}
+                                </span>
+                                <span>{formatShortDateIndo(d)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-black text-cyan-700 bg-cyan-50 border border-cyan-100 px-2 py-0.5 rounded-full">
+                        {selectedDates.length}/4 Sesi
+                      </span>
+                      <span
+                        className={`text-slate-400 text-xs transition-transform duration-200 ${
+                          isCalendarOpen ? "rotate-180 text-cyan-600" : ""
+                        }`}
+                      >
+                        ▼
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calendar Dropdown / Popover Modal */}
+                {isCalendarOpen && (
+                  <div className="relative sm:absolute left-0 right-0 z-50 mt-2 bg-white rounded-3xl border border-slate-200 shadow-2xl p-4 sm:p-5 space-y-3.5 animate-fadeIn">
+                    {/* Calendar Month & Navigation Header */}
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 capitalize">
+                          {MONTH_NAMES_INDO[calMonth]} {calYear}
+                        </h4>
+                        <p className="text-[10px] text-slate-400">
+                          Klik tanggal untuk memilih s/d 4 pertemuan
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={handlePrevCalMonth}
+                          className="h-8 w-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-xs flex items-center justify-center transition active:scale-95 cursor-pointer border border-slate-100"
+                          title="Bulan Sebelumnya"
+                        >
+                          ◀
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNextCalMonth}
+                          className="h-8 w-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-xs flex items-center justify-center transition active:scale-95 cursor-pointer border border-slate-100"
+                          title="Bulan Berikutnya"
+                        >
+                          ▶
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Day Names Header */}
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                      {DAY_NAMES_INDO.map((dayName, idx) => (
+                        <span
+                          key={dayName}
+                          className={`text-[10px] font-black uppercase tracking-wider py-1 ${
+                            idx === 0 ? "text-rose-500" : "text-slate-400"
+                          }`}
+                        >
+                          {dayName}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Days Grid Matrix */}
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                      {/* Blank offset for first day of month */}
+                      {Array.from({
+                        length: new Date(calYear, calMonth, 1).getDay(),
+                      }).map((_, blankIdx) => (
+                        <div key={`blank-${blankIdx}`} className="h-8 sm:h-9" />
+                      ))}
+
+                      {/* Day Cells */}
+                      {Array.from({
+                        length: new Date(calYear, calMonth + 1, 0).getDate(),
+                      }).map((_, dayIdx) => {
+                        const dayNum = dayIdx + 1;
+                        const dateStr = `${calYear}-${String(calMonth + 1).padStart(
+                          2,
+                          "0"
+                        )}-${String(dayNum).padStart(2, "0")}`;
+
+                        const isPast = dateStr < todayStr;
+                        const isToday = dateStr === todayStr;
+                        const isSelected = selectedDates.includes(dateStr);
+                        const sessionOrder = selectedDates.indexOf(dateStr) + 1;
+
+                        return (
+                          <button
+                            key={dateStr}
+                            type="button"
+                            disabled={isPast}
+                            onClick={() => handleToggleDate(dateStr)}
+                            className={`h-8 sm:h-9 rounded-xl text-xs font-bold transition relative flex flex-col items-center justify-center cursor-pointer active:scale-95 ${
+                              isPast
+                                ? "text-slate-300 bg-slate-50/50 cursor-not-allowed opacity-40"
+                                : isSelected
+                                ? "bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-105 z-10 ring-2 ring-cyan-300"
+                                : isToday
+                                ? "border-2 border-cyan-500 text-cyan-700 bg-cyan-50/60 font-extrabold hover:bg-cyan-100"
+                                : "hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 bg-slate-50/80"
+                            }`}
+                          >
+                            <span>{dayNum}</span>
+                            {isSelected && (
+                              <span className="text-[8px] font-black -mt-0.5 leading-none opacity-90">
+                                P-{sessionOrder}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Selected Dates Badges Preview */}
+                    {selectedDates.length > 0 && (
+                      <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            Sesi Terpilih ({selectedDates.length}/4):
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDates([])}
+                            className="text-[10px] text-slate-400 hover:text-rose-600 font-bold cursor-pointer"
+                          >
+                            Kosongkan
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedDates.map((d, idx) => (
+                            <span
+                              key={d}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-950 text-[11px] font-bold shadow-2xs animate-fadeIn"
+                            >
+                              <span className="text-cyan-600 font-black">
+                                P-{idx + 1}:
+                              </span>
+                              <span>{formatShortDateIndo(d)}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDate(idx)}
+                                className="text-cyan-600 hover:text-rose-600 font-black ml-0.5 cursor-pointer text-xs"
+                                title="Hapus tanggal ini"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Presets & Selesai Action Buttons */}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleAutoAdd4Weekly}
+                          className="px-2.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] sm:text-[11px] font-bold transition cursor-pointer flex items-center gap-1 active:scale-95"
+                          title="Otomatis pilih 4 pertemuan setiap minggu"
+                        >
+                          <span>⚡</span>
+                          <span>4 Pekan Otomatis (+7 hr)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDates([todayStr])}
+                          className="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] sm:text-[11px] font-bold transition cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsCalendarOpen(false)}
+                        className="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-xs transition cursor-pointer active:scale-95"
+                      >
+                        ✓ Selesai
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 2. Time Start & Time End Range (Side-by-Side 2 Columns) */}
@@ -716,13 +1117,20 @@ export default function JadwalTab({
               <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="submit"
-                  disabled={Boolean(conflictingSchedule)}
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedule
+                  disabled={conflictingSchedules.length > 0 || selectedDates.length === 0}
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${
+                    conflictingSchedules.length > 0 || selectedDates.length === 0
                       ? "bg-slate-400 cursor-not-allowed opacity-75"
                       : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
-                    }`}
+                  }`}
                 >
-                  {conflictingSchedule ? "⚠️ Jadwal Bentrok (Perbaiki Waktu)" : "Simpan & Tambahkan Jadwal"}
+                  {conflictingSchedules.length > 0
+                    ? `⚠️ ${conflictingSchedules.length} Jadwal Bentrok (Perbaiki Waktu)`
+                    : selectedDates.length === 0
+                    ? "Pilih Tanggal Pertemuan Terlebih Dahulu"
+                    : selectedDates.length > 1
+                    ? `Simpan & Tambahkan ${selectedDates.length} Jadwal Sekaligus`
+                    : "Simpan & Tambahkan Jadwal"}
                 </button>
                 <button
                   type="button"

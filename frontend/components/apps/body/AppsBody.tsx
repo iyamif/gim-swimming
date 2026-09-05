@@ -115,8 +115,10 @@ export default function AppsBody({
   return (
     <div
       className={`flex-1 overflow-y-auto ${
-        activeTab === "dashboard" ? "p-0" : "p-4 sm:p-6"
-      } pb-24 md:pb-6`}
+        activeTab === "dashboard"
+          ? "p-0"
+          : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
+      }`}
     >
       {onRefresh ? (
         <PullToRefresh onRefresh={onRefresh} className="min-h-full">
