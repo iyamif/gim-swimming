@@ -183,17 +183,16 @@ export default function PullToRefresh({
         </div>
       </div>
 
-      {/* Centered Rotating Loading Screen Overlay (Center Atas, Bawah, Kiri, Kanan tanpa background putih) */}
+      {/* Centered Floating Loading Screen Overlay (Center Atas, Bawah, Kiri, Kanan tanpa background putih) */}
       {isRefreshing && !isSuccess && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
           <div className="flex flex-col items-center justify-center space-y-3 scale-100">
-            {/* Rotating / Spinning app/icon.png slower */}
+            {/* Floating naik turun kanan kiri app/icon.png */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-spin drop-shadow-2xl"
-              style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
             />
           </div>
         </div>

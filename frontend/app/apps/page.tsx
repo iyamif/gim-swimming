@@ -464,7 +464,7 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Rotating Loading Screen Overlay during Refresh (tanpa background putih) */}
+        {/* Centered Floating Loading Screen Overlay during Refresh (tanpa background putih) */}
         {isRefreshing && (
           <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
             <div className="flex flex-col items-center justify-center space-y-3 scale-100">
@@ -472,8 +472,7 @@ export default function AppsPage() {
               <img
                 src="/icon.png"
                 alt="Loading"
-                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-spin drop-shadow-2xl"
-                style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
+                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
               />
             </div>
           </div>
@@ -540,7 +539,7 @@ export default function AppsPage() {
         onClose={() => setShowIOSPrompt(false)}
       />
 
-      {/* Centered Rotating Loading Screen Overlay during Refresh (tanpa background putih) */}
+      {/* Centered Floating Loading Screen Overlay during Refresh (tanpa background putih) */}
       {isRefreshing && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
           <div className="flex flex-col items-center justify-center space-y-3 scale-100">
@@ -548,8 +547,7 @@ export default function AppsPage() {
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-spin drop-shadow-2xl"
-              style={{ animationDuration: "3s", animationTimingFunction: "linear" }}
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
             />
           </div>
         </div>
