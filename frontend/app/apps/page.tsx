@@ -165,7 +165,11 @@ export default function AppsPage() {
           }
           return res.json();
         })
-        .then(() => {
+        .then((resp) => {
+          if (resp?.data?.user?.avatar !== undefined) {
+            localStorage.setItem(`gim_avatar_${resp.data.user.username}`, resp.data.user.avatar || "");
+            window.dispatchEvent(new Event("avatar_updated"));
+          }
           loadAllData();
         })
         .catch((err) => {

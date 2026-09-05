@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Student, Coach, Invoice, ScheduleSession } from "../types";
 import EditProfileModal from "../EditProfileModal";
+import { isImageAvatar } from "../../../lib/api";
 
 interface DashboardOverviewTabProps {
   sessionUser: string;
@@ -43,7 +44,8 @@ export default function DashboardOverviewTab({
   }, [sessionUser]);
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "A";
-  const isCustomImage = userAvatar.startsWith("data:image") || userAvatar.startsWith("http");
+  const isCustomImage = isImageAvatar(userAvatar);
+
 
   // Week View Anchor Date (defaults to current date)
   const [weekAnchorDate, setWeekAnchorDate] = useState<Date>(new Date());

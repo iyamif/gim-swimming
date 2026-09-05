@@ -14,6 +14,7 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	FindByID(ctx context.Context, id int64) (*model.User, error)
+	UpdateAvatar(ctx context.Context, username string, avatar string) error
 }
 
 // pgUserRepository implements UserRepository for PostgreSQL
@@ -31,8 +32,8 @@ func NewUserRepository(db *sql.DB) UserRepository {
 // Create inserts a new user and populates the auto-generated ID
 func (r *pgUserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (username, email, password, role, created_at, updated_at) 
-		VALUES ($1, $2, $3, $4, $5, $6) 
+		INSERT INTO users (username, email, password, role, avatar, created_at, updated_at) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7) 
 		RETURNING id`
 	
 	err := r.db.QueryRowContext(
@@ -42,6 +43,7 @@ func (r *pgUserRepository) Create(ctx context.Context, user *model.User) error {
 		user.Email, 
 		user.Password, 
 		user.Role, 
+		user.Avatar,
 		user.CreatedAt, 
 		user.UpdatedAt,
 	).Scan(&user.ID)
@@ -52,7 +54,7 @@ func (r *pgUserRepository) Create(ctx context.Context, user *model.User) error {
 // FindByEmail searches for a user by email
 func (r *pgUserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password, role, created_at, updated_at 
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), created_at, updated_at 
 		FROM users 
 		WHERE email = $1`
 
@@ -63,6 +65,7 @@ func (r *pgUserRepository) FindByEmail(ctx context.Context, email string) (*mode
 		&user.Email,
 		&user.Password,
 		&user.Role,
+		&user.Avatar,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -80,7 +83,7 @@ func (r *pgUserRepository) FindByEmail(ctx context.Context, email string) (*mode
 // FindByUsername searches for a user by username
 func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password, role, created_at, updated_at 
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), created_at, updated_at 
 		FROM users 
 		WHERE username = $1`
 
@@ -91,6 +94,7 @@ func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) 
 		&user.Email,
 		&user.Password,
 		&user.Role,
+		&user.Avatar,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -108,7 +112,7 @@ func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) 
 // FindByID searches for a user by ID
 func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password, role, created_at, updated_at 
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), created_at, updated_at 
 		FROM users 
 		WHERE id = $1`
 
@@ -119,6 +123,7 @@ func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User,
 		&user.Email,
 		&user.Password,
 		&user.Role,
+		&user.Avatar,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -131,4 +136,14 @@ func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User,
 	}
 
 	return &user, nil
+}
+
+// UpdateAvatar updates user's profile avatar
+func (r *pgUserRepository) UpdateAvatar(ctx context.Context, username string, avatar string) error {
+	query := `
+		UPDATE users 
+		SET avatar = $1, updated_at = NOW() 
+		WHERE username = $2 OR email = $2`
+	_, err := r.db.ExecContext(ctx, query, avatar, username)
+	return err
 }

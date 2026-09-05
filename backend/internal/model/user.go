@@ -18,6 +18,7 @@ type User struct {
 	Email     string    `json:"email"`
 	Password  string    `json:"-"`
 	Role      string    `json:"role"`
+	Avatar    string    `json:"avatar"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -34,6 +35,11 @@ type RegisterInput struct {
 type LoginInput struct {
 	UsernameOrEmail string `json:"usernameOrEmail" binding:"required"`
 	Password        string `json:"password" binding:"required"`
+}
+
+// UpdateAvatarInput represents avatar update payload
+type UpdateAvatarInput struct {
+	Avatar string `json:"avatar"`
 }
 
 // AuthResponse represents authentication response containing JWT and user profile details

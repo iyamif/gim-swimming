@@ -113,6 +113,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       localStorage.setItem("gim_swimming_token", result.data.token);
 
       const user = result.data.user;
+      if (user?.avatar) {
+        localStorage.setItem(`gim_avatar_${user.username}`, user.avatar);
+      }
       setStep("success");
 
       setTimeout(() => {
@@ -218,6 +221,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           })
           .then((result) => {
             localStorage.setItem("gim_swimming_token", result.data.token);
+            if (result.data.user?.avatar) {
+              localStorage.setItem(`gim_avatar_${result.data.user.username}`, result.data.user.avatar);
+            }
             setStep("success");
             setTimeout(() => {
               onLoginSuccess(result.data.user.username, result.data.user.role);

@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iyamif/gim-swimming/internal/model"
@@ -103,5 +107,91 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    user,
+	})
+}
+
+// UpdateAvatar handles JSON update for user avatar (emoji or preset)
+func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
+	usernameVal, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak terotentikasi"})
+		return
+	}
+
+	username, ok := usernameVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca identitas pengguna"})
+		return
+	}
+
+	var input model.UpdateAvatarInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid: " + err.Error()})
+		return
+	}
+
+	if err := h.authService.UpdateAvatar(c.Request.Context(), username, input.Avatar); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui avatar: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Foto profil berhasil diperbarui",
+		"avatar":  input.Avatar,
+	})
+}
+
+// UploadAvatar handles file upload for user profile photo
+func (h *AuthHandler) UploadAvatar(c *gin.Context) {
+	usernameVal, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak terotentikasi"})
+		return
+	}
+
+	username, ok := usernameVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca identitas pengguna"})
+		return
+	}
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File foto profil tidak ditemukan: " + err.Error()})
+		return
+	}
+
+	// Check extension
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+
+	// Generate clean filename
+	filename := fmt.Sprintf("avatar_%s_%d%s", username, time.Now().Unix(), ext)
+
+	// Save to frontend public/foto-profile
+	saveDir := "../frontend/public/foto-profile"
+	_ = os.MkdirAll(saveDir, 0755)
+	dst := filepath.Join(saveDir, filename)
+
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file foto profil: " + err.Error()})
+		return
+	}
+
+	avatarPath := fmt.Sprintf("/foto-profile/%s", filename)
+
+	// Update user record in database
+	if err := h.authService.UpdateAvatar(c.Request.Context(), username, avatarPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan foto profil ke database: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Foto profil berhasil diunggah dan disimpan",
+		"avatar":  avatarPath,
 	})
 }

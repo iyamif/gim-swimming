@@ -1,5 +1,6 @@
 import React from "react";
 import EditProfileModal from "./EditProfileModal";
+import { isImageAvatar } from "../../lib/api";
 
 interface ParentHeaderProps {
   sessionUser?: string;
@@ -34,7 +35,8 @@ export function ParentHeader({
   }, [sessionUser]);
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
-  const isCustomImage = userAvatar.startsWith("data:image") || userAvatar.startsWith("http");
+  const isCustomImage = isImageAvatar(userAvatar);
+
 
   return (
     <>

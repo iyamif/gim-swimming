@@ -40,6 +40,8 @@ func SetupRoutes(
 		authProtected.Use(middleware.AuthMiddleware(authService))
 		{
 			authProtected.GET("/me", authHandler.Me)
+			authProtected.PATCH("/avatar", authHandler.UpdateAvatar)
+			authProtected.POST("/avatar", authHandler.UploadAvatar)
 		}
 
 		// Students & Attendance Endpoints

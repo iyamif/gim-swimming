@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { NavItem } from "./types";
 import EditProfileModal from "./EditProfileModal";
+import { isImageAvatar } from "../../lib/api";
 
 interface NavigationBarProps {
   navItems: NavItem[];
@@ -39,7 +40,8 @@ export function DesktopSidebar({
   }, [sessionUser]);
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
-  const isCustomImage = userAvatar.startsWith("data:image") || userAvatar.startsWith("http");
+  const isCustomImage = isImageAvatar(userAvatar);
+
 
   return (
     <>
@@ -197,7 +199,7 @@ export function MobileBottomNav({
   }, [sessionUser]);
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
-  const isCustomImage = userAvatar.startsWith("data:image") || userAvatar.startsWith("http");
+  const isCustomImage = isImageAvatar(userAvatar);
 
   return (
     <>

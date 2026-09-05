@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { uploadAvatarFile, updateAvatarPreset, isImageAvatar } from "../../lib/api";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -25,7 +26,10 @@ export default function EditProfileModal({
 }: EditProfileModalProps) {
   const [currentAvatar, setCurrentAvatar] = useState<string>("");
   const [previewAvatar, setPreviewAvatar] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isCustomImage, setIsCustomImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,8 +38,11 @@ export default function EditProfileModal({
       const saved = localStorage.getItem(`gim_avatar_${sessionUser}`) || "";
       setCurrentAvatar(saved);
       setPreviewAvatar(saved);
-      setIsCustomImage(saved.startsWith("data:image") || saved.startsWith("http"));
+      setSelectedFile(null);
+      setIsCustomImage(isImageAvatar(saved));
+      setErrorMessage("");
       setSaveSuccess(false);
+      setIsSaving(false);
     }
   }, [isOpen, sessionUser]);
 
@@ -45,11 +52,14 @@ export default function EditProfileModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Limit file size to 2MB
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Ukuran gambar maksimal 2MB");
+    // Limit file size to 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage("Ukuran gambar maksimal 5MB");
       return;
     }
+
+    setErrorMessage("");
+    setSelectedFile(file);
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -62,34 +72,65 @@ export default function EditProfileModal({
 
   const handleSelectPreset = (emoji: string) => {
     setPreviewAvatar(emoji);
+    setSelectedFile(null);
     setIsCustomImage(false);
+    setErrorMessage("");
   };
 
   const handleResetAvatar = () => {
     setPreviewAvatar("");
+    setSelectedFile(null);
     setIsCustomImage(false);
+    setErrorMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSave = () => {
-    if (sessionUser) {
-      if (previewAvatar) {
-        localStorage.setItem(`gim_avatar_${sessionUser}`, previewAvatar);
+  const handleSave = async () => {
+    if (!sessionUser) return;
+
+    try {
+      setIsSaving(true);
+      setErrorMessage("");
+
+      let finalAvatar = "";
+
+      if (selectedFile) {
+        // Upload photo to backend (saved in frontend/public/foto-profile and DB)
+        finalAvatar = await uploadAvatarFile(selectedFile);
+      } else {
+        // Update preset or empty avatar
+        finalAvatar = await updateAvatarPreset(previewAvatar);
+      }
+
+      if (finalAvatar) {
+        localStorage.setItem(`gim_avatar_${sessionUser}`, finalAvatar);
       } else {
         localStorage.removeItem(`gim_avatar_${sessionUser}`);
       }
-      setCurrentAvatar(previewAvatar);
-      if (onAvatarChange) onAvatarChange(previewAvatar);
 
-      // Trigger global event for other components listening
+      setCurrentAvatar(finalAvatar);
+      setPreviewAvatar(finalAvatar);
+      setSelectedFile(null);
+      setIsCustomImage(isImageAvatar(finalAvatar));
+
+      if (onAvatarChange) {
+        onAvatarChange(finalAvatar);
+      }
+
+      // Trigger global event for all listening components
       window.dispatchEvent(new Event("avatar_updated"));
-    }
 
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-      onClose();
-    }, 1000);
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      console.error("Save avatar error:", err);
+      setErrorMessage(err.message || "Gagal menyimpan foto profil ke database");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
@@ -218,11 +259,19 @@ export default function EditProfileModal({
           </div>
         </div>
 
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+            <span>⚠️</span>
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {/* Success Alert */}
         {saveSuccess && (
           <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 animate-fadeIn">
             <span>✅</span>
-            <span>Foto profil berhasil diperbarui!</span>
+            <span>Foto profil berhasil disimpan ke database & folder server!</span>
           </div>
         )}
 
@@ -232,18 +281,28 @@ export default function EditProfileModal({
             <button
               type="button"
               onClick={handleSave}
-              className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer"
+              disabled={isSaving}
+              className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Simpan Perubahan Foto
+              {isSaving ? (
+                <>
+                  <span className="animate-spin inline-block">🔄</span>
+                  <span>Menyimpan ke Database...</span>
+                </>
+              ) : (
+                <span>Simpan Perubahan Foto</span>
+              )}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer"
+              disabled={isSaving}
+              className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer disabled:opacity-50"
             >
               Tutup
             </button>
           </div>
+
 
           {/* Logout Section in Modal */}
           {onLogout && (

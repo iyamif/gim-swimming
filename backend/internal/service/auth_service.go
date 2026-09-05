@@ -27,6 +27,7 @@ type AuthService interface {
 	Register(ctx context.Context, input model.RegisterInput) (*model.User, error)
 	Login(ctx context.Context, input model.LoginInput) (string, *model.User, error)
 	ValidateToken(tokenStr string) (*Claims, error)
+	UpdateAvatar(ctx context.Context, username string, avatar string) error
 }
 
 type authService struct {
@@ -163,4 +164,9 @@ func (s *authService) ValidateToken(tokenStr string) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+// UpdateAvatar updates user's profile avatar
+func (s *authService) UpdateAvatar(ctx context.Context, username string, avatar string) error {
+	return s.userRepo.UpdateAvatar(ctx, username, avatar)
 }

@@ -64,6 +64,7 @@ func main() {
 	// 4. Setup Gin engine
 	router := gin.Default()
 	router.Use(CORSMiddleware())
+	router.Static("/foto-profile", "../frontend/public/foto-profile")
 
 	// 5. Setup routes
 	routes.SetupRoutes(router, authHandler, appHandler, authService)

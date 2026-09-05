@@ -281,3 +281,60 @@ export async function uploadInvoiceReceipt(id: string, receiptUrl: string): Prom
     throw err;
   }
 }
+
+// ================= USER AVATAR / PROFILE =================
+
+export function isImageAvatar(avatar?: string | null): boolean {
+  if (!avatar) return false;
+  return (
+    avatar.startsWith("data:image") ||
+    avatar.startsWith("http://") ||
+    avatar.startsWith("https://") ||
+    avatar.startsWith("/foto-profile") ||
+    avatar.startsWith("/")
+  );
+}
+
+export async function uploadAvatarFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  const headers: HeadersInit = {};
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("gim_swimming_token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/avatar`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Gagal mengunggah foto profil");
+  }
+
+  const data = await res.json();
+  return data.avatar;
+}
+
+export async function updateAvatarPreset(avatar: string): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/avatar`, {
+    method: "PATCH",
+    headers: getHeaders(),
+    body: JSON.stringify({ avatar }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Gagal memperbarui avatar profil");
+  }
+
+  const data = await res.json();
+  return data.avatar;
+}
+
