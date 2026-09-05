@@ -26,7 +26,7 @@ export default function RegistrasiTab({
     age: "",
     parent: "",
     phone: "",
-    class: "Beginner",
+    class: "Prestasi",
   });
 
   const [formPelatih, setFormPelatih] = useState({
@@ -34,19 +34,19 @@ export default function RegistrasiTab({
     spec: "",
     phone: "",
     email: "",
-    class: "Beginner",
+    class: "Prestasi",
   });
 
   const handleStudentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAddStudent(formSiswa);
-    setFormSiswa({ name: "", age: "", parent: "", phone: "", class: "Beginner" });
+    setFormSiswa({ name: "", age: "", parent: "", phone: "", class: "Prestasi" });
   };
 
   const handleCoachSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAddCoach(formPelatih);
-    setFormPelatih({ name: "", spec: "", phone: "", email: "", class: "Beginner" });
+    setFormPelatih({ name: "", spec: "", phone: "", email: "", class: "Prestasi" });
   };
 
   return (
@@ -131,7 +131,7 @@ export default function RegistrasiTab({
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white cursor-pointer"
             >
-              <option value="Beginner">Beginner Class</option>
+              <option value="Prestasi">Prestasi</option>
               <option value="Kids Swimming">Kids Swimming Class</option>
               <option value="Private Class">Private Class (1-on-1)</option>
             </select>
@@ -226,7 +226,7 @@ export default function RegistrasiTab({
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white cursor-pointer"
             >
-              <option value="Beginner">Beginner Class</option>
+              <option value="Prestasi">Prestasi</option>
               <option value="Kids Swimming">Kids Swimming Class</option>
               <option value="Private Class">Private Class (1-on-1)</option>
             </select>

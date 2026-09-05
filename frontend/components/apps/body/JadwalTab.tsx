@@ -37,8 +37,8 @@ export default function JadwalTab({
   const [formDate, setFormDate] = useState(todayStr);
   const [formTimeStart, setFormTimeStart] = useState("15:00");
   const [formTimeEnd, setFormTimeEnd] = useState("17:00");
-  const [formClass, setFormClass] = useState("Beginner Class");
-  const [formPoolArea, setFormPoolArea] = useState("Kolam Utama A");
+  const [formClass, setFormClass] = useState("Prestasi");
+  const [formPoolArea, setFormPoolArea] = useState("312 Wera");
   const [formCoachId, setFormCoachId] = useState(coaches[0]?.id || "custom");
   const [formCoachName, setFormCoachName] = useState(coaches[0]?.name || "Coach Rendi");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -54,6 +54,23 @@ export default function JadwalTab({
     { label: "Sore B (16:00 - 17:30)", start: "16:00", end: "17:30" },
   ];
 
+  // Handler: Change program class and set default pool location & student selection rule
+  const handleClassChange = (newClass: string) => {
+    setFormClass(newClass);
+
+    // Rule: Private or Kids -> Default Nalendra; Prestasi -> Default 312 Wera
+    if (newClass === "Private Class" || newClass === "Kids Swimming") {
+      setFormPoolArea("Nalendra");
+    } else if (newClass === "Prestasi") {
+      setFormPoolArea("312 Wera");
+    }
+
+    // Rule: Private Class is strictly 1-on-1 (single student)
+    if (newClass === "Private Class") {
+      setSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
+    }
+  };
+
   const handleCoachChange = (val: string) => {
     setFormCoachId(val);
     if (val === "custom") {
@@ -64,13 +81,60 @@ export default function JadwalTab({
     }
   };
 
+  // Rule: If Private Class -> 1 student max (radio-like selection); If Prestasi/Kids -> multiple students allowed
   const toggleStudentSelection = (studentId: string) => {
-    setSelectedStudentIds((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
-    );
+    if (formClass === "Private Class") {
+      if (selectedStudentIds.includes(studentId)) {
+        setSelectedStudentIds([]);
+      } else {
+        setSelectedStudentIds([studentId]);
+        setCustomStudentInput("");
+      }
+    } else {
+      setSelectedStudentIds((prev) =>
+        prev.includes(studentId)
+          ? prev.filter((id) => id !== studentId)
+          : [...prev, studentId]
+      );
+    }
   };
+
+  // Helpers for time conflict validation
+  const timeToMinutes = (t: string) => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  const isTimeOverlap = (startA: string, endA: string, startB: string, endB: string) => {
+    const sA = timeToMinutes(startA);
+    const eA = timeToMinutes(endA);
+    const sB = timeToMinutes(startB);
+    const eB = timeToMinutes(endB);
+    return sA < eB && eA > sB;
+  };
+
+  const cleanName = (name: string) =>
+    (name || "").toLowerCase().replace(/^coach\s+/i, "").trim();
+
+  // Real-time detection of coach time conflict on the selected date and time range
+  const conflictingSchedule = (() => {
+    if (!formCoachName.trim() || !formDate || !formTimeStart || !formTimeEnd) return null;
+    const targetClean = cleanName(formCoachName);
+
+    return schedules.find((s) => {
+      if (s.date !== formDate) return false;
+
+      const sClean = cleanName(s.coachName);
+      const isSameCoach =
+        (formCoachId && s.coachId && formCoachId !== "custom" && s.coachId === formCoachId) ||
+        (targetClean && sClean === targetClean);
+
+      if (!isSameCoach) return false;
+
+      return isTimeOverlap(formTimeStart, formTimeEnd, s.timeStart, s.timeEnd);
+    });
+  })();
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +145,29 @@ export default function JadwalTab({
       return;
     }
 
-    // Collect student names
+    // 2. Validate time duration
+    if (timeToMinutes(formTimeStart) >= timeToMinutes(formTimeEnd)) {
+      alert("Jam selesai harus lebih besar dari jam mulai!");
+      return;
+    }
+
+    // 3. Validate coach name
+    if (!formCoachName.trim()) {
+      alert("Silakan tentukan nama instruktur/pelatih.");
+      return;
+    }
+
+    // 4. Validate coach schedule conflict (1 pelatih tidak bisa melatih 2 murid/sesi berbeda di jam dan hari yang sama)
+    if (conflictingSchedule) {
+      alert(
+        `⚠️ BENTROK JADWAL PELATIH!\n\nPelatih "${formCoachName}" sudah memiliki jadwal sesi "${conflictingSchedule.title}" pada tanggal ${formatDateIndo(
+          formDate
+        )} jam ${conflictingSchedule.timeStart} - ${conflictingSchedule.timeEnd} WIB di ${conflictingSchedule.poolArea}.\n\nPelatih tidak dapat melatih sesi lain di waktu yang bersamaan. Silakan sesuaikan jam atau pilih pelatih lain.`
+      );
+      return;
+    }
+
+    // 5. Collect student names
     const matchedNames = students
       .filter((s) => selectedStudentIds.includes(s.id))
       .map((s) => s.name);
@@ -96,8 +182,9 @@ export default function JadwalTab({
       return;
     }
 
-    if (!formCoachName.trim()) {
-      alert("Silakan tentukan nama instruktur/pelatih.");
+    // 6. Validate single student for Private Class (1-on-1)
+    if (formClass === "Private Class" && matchedNames.length > 1) {
+      alert("Program Private Class (1-on-1) hanya boleh untuk 1 orang siswa. Silakan pilih 1 siswa.");
       return;
     }
 
@@ -205,7 +292,7 @@ export default function JadwalTab({
 
         {/* Filter by class */}
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          {["Semua", "Beginner Class", "Kids Swimming", "Private Class"].map((cls) => (
+          {["Semua", "Prestasi", "Private Class", "Kids Swimming"].map((cls) => (
             <button
               key={cls}
               onClick={() => setFilterClass(cls)}
@@ -349,14 +436,14 @@ export default function JadwalTab({
           MODAL: FORM BUAT JADWAL BARU
           ========================================== */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div
             onClick={() => setShowAddModal(false)}
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
           />
-          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-5 my-auto max-h-[90vh] overflow-y-auto">
+          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-slate-900">
                   Buat Jadwal Sesi Renang Baru
@@ -374,6 +461,21 @@ export default function JadwalTab({
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-4">
+              {/* Real-time Coach Conflict Warning Banner */}
+              {conflictingSchedule && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs space-y-1 animate-fadeIn">
+                  <div className="flex items-center gap-2 font-black text-rose-700">
+                    <span className="text-sm">⚠️</span>
+                    <span>BENTROK JADWAL PELATIH!</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-rose-700">
+                    Pelatih <strong>{formCoachName}</strong> sudah memiliki jadwal <strong>{conflictingSchedule.title}</strong> pada jam{" "}
+                    <strong>{conflictingSchedule.timeStart} - {conflictingSchedule.timeEnd} WIB</strong> di{" "}
+                    <strong>{conflictingSchedule.poolArea}</strong>. Pelatih tidak dapat melatih sesi lain di waktu bersamaan.
+                  </p>
+                </div>
+              )}
+
               {/* 1. Date Picker */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -394,30 +496,48 @@ export default function JadwalTab({
                 />
               </div>
 
-              {/* 2. Time Start & Time End Range */}
+              {/* 2. Time Start & Time End Range (Anti-Overlap Responsive Design) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Jam / Waktu Sesi (WIB)
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block mb-1">Jam Mulai</span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Jam / Waktu Sesi (WIB)
+                  </label>
+                  <span className="text-[10px] font-bold text-cyan-600">
+                    Durasi: {(() => {
+                      const diff = timeToMinutes(formTimeEnd) - timeToMinutes(formTimeStart);
+                      if (diff <= 0) return "Waktu tidak valid";
+                      const h = Math.floor(diff / 60);
+                      const m = diff % 60;
+                      return `${h > 0 ? `${h} Jam ` : ""}${m > 0 ? `${m} Menit` : ""}`.trim();
+                    })()}
+                  </span>
+                </div>
+
+                {/* Responsive 2-column or 1-column layout without clipping */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 focus-within:border-cyan-500 focus-within:bg-white transition min-w-0">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      🕒 Jam Mulai
+                    </span>
                     <input
                       type="time"
                       required
                       value={formTimeStart}
                       onChange={(e) => setFormTimeStart(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition"
+                      className="w-full bg-transparent text-xs sm:text-sm font-black text-slate-900 outline-none cursor-pointer"
                     />
                   </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block mb-1">Jam Selesai</span>
+
+                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 focus-within:border-cyan-500 focus-within:bg-white transition min-w-0">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      🏁 Jam Selesai
+                    </span>
                     <input
                       type="time"
                       required
                       value={formTimeEnd}
                       onChange={(e) => setFormTimeEnd(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition"
+                      className="w-full bg-transparent text-xs sm:text-sm font-black text-slate-900 outline-none cursor-pointer"
                     />
                   </div>
                 </div>
@@ -432,7 +552,7 @@ export default function JadwalTab({
                         setFormTimeStart(preset.start);
                         setFormTimeEnd(preset.end);
                       }}
-                      className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-[10px] font-semibold text-slate-600 transition cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-[10px] font-semibold text-slate-600 transition cursor-pointer active:scale-95"
                     >
                       {preset.label}
                     </button>
@@ -441,34 +561,49 @@ export default function JadwalTab({
               </div>
 
               {/* 3. Program Kelas & Kolam */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Program Kelas
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Program Kelas
+                    </label>
+                    {formClass === "Private Class" ? (
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                        1 Siswa
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                        Multi Siswa
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={formClass}
-                    onChange={(e) => setFormClass(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer"
+                    onChange={(e) => handleClassChange(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Beginner Class">Beginner Class</option>
-                    <option value="Kids Swimming">Kids Swimming Class</option>
+                    <option value="Prestasi">Prestasi</option>
                     <option value="Private Class">Private Class (1-on-1)</option>
+                    <option value="Kids Swimming">Kids Swimming Class</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Lokasi Kolam
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Lokasi Kolam
+                    </label>
+                    <span className="text-[9px] font-medium text-slate-400">
+                      Default: {formClass === "Prestasi" ? "312 Wera" : "Nalendra"}
+                    </span>
+                  </div>
                   <select
                     value={formPoolArea}
                     onChange={(e) => setFormPoolArea(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Kolam Utama A">Kolam Utama A</option>
-                    <option value="Kolam Anak B">Kolam Anak B</option>
-                    <option value="Kolam Private C">Kolam Private C</option>
+                    <option value="Nalendra">Nalendra</option>
+                    <option value="312 Wera">312 Wera</option>
                   </select>
                 </div>
               </div>
@@ -505,30 +640,42 @@ export default function JadwalTab({
 
               {/* 5. Student Assignment */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700">
-                  Pilih Siswa yang Mengikuti Sesi
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Pilih Siswa yang Mengikuti Sesi
+                  </label>
+                  <span className="text-[10px] font-bold text-cyan-600">
+                    {formClass === "Private Class"
+                      ? selectedStudentIds.length > 0
+                        ? "1 Siswa Terpilih (1-on-1)"
+                        : "Pilih 1 Siswa Privat"
+                      : `${selectedStudentIds.length} Siswa Terpilih`}
+                  </span>
+                </div>
 
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 max-h-36 overflow-y-auto space-y-2">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 max-h-36 overflow-y-auto space-y-1.5">
                   {students.map((student) => {
                     const isChecked = selectedStudentIds.includes(student.id);
                     return (
                       <label
                         key={student.id}
                         className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${
-                          isChecked ? "bg-cyan-50 border border-cyan-200 text-cyan-900 font-bold" : "hover:bg-white"
+                          isChecked
+                            ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
+                            : "hover:bg-white border border-transparent"
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <input
-                            type="checkbox"
+                            type={formClass === "Private Class" ? "radio" : "checkbox"}
+                            name={formClass === "Private Class" ? "privateStudentRadio" : undefined}
                             checked={isChecked}
                             onChange={() => toggleStudentSelection(student.id)}
-                            className="rounded text-cyan-600 focus:ring-cyan-500 h-4 w-4 cursor-pointer"
+                            className="text-cyan-600 focus:ring-cyan-500 h-4 w-4 cursor-pointer shrink-0"
                           />
-                          <span>{student.name}</span>
+                          <span className="truncate">{student.name}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400 font-medium">
+                        <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
                           {student.class}
                         </span>
                       </label>
@@ -541,9 +688,18 @@ export default function JadwalTab({
                   <input
                     type="text"
                     value={customStudentInput}
-                    onChange={(e) => setCustomStudentInput(e.target.value)}
-                    placeholder="Atau ketik nama siswa baru (misal: Andre)"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white"
+                    onChange={(e) => {
+                      setCustomStudentInput(e.target.value);
+                      if (formClass === "Private Class" && e.target.value.trim()) {
+                        setSelectedStudentIds([]);
+                      }
+                    }}
+                    placeholder={
+                      formClass === "Private Class"
+                        ? "Atau ketik 1 nama siswa privat baru..."
+                        : "Atau ketik nama siswa baru (misal: Andre)..."
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
                   />
                 </div>
               </div>
@@ -566,9 +722,14 @@ export default function JadwalTab({
               <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer"
+                  disabled={Boolean(conflictingSchedule)}
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${
+                    conflictingSchedule
+                      ? "bg-slate-400 cursor-not-allowed opacity-75"
+                      : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
+                  }`}
                 >
-                  Simpan & Tambahkan Jadwal
+                  {conflictingSchedule ? "⚠️ Jadwal Bentrok (Perbaiki Waktu)" : "Simpan & Tambahkan Jadwal"}
                 </button>
                 <button
                   type="button"

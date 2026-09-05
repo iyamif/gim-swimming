@@ -125,7 +125,7 @@ export default function ParentBody({
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase">Sesi Berikutnya</p>
               <p className="text-xs font-black text-slate-800 mt-0.5">Sabtu, 15:00 - 17:00 WIB</p>
-              <p className="text-[10px] text-slate-500 font-medium">Kolam A (Beginner Area)</p>
+              <p className="text-[10px] text-slate-500 font-medium">Kolam Nalendra</p>
             </div>
             <span className="text-xl">⏱️</span>
           </div>

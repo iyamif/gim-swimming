@@ -21,7 +21,7 @@ import {
 import { Student, Coach, Invoice, ScheduleSession, NavItem } from "../../components/apps/types";
 import ToastNotification from "../../components/apps/ToastNotification";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
-import { ParentHeader } from "../../components/apps/AppsHeader";
+import { ParentHeader, AdminHeader } from "../../components/apps/AppsHeader";
 import { DesktopSidebar, MobileBottomNav } from "../../components/apps/NavigationBar";
 import ParentBody from "../../components/apps/body/ParentBody";
 import AppsBody from "../../components/apps/body/AppsBody";
@@ -204,50 +204,52 @@ export default function AppsPage() {
     const role = localStorage.getItem("gim_swimming_role");
     const token = localStorage.getItem("gim_swimming_token");
 
-    if (user && role && token) {
+    if (user && role) {
       setSessionUser(user);
-      setSessionRole(role.toLowerCase());
+      setSessionRole(role.toLowerCase().trim());
+      loadAllData();
 
-      // Verify token with backend & synchronize avatar from database
-      fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error("Sesi tidak valid");
-          }
-          return res.json();
+      // Verify token with backend & synchronize avatar from database if token exists
+      if (token) {
+        fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
         })
-        .then((resp) => {
-          const userData = resp?.data?.user || resp?.data;
-          if (userData) {
-            const uname = userData.username || user;
-            if (userData.avatar !== undefined) {
-              if (userData.avatar) {
-                localStorage.setItem(`gim_avatar_${uname}`, userData.avatar);
-              } else {
-                localStorage.removeItem(`gim_avatar_${uname}`);
-              }
-              window.dispatchEvent(new Event("avatar_updated"));
+          .then((res) => {
+            if (!res.ok) {
+              console.warn("Session check returned status:", res.status);
+              return null;
             }
-          }
-          loadAllData();
-        })
-        .catch((err) => {
-          console.warn("Auth token check failed, logging out:", err);
-          handleLogout();
-        });
-    } else {
-      router.push("/");
+            return res.json();
+          })
+          .then((resp) => {
+            if (!resp) return;
+            const userData = resp?.data?.user || resp?.data;
+            if (userData) {
+              const uname = userData.username || user;
+              if (userData.avatar !== undefined) {
+                if (userData.avatar) {
+                  localStorage.setItem(`gim_avatar_${uname}`, userData.avatar);
+                } else {
+                  localStorage.removeItem(`gim_avatar_${uname}`);
+                }
+                window.dispatchEvent(new Event("avatar_updated"));
+              }
+            }
+          })
+          .catch((err) => {
+            console.warn("Backend auth token check warning:", err);
+          });
+      }
     }
-  }, [router, loadAllData]);
+  }, [loadAllData]);
 
   // RBAC Access Helper
   const hasAccess = (tabName: string): boolean => {
-    if (!sessionRole) return false;
+    const normalizedRole = (sessionRole || "").toLowerCase().trim();
+    if (!normalizedRole) return false;
 
     const accessMatrix: Record<string, string[]> = {
       dashboard: ["admin", "pelatih"],
@@ -258,7 +260,7 @@ export default function AppsPage() {
       create: ["admin"],
     };
 
-    return accessMatrix[tabName]?.includes(sessionRole) || false;
+    return accessMatrix[tabName]?.includes(normalizedRole) || false;
   };
 
   // Dynamic Navigation Items with mobile-friendly short labels (Admin & Pelatih)
@@ -407,7 +409,30 @@ export default function AppsPage() {
     }
   };
 
-  if (!mounted || !sessionUser) return null;
+  if (!mounted || !sessionUser) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 text-slate-800 font-sans">
+        <div className="flex flex-col items-center justify-center space-y-4 max-w-sm text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.png"
+            alt="GIM Swimming Logo"
+            className="h-20 w-20 object-contain animate-float-movement drop-shadow-md"
+          />
+          <div>
+            <h2 className="text-base font-black text-slate-900 tracking-tight">GIM SWIMMING</h2>
+            <p className="text-xs text-slate-400 mt-1">Memuat data aplikasi...</p>
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-2 text-xs font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-4 py-2 rounded-xl transition cursor-pointer"
+          >
+            ← Kembali ke Beranda
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ==========================================
   // ORANG TUA (PARENT) VIEW: All-in-One Dashboard Page
@@ -481,12 +506,16 @@ export default function AppsPage() {
     );
   }
 
+  // Active Tab Title for Desktop Header
+  const currentTabItem = navItems.find((item) => item.id === activeTab);
+  const currentTabTitle = currentTabItem?.fullLabel || currentTabItem?.label || "Dashboard";
+
   // ==========================================
   // ADMIN & PELATIH (COACH) VIEW: Sidebar layout
   // ==========================================
   return (
     <div
-      className={`flex h-screen h-[100dvh] ${
+      className={`flex h-screen h-[100dvh] w-full ${
         activeTab === "dashboard" ? "bg-[#1d4ed8]" : "bg-[#f8fafc]"
       } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
     >
@@ -511,27 +540,43 @@ export default function AppsPage() {
       />
 
       <main
-        className={`flex-1 flex flex-col overflow-hidden ${
+        className={`flex-1 flex flex-col h-full overflow-hidden min-w-0 ${
           activeTab === "dashboard" ? "bg-[#1d4ed8]" : "bg-[#f8fafc]"
         } md:bg-[#f8fafc]`}
       >
-        <AppsBody
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          sessionUser={sessionUser}
-          sessionRole={sessionRole}
-          students={students}
-          coaches={coaches}
-          invoices={invoices}
-          schedules={schedules}
-          onRefresh={handlePullRefresh}
-          onAddSchedule={handleAddSchedule}
-          onDeleteSchedule={handleDeleteSchedule}
-          onVerifyPayment={handleAdminVerifyPayment}
-          onSubmitAttendance={handleAbsensiSubmit}
-          onAddStudent={handleAddSiswaSubmit}
-          onAddCoach={handleAddPelatihSubmit}
-        />
+        {/* Desktop Admin Header for non-dashboard tabs */}
+        {activeTab !== "dashboard" && (
+          <div className="hidden md:block shrink-0">
+            <AdminHeader
+              title={currentTabTitle}
+              sessionRole={sessionRole}
+              showInstallBtn={showInstallBtn}
+              onInstallClick={handleInstallClick}
+              onLogout={handleLogout}
+              onRefresh={handlePullRefresh}
+            />
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col h-full overflow-hidden min-h-0 min-w-0">
+          <AppsBody
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            sessionUser={sessionUser}
+            sessionRole={sessionRole}
+            students={students}
+            coaches={coaches}
+            invoices={invoices}
+            schedules={schedules}
+            onRefresh={handlePullRefresh}
+            onAddSchedule={handleAddSchedule}
+            onDeleteSchedule={handleDeleteSchedule}
+            onVerifyPayment={handleAdminVerifyPayment}
+            onSubmitAttendance={handleAbsensiSubmit}
+            onAddStudent={handleAddSiswaSubmit}
+            onAddCoach={handleAddPelatihSubmit}
+          />
+        </div>
       </main>
 
       <IOSInstallModal

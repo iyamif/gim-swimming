@@ -13,7 +13,7 @@ export default function AbsensiTab({
   students,
   onSubmitAttendance,
 }: AbsensiTabProps) {
-  const [absensiClass, setAbsensiClass] = useState("Beginner");
+  const [absensiClass, setAbsensiClass] = useState("Prestasi");
   const [todayString, setTodayString] = useState("");
   const [formAbsensi, setFormAbsensi] = useState<
     Record<string, "Hadir" | "Sakit" | "Izin" | "Alpa">
@@ -58,7 +58,7 @@ export default function AbsensiTab({
                 }}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none transition focus:border-rose-400 focus:bg-white cursor-pointer"
               >
-                <option value="Beginner">Beginner Class</option>
+                <option value="Prestasi">Prestasi</option>
                 <option value="Kids Swimming">Kids Swimming Class</option>
                 <option value="Private Class">Private Class (1-on-1)</option>
               </select>

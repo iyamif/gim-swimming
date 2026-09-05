@@ -110,7 +110,15 @@ export function DesktopSidebar({
 
         {/* Sidebar Nav Items */}
         <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
-          {navItems.map((item) => {
+          {(navItems && navItems.length > 0
+            ? navItems
+            : [
+                { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview", icon: "📊" },
+                { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
+                { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
+                { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
+              ]
+          ).map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button

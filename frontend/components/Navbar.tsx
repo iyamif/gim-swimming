@@ -62,25 +62,25 @@ export default function Navbar() {
         <nav className="hidden items-center gap-8 md:flex">
           <a
             href="#tentang"
-            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-505"
+            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-600"
           >
             Tentang
           </a>
           <a
             href="#program"
-            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-505"
+            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-600"
           >
             Program
           </a>
           <a
             href="#keunggulan"
-            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-505"
+            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-600"
           >
             Keunggulan
           </a>
           <a
             href="#testimoni"
-            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-505"
+            className="text-sm font-semibold text-slate-600 transition hover:text-cyan-600"
           >
             Testimoni
           </a>
@@ -101,7 +101,7 @@ export default function Navbar() {
               </a>
               <button
                 onClick={handleLogout}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-650 hover:text-red-500 hover:border-red-200 transition cursor-pointer"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-red-500 hover:border-red-200 transition cursor-pointer"
               >
                 Keluar
               </button>
@@ -203,7 +203,7 @@ export default function Navbar() {
                 </a>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left text-sm font-bold text-red-500 hover:text-red-650 transition cursor-pointer"
+                  className="w-full text-left text-sm font-bold text-red-500 hover:text-red-600 py-1.5 transition cursor-pointer"
                 >
                   Keluar
                 </button>
