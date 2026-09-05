@@ -483,9 +483,9 @@ export default function DashboardOverviewTab({
                     <h3 className="text-xs sm:text-sm font-black text-slate-900">
                       {isCoachRole ? "Jadwal Melatih" : "Jadwal Latihan"}
                     </h3>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100/80">
+                    {/* <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100/80">
                       {calendarViewMode === "week" ? "Mingguan" : "Bulanan"}
-                    </span>
+                    </span> */}
                   </div>
                   <p className="text-[10px] text-slate-400 font-medium">
                     {activeCalendarLabel}
