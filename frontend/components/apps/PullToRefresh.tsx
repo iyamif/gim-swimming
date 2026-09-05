@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -8,14 +8,16 @@ interface PullToRefreshProps {
   className?: string;
   pullThreshold?: number;
   maxPullDistance?: number;
+  disabled?: boolean;
 }
 
 export default function PullToRefresh({
   onRefresh,
   children,
   className = "",
-  pullThreshold = 65,
-  maxPullDistance = 110,
+  pullThreshold = 85,
+  maxPullDistance = 120,
+  disabled = false,
 }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -26,19 +28,47 @@ export default function PullToRefresh({
   const startYRef = useRef(0);
   const startXRef = useRef(0);
   const isPullingRef = useRef(false);
+  const isBlockedRef = useRef(false);
+
+  // Helper: Check if any modal dialog / popup overlay is currently active in the document
+  const isModalActive = useCallback(() => {
+    if (typeof document === "undefined") return false;
+    // Look for fixed overlays that are not the pull-to-refresh loader itself
+    const activeModals = document.querySelectorAll(
+      ".fixed.inset-0:not([data-ptr-loader]), [role='dialog'], [aria-modal='true']"
+    );
+    return activeModals.length > 0;
+  }, []);
+
+  // Helper: Check if the touch target originated from inside a form, input, or modal element
+  const isTargetInsideModalOrForm = useCallback((target: EventTarget | null) => {
+    if (!target || !(target instanceof HTMLElement)) return false;
+    return Boolean(
+      target.closest(
+        ".fixed, [role='dialog'], [aria-modal='true'], form, input, textarea, select, button, label, [data-prevent-pull='true']"
+      )
+    );
+  }, []);
 
   // Check if scroll is at the very top of container or window
   const isAtTop = useCallback(() => {
-    if (!containerRef.current) return true;
-    const element = containerRef.current;
-
-    // Check element scroll or window scroll
-    const scrollTop = element.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
-    return scrollTop <= 1;
+    if (typeof window === "undefined") return true;
+    const windowScrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const containerScrollTop = containerRef.current ? containerRef.current.scrollTop : 0;
+    return windowScrollTop <= 1 && containerScrollTop <= 1;
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isRefreshing) return;
+    if (isRefreshing || disabled) return;
+
+    // Completely disable pull-to-refresh if a modal is open or touch started on form/modal
+    if (isModalActive() || isTargetInsideModalOrForm(e.target)) {
+      isBlockedRef.current = true;
+      isPullingRef.current = false;
+      return;
+    }
+
+    isBlockedRef.current = false;
     if (isAtTop()) {
       startYRef.current = e.touches[0].clientY;
       startXRef.current = e.touches[0].clientX;
@@ -47,9 +77,18 @@ export default function PullToRefresh({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (isRefreshing) return;
+    if (isRefreshing || disabled || isBlockedRef.current) return;
+
+    // Double-check modal state during move
+    if (isModalActive()) {
+      if (pullDistance > 0) setPullDistance(0);
+      isPullingRef.current = false;
+      return;
+    }
+
     if (!isAtTop()) {
       if (pullDistance > 0) setPullDistance(0);
+      isPullingRef.current = false;
       return;
     }
 
@@ -58,19 +97,23 @@ export default function PullToRefresh({
     const dy = currentY - startYRef.current;
     const dx = Math.abs(currentX - startXRef.current);
 
-    // Only activate if dragging downward and mostly vertical
-    if (dy > 8 && dy > dx) {
+    // Intentional pull threshold: dy must exceed 28px and be primarily vertical (dy > dx * 1.5)
+    if (dy > 28 && dy > dx * 1.5) {
       isPullingRef.current = true;
       setIsDragging(true);
 
-      // Dampened pull resistance curve
-      const resistance = Math.min(maxPullDistance, Math.pow(dy, 0.82) * 1.6);
+      // Smooth, natural physical resistance
+      const rawDistance = dy - 28;
+      const resistance = Math.min(maxPullDistance, rawDistance * 0.48);
       setPullDistance(resistance);
 
       // Prevent native overscroll when dragging down
-      if (e.cancelable && dy > 10) {
+      if (e.cancelable && dy > 30) {
         e.preventDefault();
       }
+    } else if (dy <= 0) {
+      if (pullDistance > 0) setPullDistance(0);
+      isPullingRef.current = false;
     }
   };
 
@@ -104,7 +147,11 @@ export default function PullToRefresh({
   };
 
   const handleTouchEnd = async () => {
-    if (!isPullingRef.current || isRefreshing) return;
+    if (isBlockedRef.current || !isPullingRef.current || isRefreshing || disabled) {
+      isBlockedRef.current = false;
+      return;
+    }
+
     isPullingRef.current = false;
     setIsDragging(false);
 
@@ -138,7 +185,7 @@ export default function PullToRefresh({
       >
         <div
           style={{
-            opacity: pullDistance > 10 ? Math.min(1, pullDistance / 35) : 0,
+            opacity: pullDistance > 15 ? Math.min(1, (pullDistance - 10) / 30) : 0,
             transform: `scale(${Math.min(1, 0.75 + progress * 0.25)})`,
             transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
@@ -183,11 +230,13 @@ export default function PullToRefresh({
         </div>
       </div>
 
-      {/* Centered Floating Loading Screen Overlay (Center Atas, Bawah, Kiri, Kanan tanpa background putih) */}
+      {/* Centered Floating Loading Screen Overlay with data-ptr-loader tag */}
       {isRefreshing && !isSuccess && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
+        <div
+          data-ptr-loader="true"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn"
+        >
           <div className="flex flex-col items-center justify-center space-y-3 scale-100">
-            {/* Floating naik turun kanan kiri app/icon.png */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"

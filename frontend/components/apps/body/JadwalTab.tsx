@@ -492,11 +492,11 @@ export default function JadwalTab({
                   min={todayStr}
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition"
                 />
               </div>
 
-              {/* 2. Time Start & Time End Range (Anti-Overlap Responsive Design) */}
+              {/* 2. Time Start & Time End Range (Side-by-Side 2 Columns) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-slate-700">
@@ -513,9 +513,9 @@ export default function JadwalTab({
                   </span>
                 </div>
 
-                {/* Responsive 2-column or 1-column layout without clipping */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 focus-within:border-cyan-500 focus-within:bg-white transition min-w-0">
+                {/* Sampingan 2 Kolom di Semua Ukuran Layar */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="p-2.5 sm:p-3 rounded-2xl bg-slate-50 border border-slate-200/80 focus-within:border-cyan-500 focus-within:bg-white transition min-w-0">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                       🕒 Jam Mulai
                     </span>
@@ -528,7 +528,7 @@ export default function JadwalTab({
                     />
                   </div>
 
-                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 focus-within:border-cyan-500 focus-within:bg-white transition min-w-0">
+                  <div className="p-2.5 sm:p-3 rounded-2xl bg-slate-50 border border-slate-200/80 focus-within:border-cyan-500 focus-within:bg-white transition min-w-0">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                       🏁 Jam Selesai
                     </span>
@@ -560,27 +560,27 @@ export default function JadwalTab({
                 </div>
               </div>
 
-              {/* 3. Program Kelas & Kolam */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* 3. Program Kelas & Kolam (Side-by-Side 2 Kolom) */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold text-slate-700">
                       Program Kelas
                     </label>
                     {formClass === "Private Class" ? (
-                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
                         1 Siswa
                       </span>
                     ) : (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                        Multi Siswa
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                        Multi
                       </span>
                     )}
                   </div>
                   <select
                     value={formClass}
                     onChange={(e) => handleClassChange(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
                     <option value="Prestasi">Prestasi</option>
                     <option value="Private Class">Private Class (1-on-1)</option>
@@ -590,7 +590,7 @@ export default function JadwalTab({
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="block text-xs font-bold text-slate-700 truncate">
                       Lokasi Kolam
                     </label>
                     <span className="text-[9px] font-medium text-slate-400">
@@ -600,7 +600,7 @@ export default function JadwalTab({
                   <select
                     value={formPoolArea}
                     onChange={(e) => setFormPoolArea(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
                     <option value="Nalendra">Nalendra</option>
                     <option value="312 Wera">312 Wera</option>
@@ -616,7 +616,7 @@ export default function JadwalTab({
                 <select
                   value={formCoachId}
                   onChange={(e) => handleCoachChange(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer mb-1.5"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer mb-1.5"
                 >
                   {coaches.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -633,7 +633,7 @@ export default function JadwalTab({
                     value={formCoachName}
                     onChange={(e) => setFormCoachName(e.target.value)}
                     placeholder="Ketik nama pelatih (misal: Coach Rendi)"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition mt-1.5"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition mt-1.5"
                   />
                 )}
               </div>
@@ -699,7 +699,7 @@ export default function JadwalTab({
                         ? "Atau ketik 1 nama siswa privat baru..."
                         : "Atau ketik nama siswa baru (misal: Andre)..."
                     }
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
                   />
                 </div>
               </div>
@@ -714,7 +714,7 @@ export default function JadwalTab({
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
                   placeholder="Contoh: Fokus evaluasi teknik meluncur & gaya dada"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
                 />
               </div>
 
