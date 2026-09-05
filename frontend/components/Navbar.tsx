@@ -38,8 +38,8 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-100 bg-white/80 backdrop-blur-md">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-100 bg-white/90 backdrop-blur-md pt-[max(0.35rem,env(safe-area-inset-top,0px))] transition-all">
+      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand / Logo */}
         <a href="#" className="flex items-center gap-2 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}

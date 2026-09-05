@@ -2,7 +2,7 @@ import HeroCarousel from "./HeroCarousel";
 
 export default function Hero() {
   return (
-    <section className="relative min-h-screen bg-white pt-20">
+    <section className="relative min-h-screen bg-white pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pt-28">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_40%,rgba(37,99,235,0.08),transparent_40%)]" />
 
       <div className="relative mx-auto grid min-h-[calc(100vh-80px)] max-w-7xl items-center gap-12 px-6 pt-2 pb-16 lg:pt-6 lg:pb-20 lg:grid-cols-2 lg:px-8">
