@@ -31,7 +31,7 @@ export default function PullToRefresh({
   const isAtTop = useCallback(() => {
     if (!containerRef.current) return true;
     const element = containerRef.current;
-    
+
     // Check element scroll or window scroll
     const scrollTop = element.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
     return scrollTop <= 1;

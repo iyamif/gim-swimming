@@ -4,8 +4,8 @@
   "description": "GIM Swimming Academy Portal",
   "start_url": "/apps",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#22d3ee",
+  "background_color": "#1d4ed8",
+  "theme_color": "#1d4ed8",
   "orientation": "portrait",
   "icons": [
     {

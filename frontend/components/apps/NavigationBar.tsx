@@ -203,7 +203,7 @@ export function MobileBottomNav({
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 h-20 bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-3 md:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 left-0 right-0 z-50 h-[calc(4.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-3 md:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.06)]">
         {/* 1. Home */}
         <button
           onClick={() => setActiveTab("dashboard")}

@@ -321,22 +321,26 @@ export default function DashboardOverviewTab({
 
   const firstWeekMonth = monthNames[weekDays[0].getMonth()];
   const lastWeekMonth = monthNames[weekDays[6].getMonth()];
-  const weekMonthLabel = firstWeekMonth === lastWeekMonth 
+  const weekMonthLabel = firstWeekMonth === lastWeekMonth
     ? `${firstWeekMonth} ${weekDays[0].getFullYear()}`
     : `${firstWeekMonth} - ${lastWeekMonth} ${weekDays[6].getFullYear()}`;
 
   return (
-    <div className="space-y-4 pb-12 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6">
+    <div className="space-y-4 pb-12 bg-[#f8fafc] min-h-full">
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (FULL WIDTH)
           ========================================== */}
-      <div className="relative w-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 text-white pt-6 pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
-        {/* Concentric Watermark Rings in Background */}
-        <div className="absolute -top-12 -right-12 h-64 w-64 rounded-full border border-white/10 pointer-events-none" />
-        <div className="absolute -top-6 -right-6 h-48 w-48 rounded-full border border-white/15 pointer-events-none" />
-        <div className="absolute top-0 right-0 h-32 w-32 rounded-full border border-white/20 pointer-events-none" />
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+        {/* Clean Subtle Concentric Line Pattern */}
+        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
+        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
+        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
 
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+        {/* Soft Ambient Depth Glow at Bottom */}
+        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
+
+        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-10">
           {/* User Profile Capsule */}
           <div className="flex items-center gap-3.5">
             <button
@@ -499,21 +503,19 @@ export default function DashboardOverviewTab({
                   <button
                     key={dateObj.toISOString()}
                     onClick={() => handleDateClick(dateObj)}
-                    className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${
-                      today
-                        ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
-                        : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
-                    }`}
+                    className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
+                      ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
+                      : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
+                      }`}
                   >
                     {/* Day Name */}
                     <span
-                      className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${
-                        today
-                          ? "text-cyan-100"
-                          : dayOfWeek === 0 || dayOfWeek === 6
+                      className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${today
+                        ? "text-cyan-100"
+                        : dayOfWeek === 0 || dayOfWeek === 6
                           ? "text-cyan-600"
                           : "text-slate-400"
-                      }`}
+                        }`}
                     >
                       {dayName}
                     </span>
@@ -580,15 +582,13 @@ export default function DashboardOverviewTab({
           <div className="flex items-center justify-center gap-1.5 pt-2">
             <button
               onClick={() => setActivePageIndex(0)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                activePageIndex === 0 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
-              }`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${activePageIndex === 0 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
+                }`}
             />
             <button
               onClick={() => setActivePageIndex(1)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                activePageIndex === 1 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
-              }`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${activePageIndex === 1 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
+                }`}
             />
           </div>
         </div>

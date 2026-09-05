@@ -146,6 +146,31 @@ export default function AppsPage() {
     };
   }, []);
 
+  // Dynamic theme-color / status bar sync per tab / role
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const targetColor =
+      sessionRole === "orang tua"
+        ? "#ffffff"
+        : activeTab === "dashboard"
+        ? "#1d4ed8"
+        : "#f8fafc";
+
+    const existingMetas = document.querySelectorAll('meta[name="theme-color"]');
+    if (existingMetas.length > 0) {
+      existingMetas.forEach((meta) => meta.setAttribute("content", targetColor));
+    } else {
+      const newMeta = document.createElement("meta");
+      newMeta.name = "theme-color";
+      newMeta.content = targetColor;
+      document.head.appendChild(newMeta);
+    }
+
+    const msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+    if (msMeta) msMeta.setAttribute("content", targetColor);
+  }, [activeTab, sessionRole]);
+
   const handleInstallClick = async () => {
     if (isIOS) {
       setShowIOSPrompt(true);
@@ -433,7 +458,11 @@ export default function AppsPage() {
   // ADMIN & PELATIH (COACH) VIEW: Sidebar layout
   // ==========================================
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden text-slate-800 font-sans">
+    <div
+      className={`flex h-screen h-[100dvh] ${
+        activeTab === "dashboard" ? "bg-[#1d4ed8]" : "bg-[#f8fafc]"
+      } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
+    >
       <ToastNotification message={toastMessage} type={toastType} />
 
       <DesktopSidebar
@@ -454,7 +483,11 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main
+        className={`flex-1 flex flex-col overflow-hidden ${
+          activeTab === "dashboard" ? "bg-[#1d4ed8]" : "bg-[#f8fafc]"
+        } md:bg-[#f8fafc]`}
+      >
         <AppsBody
           activeTab={activeTab}
           setActiveTab={setActiveTab}

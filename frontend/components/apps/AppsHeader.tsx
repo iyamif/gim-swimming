@@ -53,7 +53,7 @@ export function ParentHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex items-center justify-between shadow-sm shadow-slate-100/50">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4 flex items-center justify-between shadow-sm shadow-slate-100/50">
         <div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
             Dashboard Wali Murid
