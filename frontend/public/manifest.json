@@ -1,8 +1,10 @@
 {
   "name": "GIM Swimming",
   "short_name": "GIM Swim",
-  "description": "GIM Swimming Academy Portal",
+  "id": "/apps",
   "start_url": "/apps",
+  "scope": "/",
+  "description": "GIM Swimming Academy Portal",
   "display": "standalone",
   "background_color": "#1d4ed8",
   "theme_color": "#1d4ed8",
@@ -12,7 +14,13 @@
       "src": "/icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

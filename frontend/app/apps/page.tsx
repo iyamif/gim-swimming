@@ -92,11 +92,19 @@ export default function AppsPage() {
     }
   }, []);
 
-  // Pull-to-refresh handler: reloads all database data and profile avatar
+  // Pull-to-refresh handler: reloads all database data and profile avatar + checks SW updates
   const handlePullRefresh = async () => {
     const startTime = Date.now();
     try {
       setIsRefreshing(true);
+
+      // Check Service Worker for new versions in the background
+      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg) reg.update().catch(() => {});
+        });
+      }
+
       await Promise.all([
         loadAllData(),
         sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
@@ -119,12 +127,58 @@ export default function AppsPage() {
   };
 
   useEffect(() => {
-    // Register Service Worker in the browser
+    // Register Service Worker in the browser with auto-update handling
+    let handleControllerChange: (() => void) | null = null;
+    let handleVisibilityChange: (() => void) | null = null;
+
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((reg) => console.log("PWA Service Worker registered:", reg.scope))
-        .catch((err) => console.warn("PWA Service Worker registration failed:", err));
+        .then((reg) => {
+          console.log("[PWA] Service Worker registered:", reg.scope);
+
+          // Proactively check for updates immediately on launch
+          reg.update().catch((err) => console.log("[PWA] SW update check:", err));
+
+          // Listen for new worker installation and force activation
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (
+                  installingWorker.state === "installed" &&
+                  navigator.serviceWorker.controller
+                ) {
+                  console.log("[PWA] New update installed -> requesting skip waiting");
+                  installingWorker.postMessage({ type: "SKIP_WAITING" });
+                }
+              };
+            }
+          };
+        })
+        .catch((err) => console.warn("[PWA] Service Worker registration failed:", err));
+
+      // Reload smoothly when new service worker takes over control
+      let refreshing = false;
+      handleControllerChange = () => {
+        if (!refreshing) {
+          refreshing = true;
+          console.log("[PWA] New controller active -> auto refreshing to latest version");
+          window.location.reload();
+        }
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+
+      // Check for updates when app is resumed from background or screen unlocked
+      handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          navigator.serviceWorker.getRegistration().then((reg) => {
+            if (reg) reg.update().catch(() => {});
+          });
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      window.addEventListener("focus", handleVisibilityChange);
     }
 
     // Detect iOS devices
@@ -156,6 +210,13 @@ export default function AppsPage() {
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      if (handleControllerChange && "serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      }
+      if (handleVisibilityChange) {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        window.removeEventListener("focus", handleVisibilityChange);
+      }
     };
   }, []);
 
