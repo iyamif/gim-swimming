@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { API_BASE_URL } from "../lib/api";
+import { API_BASE_URL, getApiBaseUrl } from "../lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -90,7 +90,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -203,7 +203,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         stopCamera();
 
         // Scan success, authenticate behind the scenes with PostgreSQL backend using default password
-        fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

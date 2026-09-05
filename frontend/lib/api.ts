@@ -1,9 +1,31 @@
 import { Student, Coach, Invoice, ScheduleSession } from "../components/apps/types";
 
 // Central API configuration for frontend-backend communication
+export function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    const configuredUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    try {
+      const url = new URL(configuredUrl);
+      // If configured as localhost/127.0.0.1 but accessed from another device (e.g. mobile on LAN):
+      if (
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1" &&
+        window.location.hostname !== ""
+      ) {
+        return `${url.protocol}//${window.location.hostname}:${url.port || "8080"}`;
+      }
+      return configuredUrl;
+    } catch {
+      return configuredUrl;
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+}
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// Helper for auth headers if needed
+// Helper for auth headers
 function getHeaders(): HeadersInit {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -21,7 +43,7 @@ function getHeaders(): HeadersInit {
 
 export async function fetchStudents(): Promise<Student[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/students`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/students`, {
       headers: getHeaders(),
       cache: "no-store",
     });
@@ -53,7 +75,7 @@ export async function createStudent(payload: {
   age?: string;
 }): Promise<Student | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/students`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/students`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -82,7 +104,7 @@ export async function submitBulkAttendance(payload: {
   attendanceMap: Record<string, "Hadir" | "Sakit" | "Izin" | "Alpa">;
 }): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/students/attendance`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/students/attendance`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -99,7 +121,7 @@ export async function submitBulkAttendance(payload: {
 
 export async function fetchCoaches(): Promise<Coach[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/coaches`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/coaches`, {
       headers: getHeaders(),
       cache: "no-store",
     });
@@ -127,7 +149,7 @@ export async function createCoach(payload: {
   class: string;
 }): Promise<Coach | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/coaches`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/coaches`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -153,7 +175,7 @@ export async function createCoach(payload: {
 
 export async function fetchSchedules(): Promise<ScheduleSession[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/schedules`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/schedules`, {
       headers: getHeaders(),
       cache: "no-store",
     });
@@ -183,7 +205,7 @@ export async function fetchSchedules(): Promise<ScheduleSession[]> {
 
 export async function createSchedule(payload: Omit<ScheduleSession, "id">): Promise<ScheduleSession | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/schedules`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/schedules`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -215,7 +237,7 @@ export async function createSchedule(payload: Omit<ScheduleSession, "id">): Prom
 
 export async function deleteSchedule(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/schedules/${id}`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${id}`, {
       method: "DELETE",
       headers: getHeaders(),
     });
@@ -231,7 +253,7 @@ export async function deleteSchedule(id: string): Promise<boolean> {
 
 export async function fetchInvoices(): Promise<Invoice[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/invoices`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/invoices`, {
       headers: getHeaders(),
       cache: "no-store",
     });
@@ -254,7 +276,7 @@ export async function fetchInvoices(): Promise<Invoice[]> {
 
 export async function verifyInvoicePayment(id: string, confirm: boolean): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/invoices/${id}/verify`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/invoices/${id}/verify`, {
       method: "PATCH",
       headers: getHeaders(),
       body: JSON.stringify({ confirm }),
@@ -269,7 +291,7 @@ export async function verifyInvoicePayment(id: string, confirm: boolean): Promis
 
 export async function uploadInvoiceReceipt(id: string, receiptUrl: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/invoices/${id}/receipt`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/invoices/${id}/receipt`, {
       method: "PATCH",
       headers: getHeaders(),
       body: JSON.stringify({ receiptUrl }),
@@ -295,6 +317,57 @@ export function isImageAvatar(avatar?: string | null): boolean {
   );
 }
 
+export function getAvatarImageUrl(avatar?: string | null): string {
+  if (!avatar) return "";
+  if (
+    avatar.startsWith("data:image") ||
+    avatar.startsWith("http://") ||
+    avatar.startsWith("https://")
+  ) {
+    return avatar;
+  }
+  const base = getApiBaseUrl();
+  if (avatar.startsWith("/")) {
+    return `${base}${avatar}`;
+  }
+  return `${base}/${avatar}`;
+}
+
+export async function fetchCurrentUser(): Promise<any> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data?.user || json.data || null;
+  } catch (err) {
+    console.error("fetchCurrentUser error:", err);
+    return null;
+  }
+}
+
+export async function syncCurrentUserAvatar(username: string): Promise<string> {
+  try {
+    const user = await fetchCurrentUser();
+    if (user && user.avatar !== undefined) {
+      const av = user.avatar || "";
+      if (av) {
+        localStorage.setItem(`gim_avatar_${username}`, av);
+      } else {
+        localStorage.removeItem(`gim_avatar_${username}`);
+      }
+      window.dispatchEvent(new Event("avatar_updated"));
+      return av;
+    }
+    return "";
+  } catch (err) {
+    console.error("syncCurrentUserAvatar error:", err);
+    return "";
+  }
+}
+
 export async function uploadAvatarFile(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("avatar", file);
@@ -307,7 +380,7 @@ export async function uploadAvatarFile(file: File): Promise<string> {
     }
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/v1/auth/avatar`, {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/avatar`, {
     method: "POST",
     headers,
     body: formData,
@@ -323,7 +396,7 @@ export async function uploadAvatarFile(file: File): Promise<string> {
 }
 
 export async function updateAvatarPreset(avatar: string): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/api/v1/auth/avatar`, {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/avatar`, {
     method: "PATCH",
     headers: getHeaders(),
     body: JSON.stringify({ avatar }),
@@ -337,4 +410,3 @@ export async function updateAvatarPreset(avatar: string): Promise<string> {
   const data = await res.json();
   return data.avatar;
 }
-

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { NavItem } from "./types";
 import EditProfileModal from "./EditProfileModal";
-import { isImageAvatar } from "../../lib/api";
+import { isImageAvatar, getAvatarImageUrl } from "../../lib/api";
 
 interface NavigationBarProps {
   navItems: NavItem[];
@@ -68,7 +68,7 @@ export function DesktopSidebar({
                 {isCustomImage && userAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={userAvatar}
+                    src={getAvatarImageUrl(userAvatar)}
                     alt={sessionUser}
                     className="h-full w-full object-cover"
                   />
@@ -265,7 +265,7 @@ export function MobileBottomNav({
             {isCustomImage && userAvatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={userAvatar}
+                src={getAvatarImageUrl(userAvatar)}
                 alt={sessionUser || "User"}
                 className="h-full w-full object-cover"
               />

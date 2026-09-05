@@ -1,6 +1,6 @@
 import React from "react";
 import EditProfileModal from "./EditProfileModal";
-import { isImageAvatar } from "../../lib/api";
+import { isImageAvatar, getAvatarImageUrl } from "../../lib/api";
 
 interface ParentHeaderProps {
   sessionUser?: string;
@@ -58,7 +58,7 @@ export function ParentHeader({
                 {isCustomImage && userAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={userAvatar}
+                    src={getAvatarImageUrl(userAvatar)}
                     alt={sessionUser}
                     className="h-full w-full object-cover"
                   />

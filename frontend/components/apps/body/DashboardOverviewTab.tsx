@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Student, Coach, Invoice, ScheduleSession } from "../types";
 import EditProfileModal from "../EditProfileModal";
-import { isImageAvatar } from "../../../lib/api";
+import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface DashboardOverviewTabProps {
   sessionUser: string;
@@ -348,7 +348,7 @@ export default function DashboardOverviewTab({
                 {isCustomImage && userAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={userAvatar}
+                    src={getAvatarImageUrl(userAvatar)}
                     alt={sessionUser}
                     className="h-full w-full object-cover"
                   />
@@ -610,7 +610,7 @@ export default function DashboardOverviewTab({
               {isCustomImage && userAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={userAvatar}
+                  src={getAvatarImageUrl(userAvatar)}
                   alt={sessionUser}
                   className="h-full w-full object-cover"
                 />

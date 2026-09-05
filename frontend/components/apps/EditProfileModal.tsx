@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { uploadAvatarFile, updateAvatarPreset, isImageAvatar } from "../../lib/api";
+import { uploadAvatarFile, updateAvatarPreset, isImageAvatar, getAvatarImageUrl } from "../../lib/api";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -173,7 +173,7 @@ export default function EditProfileModal({
               {isCustomImage && previewAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={previewAvatar}
+                  src={getAvatarImageUrl(previewAvatar)}
                   alt={sessionUser}
                   className="h-full w-full object-cover"
                 />

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   API_BASE_URL,
+  getApiBaseUrl,
   fetchStudents,
   createStudent,
   submitBulkAttendance,
@@ -153,11 +154,12 @@ export default function AppsPage() {
       setSessionUser(user);
       setSessionRole(role.toLowerCase());
 
-      // Verify token with backend
-      fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+      // Verify token with backend & synchronize avatar from database
+      fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cache: "no-store",
       })
         .then((res) => {
           if (!res.ok) {
@@ -166,9 +168,17 @@ export default function AppsPage() {
           return res.json();
         })
         .then((resp) => {
-          if (resp?.data?.user?.avatar !== undefined) {
-            localStorage.setItem(`gim_avatar_${resp.data.user.username}`, resp.data.user.avatar || "");
-            window.dispatchEvent(new Event("avatar_updated"));
+          const userData = resp?.data?.user || resp?.data;
+          if (userData) {
+            const uname = userData.username || user;
+            if (userData.avatar !== undefined) {
+              if (userData.avatar) {
+                localStorage.setItem(`gim_avatar_${uname}`, userData.avatar);
+              } else {
+                localStorage.removeItem(`gim_avatar_${uname}`);
+              }
+              window.dispatchEvent(new Event("avatar_updated"));
+            }
           }
           loadAllData();
         })
