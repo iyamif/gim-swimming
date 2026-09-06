@@ -2,6 +2,8 @@ package routes
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iyamif/gim-swimming/internal/handler"
@@ -9,6 +11,36 @@ import (
 	"github.com/iyamif/gim-swimming/internal/model"
 	"github.com/iyamif/gim-swimming/internal/service"
 )
+
+// serveStaticImage serves uploaded images from multiple candidate directories with caching & CORS headers
+func serveStaticImage(c *gin.Context, filename string) {
+	candidateDirs := []string{
+		"./uploads/foto-profile",
+		"./public/foto-profile",
+		"../frontend/public/foto-profile",
+		"frontend/public/foto-profile",
+		"./uploads",
+		"./public",
+	}
+
+	cleanFilename := filepath.Base(filename)
+	if cleanFilename == "." || cleanFilename == "/" || cleanFilename == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama file tidak valid"})
+		return
+	}
+
+	for _, dir := range candidateDirs {
+		fullPath := filepath.Join(dir, cleanFilename)
+		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
+			c.Header("Cache-Control", "public, max-age=86400")
+			c.Header("Access-Control-Allow-Origin", "*")
+			c.File(fullPath)
+			return
+		}
+	}
+
+	c.JSON(http.StatusNotFound, gin.H{"error": "File foto tidak ditemukan"})
+}
 
 // SetupRoutes configures endpoints, middlewares, and groups for the app
 func SetupRoutes(
@@ -23,6 +55,17 @@ func SetupRoutes(
 			"success": true,
 			"message": "GIM Swimming API is running",
 		})
+	})
+
+	// Static routes for uploaded profile photos
+	router.GET("/foto-profile/:filename", func(c *gin.Context) {
+		serveStaticImage(c, c.Param("filename"))
+	})
+	router.GET("/uploads/foto-profile/:filename", func(c *gin.Context) {
+		serveStaticImage(c, c.Param("filename"))
+	})
+	router.GET("/uploads/:filename", func(c *gin.Context) {
+		serveStaticImage(c, c.Param("filename"))
 	})
 
 	// V1 Api Group
@@ -43,6 +86,17 @@ func SetupRoutes(
 			authProtected.PATCH("/avatar", authHandler.UpdateAvatar)
 			authProtected.POST("/avatar", authHandler.UploadAvatar)
 		}
+
+		// Static routes under /api/v1
+		v1.GET("/foto-profile/:filename", func(c *gin.Context) {
+			serveStaticImage(c, c.Param("filename"))
+		})
+		v1.GET("/uploads/foto-profile/:filename", func(c *gin.Context) {
+			serveStaticImage(c, c.Param("filename"))
+		})
+		v1.GET("/uploads/:filename", func(c *gin.Context) {
+			serveStaticImage(c, c.Param("filename"))
+		})
 
 		// Students & Attendance Endpoints
 		studentGroup := v1.Group("/students")

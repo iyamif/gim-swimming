@@ -143,6 +143,18 @@ func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 	})
 }
 
+// copyUploadedFile copies a file from src to dst
+func copyUploadedFile(src, dst string) {
+	if src == dst {
+		return
+	}
+	input, err := os.ReadFile(src)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(dst, input, 0644)
+}
+
 // UploadAvatar handles file upload for user profile photo
 func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	usernameVal, exists := c.Get("username")
@@ -172,32 +184,36 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	// Generate clean unique filename
 	filename := fmt.Sprintf("avatar_%s_%d%s", username, time.Now().Unix(), ext)
 
-	// Robustly find or create frontend/public/foto-profile directory
-	candidateDirs := []string{
-		"../frontend/public/foto-profile",
-		"frontend/public/foto-profile",
-		"./public/foto-profile",
-	}
-
-	saveDir := candidateDirs[0]
-	for _, dir := range candidateDirs {
-		parent := filepath.Dir(dir)
-		if _, err := os.Stat(parent); err == nil {
-			saveDir = dir
-			break
-		}
-	}
-	_ = os.MkdirAll(saveDir, 0755)
-	dst := filepath.Join(saveDir, filename)
+	// Primary upload directory for production & dev
+	primaryDir := "./uploads/foto-profile"
+	_ = os.MkdirAll(primaryDir, 0755)
+	dst := filepath.Join(primaryDir, filename)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file foto profil: " + err.Error()})
 		return
 	}
 
+	// Also sync to other candidate directories (e.g. public or local frontend)
+	syncDirs := []string{
+		"./public/foto-profile",
+		"../frontend/public/foto-profile",
+		"frontend/public/foto-profile",
+	}
+	for _, dir := range syncDirs {
+		parent := filepath.Dir(dir)
+		if info, err := os.Stat(parent); err == nil && info.IsDir() {
+			_ = os.MkdirAll(dir, 0755)
+			syncDst := filepath.Join(dir, filename)
+			if syncDst != dst {
+				copyUploadedFile(dst, syncDst)
+			}
+		}
+	}
+
 	avatarPath := fmt.Sprintf("/foto-profile/%s", filename)
 
-	// Update user record in database
+	// Update user and student records in database
 	if err := h.authService.UpdateAvatar(c.Request.Context(), username, avatarPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan foto profil ke database: " + err.Error()})
 		return

@@ -351,29 +351,38 @@ export async function uploadInvoiceReceipt(id: string, receiptUrl: string): Prom
 
 export function isImageAvatar(avatar?: string | null): boolean {
   if (!avatar) return false;
+  const trimmed = avatar.trim();
   return (
-    avatar.startsWith("data:image") ||
-    avatar.startsWith("http://") ||
-    avatar.startsWith("https://") ||
-    avatar.startsWith("/foto-profile") ||
-    avatar.startsWith("/")
+    trimmed.startsWith("data:image") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("blob:") ||
+    trimmed.startsWith("/foto-profile") ||
+    trimmed.startsWith("foto-profile") ||
+    trimmed.startsWith("/uploads") ||
+    trimmed.startsWith("uploads") ||
+    trimmed.startsWith("/") ||
+    trimmed.endsWith(".jpg") ||
+    trimmed.endsWith(".jpeg") ||
+    trimmed.endsWith(".png") ||
+    trimmed.endsWith(".webp")
   );
 }
 
 export function getAvatarImageUrl(avatar?: string | null): string {
   if (!avatar) return "";
+  const trimmed = avatar.trim();
   if (
-    avatar.startsWith("data:image") ||
-    avatar.startsWith("http://") ||
-    avatar.startsWith("https://")
+    trimmed.startsWith("data:image") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("blob:")
   ) {
-    return avatar;
+    return trimmed;
   }
-  const base = getApiBaseUrl();
-  if (avatar.startsWith("/")) {
-    return `${base}${avatar}`;
-  }
-  return `${base}/${avatar}`;
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return `${base}${cleanPath}`;
 }
 
 export async function fetchCurrentUser(): Promise<any> {
