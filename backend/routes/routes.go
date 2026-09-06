@@ -64,6 +64,7 @@ func SetupRoutes(
 		{
 			scheduleGroup.GET("", appHandler.GetSchedules)
 			scheduleGroup.POST("", appHandler.CreateSchedule)
+			scheduleGroup.PUT("/:id", appHandler.UpdateSchedule)
 			scheduleGroup.DELETE("/:id", appHandler.DeleteSchedule)
 		}
 

@@ -12,6 +12,7 @@ import {
   createCoach,
   fetchSchedules,
   createSchedule,
+  updateSchedule,
   deleteSchedule,
   fetchInvoices,
   verifyInvoicePayment,
@@ -227,7 +228,11 @@ export default function AppsPage() {
     const targetColor =
       sessionRole === "orang tua"
         ? "#ffffff"
-        : activeTab === "dashboard"
+        : activeTab === "dashboard" ||
+          activeTab === "profile" ||
+          activeTab === "daftar_hadir" ||
+          activeTab === "pelatih" ||
+          activeTab === "keuangan"
         ? "#1d4ed8"
         : "#f8fafc";
 
@@ -317,8 +322,10 @@ export default function AppsPage() {
       jadwal: ["admin", "pelatih"],
       keuangan: ["admin"],
       daftar_hadir: ["admin", "pelatih"],
+      pelatih: ["admin", "pelatih"],
       absensi: ["admin", "pelatih"],
       create: ["admin"],
+      profile: ["admin", "pelatih"],
     };
 
     return accessMatrix[tabName]?.includes(normalizedRole) || false;
@@ -330,8 +337,10 @@ export default function AppsPage() {
     { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
     { id: "keuangan", label: "Keuangan", fullLabel: "Laporan Keuangan", icon: "💰" },
     { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
+    { id: "pelatih", label: "Pelatih", fullLabel: "Daftar Pelatih & Instruktur", icon: "🏊‍♂️" },
     { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
     { id: "create", label: "Registrasi", fullLabel: "Registrasi Pelatih/Siswa", icon: "👤+" },
+    { id: "profile", label: "Profil", fullLabel: "Profil Akun", icon: "👤" },
   ].filter((item) => hasAccess(item.id));
 
   // Handler: Add Schedule to PostgreSQL DB
@@ -346,6 +355,36 @@ export default function AppsPage() {
       }
     } catch (err) {
       triggerToast("Gagal menyimpan jadwal ke database", "error");
+    }
+  };
+
+  // Handler: Update Schedule in PostgreSQL DB
+  const handleUpdateSchedule = async (id: string, data: Partial<ScheduleSession>) => {
+    try {
+      const updated = await updateSchedule(id, data);
+      if (updated) {
+        setSchedules((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
+        );
+        triggerToast(`Jadwal "${updated.title}" berhasil diperbarui!`);
+      }
+    } catch (err: any) {
+      console.warn("Update schedule API warning:", err);
+      // Optimistic state update so user UI works immediately
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === id ? ({ ...s, ...data } as ScheduleSession) : s
+        )
+      );
+
+      if (String(err?.message || "").includes("404")) {
+        triggerToast(
+          `Jadwal berhasil diubah di tampilan! (Harap restart server backend agar tersimpan permanen di database)`,
+          "error"
+        );
+      } else {
+        triggerToast("Gagal memperbarui jadwal ke database", "error");
+      }
     }
   };
 
@@ -523,22 +562,21 @@ export default function AppsPage() {
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-10 flex flex-col">
         <ToastNotification message={toastMessage} type={toastType} />
 
-        <ParentHeader
-          sessionUser={sessionUser}
-          sessionRole={sessionRole}
-          showInstallBtn={showInstallBtn}
-          onInstallClick={handleInstallClick}
-          onLogout={handleLogout}
-          onRefresh={handlePullRefresh}
-        />
-
         {currentStudent ? (
           <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
             <ParentBody
+              sessionUser={sessionUser}
+              sessionRole={sessionRole}
               student={currentStudent}
               coach={coachData}
               invoice={currentInvoice}
+              schedules={schedules}
+              coaches={coaches}
               onUploadReceipt={handleParentUploadReceipt}
+              showInstallBtn={showInstallBtn}
+              onInstallClick={handleInstallClick}
+              onLogout={handleLogout}
+              onRefresh={handlePullRefresh}
             />
           </PullToRefresh>
         ) : (
@@ -577,7 +615,12 @@ export default function AppsPage() {
   return (
     <div
       className={`flex h-screen h-[100dvh] w-full ${
-        activeTab === "dashboard" ? "bg-[#1d4ed8]" : "bg-[#f8fafc]"
+        activeTab === "dashboard" ||
+        activeTab === "profile" ||
+        activeTab === "daftar_hadir" ||
+        activeTab === "pelatih"
+          ? "bg-[#1d4ed8]"
+          : "bg-[#f8fafc]"
       } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
     >
       <ToastNotification message={toastMessage} type={toastType} />
@@ -602,11 +645,20 @@ export default function AppsPage() {
 
       <main
         className={`flex-1 flex flex-col h-full overflow-hidden min-w-0 ${
-          activeTab === "dashboard" ? "bg-[#1d4ed8]" : "bg-[#f8fafc]"
+          activeTab === "dashboard" ||
+          activeTab === "profile" ||
+          activeTab === "daftar_hadir" ||
+          activeTab === "pelatih"
+            ? "bg-[#1d4ed8]"
+            : "bg-[#f8fafc]"
         } md:bg-[#f8fafc]`}
       >
-        {/* Desktop Admin Header for non-dashboard tabs */}
-        {activeTab !== "dashboard" && (
+        {/* Desktop Admin Header for tabs without integrated banner */}
+        {activeTab !== "dashboard" &&
+          activeTab !== "profile" &&
+          activeTab !== "daftar_hadir" &&
+          activeTab !== "pelatih" &&
+          activeTab !== "keuangan" && (
           <div className="hidden md:block shrink-0">
             <AdminHeader
               title={currentTabTitle}
@@ -629,8 +681,12 @@ export default function AppsPage() {
             coaches={coaches}
             invoices={invoices}
             schedules={schedules}
+            showInstallBtn={showInstallBtn}
+            onInstallClick={handleInstallClick}
+            onLogout={handleLogout}
             onRefresh={handlePullRefresh}
             onAddSchedule={handleAddSchedule}
+            onUpdateSchedule={handleUpdateSchedule}
             onDeleteSchedule={handleDeleteSchedule}
             onVerifyPayment={handleAdminVerifyPayment}
             onSubmitAttendance={handleAbsensiSubmit}

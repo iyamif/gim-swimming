@@ -235,6 +235,42 @@ export async function createSchedule(payload: Omit<ScheduleSession, "id">): Prom
   }
 }
 
+export async function updateSchedule(id: string, payload: Partial<ScheduleSession>): Promise<ScheduleSession | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${id}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || `Gagal memperbarui jadwal les (HTTP ${res.status})`);
+    }
+    const json = await res.json();
+    const s = json.data;
+    if (!s) return null;
+    return {
+      id: s.id,
+      title: s.title,
+      class: s.class,
+      date: s.date,
+      timeStart: s.timeStart,
+      timeEnd: s.timeEnd,
+      poolArea: s.poolArea,
+      coachId: s.coachId,
+      coachName: s.coachName,
+      coachPhone: s.coachPhone || "",
+      studentIds: s.studentIds || [],
+      studentNames: s.studentNames || [],
+      notes: s.notes || "",
+      status: s.status || "Active",
+    };
+  } catch (err) {
+    console.error("updateSchedule error:", err);
+    throw err;
+  }
+}
+
 export async function deleteSchedule(id: string): Promise<boolean> {
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${id}`, {

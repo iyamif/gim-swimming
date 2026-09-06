@@ -27,6 +27,7 @@ type AppService interface {
 	// Schedules
 	GetSchedules(ctx context.Context) ([]model.ScheduleSession, error)
 	CreateSchedule(ctx context.Context, input *model.CreateScheduleInput) (*model.ScheduleSession, error)
+	UpdateSchedule(ctx context.Context, id string, input *model.UpdateScheduleInput) (*model.ScheduleSession, error)
 	DeleteSchedule(ctx context.Context, id string) error
 
 	// Invoices
@@ -303,6 +304,76 @@ func (s *appService) CreateSchedule(ctx context.Context, input *model.CreateSche
 	}
 
 	return session, nil
+}
+
+// UpdateSchedule modifies an existing schedule session
+func (s *appService) UpdateSchedule(ctx context.Context, id string, input *model.UpdateScheduleInput) (*model.ScheduleSession, error) {
+	existing, err := s.scheduleRepo.FindByID(ctx, id)
+	if err != nil || existing == nil {
+		return nil, errors.New("jadwal tidak ditemukan")
+	}
+
+	if input.Date != "" {
+		// Validate that the date is not in the past
+		now := time.Now()
+		todayDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		parsedDate, err := time.ParseInLocation("2006-01-02", input.Date, now.Location())
+		if err == nil {
+			if parsedDate.Before(todayDate) {
+				return nil, errors.New("tanggal jadwal tidak boleh tanggal yang sudah lewat")
+			}
+		} else {
+			todayStr := todayDate.Format("2006-01-02")
+			if input.Date < todayStr {
+				return nil, errors.New("tanggal jadwal tidak boleh tanggal yang sudah lewat")
+			}
+		}
+		existing.Date = input.Date
+	}
+
+	if input.Title != "" {
+		existing.Title = input.Title
+	}
+	if input.Class != "" {
+		existing.Class = input.Class
+	}
+	if input.TimeStart != "" {
+		existing.TimeStart = input.TimeStart
+	}
+	if input.TimeEnd != "" {
+		existing.TimeEnd = input.TimeEnd
+	}
+	if input.PoolArea != "" {
+		existing.PoolArea = input.PoolArea
+	}
+	if input.CoachID != "" {
+		existing.CoachID = input.CoachID
+	}
+	if input.CoachName != "" {
+		existing.CoachName = input.CoachName
+	}
+	if input.CoachPhone != "" {
+		existing.CoachPhone = input.CoachPhone
+	}
+	if input.StudentIDs != nil {
+		existing.StudentIDs = input.StudentIDs
+	}
+	if input.StudentNames != nil {
+		existing.StudentNames = input.StudentNames
+	}
+	if input.Notes != "" {
+		existing.Notes = input.Notes
+	}
+	if input.Status != "" {
+		existing.Status = input.Status
+	}
+	existing.UpdatedAt = time.Now()
+
+	if err := s.scheduleRepo.Update(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	return existing, nil
 }
 
 // DeleteSchedule removes a schedule session by ID

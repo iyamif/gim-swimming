@@ -38,3 +38,21 @@ type CreateScheduleInput struct {
 	Notes        string   `json:"notes"`
 	Status       string   `json:"status"`
 }
+
+// UpdateScheduleInput represents payload for updating a schedule
+type UpdateScheduleInput struct {
+	Title        string   `json:"title"`
+	Class        string   `json:"class"`
+	Date         string   `json:"date"`
+	TimeStart    string   `json:"timeStart"`
+	TimeEnd      string   `json:"timeEnd"`
+	PoolArea     string   `json:"poolArea"`
+	CoachID      string   `json:"coachId"`
+	CoachName    string   `json:"coachName"`
+	CoachPhone   string   `json:"coachPhone"`
+	StudentIDs   []string `json:"studentIds"`
+	StudentNames []string `json:"studentNames"`
+	Notes        string   `json:"notes"`
+	Status       string   `json:"status"`
+}
+

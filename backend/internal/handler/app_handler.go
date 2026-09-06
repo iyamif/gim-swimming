@@ -181,6 +181,42 @@ func (h *AppHandler) CreateSchedule(c *gin.Context) {
 	})
 }
 
+// UpdateSchedule handles PUT /api/v1/schedules/:id
+func (h *AppHandler) UpdateSchedule(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "id parameter is required",
+		})
+		return
+	}
+
+	var input model.UpdateScheduleInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	schedule, err := h.appService.UpdateSchedule(c.Request.Context(), id, &input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Jadwal les renang berhasil diperbarui",
+		"data":    schedule,
+	})
+}
+
 // DeleteSchedule handles DELETE /api/v1/schedules/:id
 func (h *AppHandler) DeleteSchedule(c *gin.Context) {
 	id := c.Param("id")

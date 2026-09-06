@@ -331,7 +331,7 @@ export default function DashboardOverviewTab({
       label: `Pelatih (${coaches.length})`,
       icon: "👥",
       bgCircle: "bg-teal-50 border-teal-100 text-teal-500",
-      action: () => setShowCoachModal(true),
+      action: () => setActiveTab && setActiveTab("pelatih"),
     },
     {
       id: "kasbon",
@@ -376,9 +376,12 @@ export default function DashboardOverviewTab({
           {/* User Profile Capsule */}
           <div className="flex items-center gap-3.5">
             <button
-              onClick={() => setShowProfileModal(true)}
+              onClick={() => {
+                if (setActiveTab) setActiveTab("profile");
+                else setShowProfileModal(true);
+              }}
               className="relative shrink-0 group cursor-pointer text-left"
-              title="Klik untuk ubah foto profil"
+              title="Lihat Halaman Profil Akun"
             >
               <div className="flex h-13 w-13 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border-2 border-white text-white font-black text-lg shadow-md overflow-hidden group-hover:ring-2 group-hover:ring-cyan-300 transition">
                 {isCustomImage && userAvatar ? (

@@ -6,6 +6,8 @@ import DaftarHadirTab from "./DaftarHadirTab";
 import AbsensiTab from "./AbsensiTab";
 import RegistrasiTab from "./RegistrasiTab";
 import JadwalTab from "./JadwalTab";
+import ProfilTab from "./ProfilTab";
+import PelatihTab from "./PelatihTab";
 import PullToRefresh from "../PullToRefresh";
 
 interface AppsBodyProps {
@@ -17,8 +19,12 @@ interface AppsBodyProps {
   coaches: Coach[];
   invoices: Invoice[];
   schedules: ScheduleSession[];
+  showInstallBtn?: boolean;
+  onInstallClick?: () => void;
+  onLogout?: () => void;
   onRefresh?: () => Promise<void>;
   onAddSchedule: (data: Omit<ScheduleSession, "id">) => void;
+  onUpdateSchedule?: (id: string, data: Partial<ScheduleSession>) => void;
   onDeleteSchedule: (id: string) => void;
   onVerifyPayment: (invoiceId: string, confirm: boolean) => void;
   onSubmitAttendance: (
@@ -50,8 +56,12 @@ export default function AppsBody({
   coaches,
   invoices,
   schedules,
+  showInstallBtn,
+  onInstallClick,
+  onLogout,
   onRefresh,
   onAddSchedule,
+  onUpdateSchedule,
   onDeleteSchedule,
   onVerifyPayment,
   onSubmitAttendance,
@@ -61,7 +71,6 @@ export default function AppsBody({
   const content = (
     <>
       {activeTab === "dashboard" && (
-
         <DashboardOverviewTab
           sessionUser={sessionUser}
           sessionRole={sessionRole}
@@ -79,6 +88,7 @@ export default function AppsBody({
           students={students}
           coaches={coaches}
           onAddSchedule={onAddSchedule}
+          onUpdateSchedule={onUpdateSchedule}
           onDeleteSchedule={onDeleteSchedule}
           setActiveTab={setActiveTab}
         />
@@ -88,12 +98,32 @@ export default function AppsBody({
         <KeuanganTab
           invoices={invoices}
           sessionRole={sessionRole}
+          students={students}
+          coaches={coaches}
+          sessionUser={sessionUser}
           onVerifyPayment={onVerifyPayment}
+          setActiveTab={setActiveTab}
         />
       )}
 
       {activeTab === "daftar_hadir" && (
-        <DaftarHadirTab students={students} sessionRole={sessionRole} />
+        <DaftarHadirTab
+          students={students}
+          sessionRole={sessionRole}
+          schedules={schedules}
+          coaches={coaches}
+          setActiveTab={setActiveTab}
+        />
+      )}
+
+      {activeTab === "pelatih" && (
+        <PelatihTab
+          coaches={coaches}
+          sessionRole={sessionRole}
+          schedules={schedules}
+          students={students}
+          setActiveTab={setActiveTab}
+        />
       )}
 
       {activeTab === "absensi" && (
@@ -109,13 +139,32 @@ export default function AppsBody({
           onAddCoach={onAddCoach}
         />
       )}
+
+      {activeTab === "profile" && (
+        <ProfilTab
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          students={students}
+          coaches={coaches}
+          schedules={schedules}
+          showInstallBtn={showInstallBtn}
+          onInstallClick={onInstallClick}
+          onLogout={onLogout}
+          onRefresh={onRefresh}
+          setActiveTab={setActiveTab}
+        />
+      )}
     </>
   );
 
   return (
     <div
       className={`flex-1 overflow-y-auto ${
-        activeTab === "dashboard"
+        activeTab === "dashboard" ||
+        activeTab === "keuangan" ||
+        activeTab === "profile" ||
+        activeTab === "daftar_hadir" ||
+        activeTab === "pelatih"
           ? "p-0"
           : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
       }`}
@@ -130,3 +179,4 @@ export default function AppsBody({
     </div>
   );
 }
+

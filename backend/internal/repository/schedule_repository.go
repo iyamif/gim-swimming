@@ -15,6 +15,7 @@ type ScheduleRepository interface {
 	Create(ctx context.Context, s *model.ScheduleSession) error
 	FindAll(ctx context.Context) ([]model.ScheduleSession, error)
 	FindByID(ctx context.Context, id string) (*model.ScheduleSession, error)
+	Update(ctx context.Context, s *model.ScheduleSession) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -193,6 +194,48 @@ func (r *pgScheduleRepository) FindByID(ctx context.Context, id string) (*model.
 	return &s, nil
 }
 
+func (r *pgScheduleRepository) Update(ctx context.Context, s *model.ScheduleSession) error {
+	var rawID int64
+	_, err := fmt.Sscanf(s.ID, "sch-%d", &rawID)
+	if err != nil {
+		_, err = fmt.Sscanf(s.ID, "%d", &rawID)
+		if err != nil {
+			return errors.New("invalid schedule id format")
+		}
+	}
+
+	studentIDsJSON, _ := json.Marshal(s.StudentIDs)
+	studentNamesJSON, _ := json.Marshal(s.StudentNames)
+
+	query := `
+		UPDATE schedules 
+		SET title = $1, class = $2, date = $3, time_start = $4, time_end = $5, pool_area = $6,
+		    coach_id = $7, coach_name = $8, coach_phone = $9, student_ids = $10, student_names = $11,
+		    notes = $12, status = $13, updated_at = $14
+		WHERE id = $15;
+	`
+	_, err = r.db.ExecContext(
+		ctx,
+		query,
+		s.Title,
+		s.Class,
+		s.Date,
+		s.TimeStart,
+		s.TimeEnd,
+		s.PoolArea,
+		s.CoachID,
+		s.CoachName,
+		s.CoachPhone,
+		string(studentIDsJSON),
+		string(studentNamesJSON),
+		s.Notes,
+		s.Status,
+		s.UpdatedAt,
+		rawID,
+	)
+	return err
+}
+
 func (r *pgScheduleRepository) Delete(ctx context.Context, id string) error {
 	var rawID int64
 	_, err := fmt.Sscanf(id, "sch-%d", &rawID)
@@ -207,3 +250,4 @@ func (r *pgScheduleRepository) Delete(ctx context.Context, id string) error {
 	_, err = r.db.ExecContext(ctx, query, rawID)
 	return err
 }
+
