@@ -56,6 +56,9 @@ export async function fetchStudents(): Promise<Student[]> {
       attendanceRate: s.attendanceRate || "100%",
       parent: s.parent,
       status: s.status || "Active",
+      avatar: s.avatar || "",
+      phone: s.phone || "",
+      age: s.age || "",
       logs: (s.logs || []).map((l: any) => ({
         date: l.date,
         status: l.status,
@@ -73,6 +76,7 @@ export async function createStudent(payload: {
   parent: string;
   phone: string;
   age?: string;
+  avatar?: string;
 }): Promise<Student | null> {
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/v1/students`, {
@@ -90,6 +94,9 @@ export async function createStudent(payload: {
       attendanceRate: s.attendanceRate || "100%",
       parent: s.parent,
       status: s.status || "Active",
+      avatar: s.avatar || "",
+      phone: s.phone || "",
+      age: s.age || "",
       logs: [],
     };
   } catch (err) {
@@ -391,8 +398,10 @@ export async function syncCurrentUserAvatar(username: string): Promise<string> {
       const av = user.avatar || "";
       if (av) {
         localStorage.setItem(`gim_avatar_${username}`, av);
+        localStorage.setItem(`gim_avatar_${username.toLowerCase()}`, av);
       } else {
         localStorage.removeItem(`gim_avatar_${username}`);
+        localStorage.removeItem(`gim_avatar_${username.toLowerCase()}`);
       }
       window.dispatchEvent(new Event("avatar_updated"));
       return av;

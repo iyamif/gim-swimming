@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Student, Coach, ScheduleSession } from "../types";
+import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface DaftarHadirTabProps {
   students: Student[];
@@ -23,6 +24,28 @@ export default function DaftarHadirTab({
   const [sortBy, setSortBy] = useState<"name" | "attendance">("name");
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [avatarTick, setAvatarTick] = useState(0);
+
+  // Listen to avatar changes across app
+  useEffect(() => {
+    const handleAvatarUpdate = () => setAvatarTick((t) => t + 1);
+    window.addEventListener("avatar_updated", handleAvatarUpdate);
+    return () => window.removeEventListener("avatar_updated", handleAvatarUpdate);
+  }, []);
+
+  // Helper to get avatar for a student
+  const getStudentAvatar = (student: Student) => {
+    if (student.avatar) return student.avatar;
+    if (typeof window !== "undefined") {
+      const byName = localStorage.getItem(`gim_avatar_${student.name}`);
+      if (byName) return byName;
+      const byLower = localStorage.getItem(`gim_avatar_${student.name.toLowerCase()}`);
+      if (byLower) return byLower;
+      const byId = localStorage.getItem(`gim_avatar_${student.id}`);
+      if (byId) return byId;
+    }
+    return "";
+  };
 
   if (sessionRole !== "admin" && sessionRole !== "pelatih") return null;
 
@@ -123,9 +146,29 @@ export default function DaftarHadirTab({
           >
             <div className="flex items-center gap-3.5">
               {/* Circular Avatar */}
-              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition">
-                <span>{featuredStudent.name.charAt(0).toUpperCase()}</span>
-              </div>
+              {(() => {
+                const avatar = getStudentAvatar(featuredStudent);
+                const isImg = isImageAvatar(avatar);
+                return (
+                  <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition">
+                    {isImg && avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={getAvatarImageUrl(avatar)}
+                        alt={featuredStudent.name}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    ) : avatar ? (
+                      <span className="text-2xl">{avatar}</span>
+                    ) : (
+                      <span>{featuredStudent.name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Info */}
               <div>
@@ -277,9 +320,29 @@ export default function DaftarHadirTab({
                 >
                   {/* Left: Avatar & Info */}
                   <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition">
-                      <span>{student.name.charAt(0).toUpperCase()}</span>
-                    </div>
+                    {(() => {
+                      const avatar = getStudentAvatar(student);
+                      const isImg = isImageAvatar(avatar);
+                      return (
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition">
+                          {isImg && avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getAvatarImageUrl(avatar)}
+                              alt={student.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : avatar ? (
+                            <span className="text-xl">{avatar}</span>
+                          ) : (
+                            <span>{student.name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div>
                       <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
@@ -323,9 +386,29 @@ export default function DaftarHadirTab({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-lg flex items-center justify-center border-2 border-white shadow-md">
-                  <span>{selectedStudent.name.charAt(0).toUpperCase()}</span>
-                </div>
+                {(() => {
+                  const avatar = getStudentAvatar(selectedStudent);
+                  const isImg = isImageAvatar(avatar);
+                  return (
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-lg flex items-center justify-center border-2 border-white shadow-md overflow-hidden shrink-0">
+                      {isImg && avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={getAvatarImageUrl(avatar)}
+                          alt={selectedStudent.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : avatar ? (
+                        <span className="text-xl">{avatar}</span>
+                      ) : (
+                        <span>{selectedStudent.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div>
                   <h3 className="text-base font-black text-slate-900 capitalize">
                     {selectedStudent.name}

@@ -29,8 +29,8 @@ func NewStudentRepository(db *sql.DB) StudentRepository {
 
 func (r *pgStudentRepository) Create(ctx context.Context, student *model.Student) error {
 	query := `
-		INSERT INTO students (name, class, attendance_rate, parent, phone, age, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO students (name, class, attendance_rate, parent, phone, age, status, avatar, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id;
 	`
 	return r.db.QueryRowContext(
@@ -43,6 +43,7 @@ func (r *pgStudentRepository) Create(ctx context.Context, student *model.Student
 		student.Phone,
 		student.Age,
 		student.Status,
+		student.Avatar,
 		student.CreatedAt,
 		student.UpdatedAt,
 	).Scan(&student.ID)
@@ -50,9 +51,21 @@ func (r *pgStudentRepository) Create(ctx context.Context, student *model.Student
 
 func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, error) {
 	query := `
-		SELECT id, name, class, attendance_rate, parent, COALESCE(phone, ''), COALESCE(age, ''), status, created_at, updated_at
-		FROM students
-		ORDER BY id ASC;
+		SELECT 
+			s.id, 
+			s.name, 
+			s.class, 
+			s.attendance_rate, 
+			s.parent, 
+			COALESCE(s.phone, ''), 
+			COALESCE(s.age, ''), 
+			s.status, 
+			COALESCE(NULLIF(s.avatar, ''), COALESCE(u.avatar, '')), 
+			s.created_at, 
+			s.updated_at
+		FROM students s
+		LEFT JOIN users u ON LOWER(REPLACE(s.name, ' ', '')) = LOWER(u.username)
+		ORDER BY s.id ASC;
 	`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -72,6 +85,7 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 			&s.Phone,
 			&s.Age,
 			&s.Status,
+			&s.Avatar,
 			&s.CreatedAt,
 			&s.UpdatedAt,
 		)
@@ -95,9 +109,21 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 
 func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.Student, error) {
 	query := `
-		SELECT id, name, class, attendance_rate, parent, COALESCE(phone, ''), COALESCE(age, ''), status, created_at, updated_at
-		FROM students
-		WHERE id = $1;
+		SELECT 
+			s.id, 
+			s.name, 
+			s.class, 
+			s.attendance_rate, 
+			s.parent, 
+			COALESCE(s.phone, ''), 
+			COALESCE(s.age, ''), 
+			s.status, 
+			COALESCE(NULLIF(s.avatar, ''), COALESCE(u.avatar, '')), 
+			s.created_at, 
+			s.updated_at
+		FROM students s
+		LEFT JOIN users u ON LOWER(REPLACE(s.name, ' ', '')) = LOWER(u.username)
+		WHERE s.id = $1;
 	`
 	var s model.Student
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
@@ -109,6 +135,7 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 		&s.Phone,
 		&s.Age,
 		&s.Status,
+		&s.Avatar,
 		&s.CreatedAt,
 		&s.UpdatedAt,
 	)

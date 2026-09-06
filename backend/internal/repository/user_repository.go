@@ -140,10 +140,21 @@ func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User,
 
 // UpdateAvatar updates user's profile avatar
 func (r *pgUserRepository) UpdateAvatar(ctx context.Context, username string, avatar string) error {
-	query := `
+	queryUser := `
 		UPDATE users 
 		SET avatar = $1, updated_at = NOW() 
 		WHERE username = $2 OR email = $2`
-	_, err := r.db.ExecContext(ctx, query, avatar, username)
-	return err
+	_, err := r.db.ExecContext(ctx, queryUser, avatar, username)
+	if err != nil {
+		return err
+	}
+
+	queryStudent := `
+		UPDATE students
+		SET avatar = $1, updated_at = NOW()
+		WHERE LOWER(REPLACE(name, ' ', '')) = LOWER(REPLACE($2, ' ', ''))
+		   OR LOWER(name) = LOWER($2)`
+	_, _ = r.db.ExecContext(ctx, queryStudent, avatar, username)
+
+	return nil
 }

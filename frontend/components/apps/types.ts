@@ -10,6 +10,9 @@ export interface Student {
   attendanceRate: string;
   parent: string;
   status: string;
+  avatar?: string;
+  phone?: string;
+  age?: string;
   logs: AttendanceLog[];
 }
 
@@ -20,6 +23,7 @@ export interface Coach {
   phone: string;
   email: string;
   class: string;
+  avatar?: string;
 }
 
 export interface Invoice {

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Coach, ScheduleSession, Student } from "../types";
+import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface PelatihTabProps {
   coaches: Coach[];
@@ -22,6 +23,28 @@ export default function PelatihTab({
   const [selectedExpertise, setSelectedExpertise] = useState<string>("ALL");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
+  const [avatarTick, setAvatarTick] = useState(0);
+
+  // Listen to avatar changes across app
+  useEffect(() => {
+    const handleAvatarUpdate = () => setAvatarTick((t) => t + 1);
+    window.addEventListener("avatar_updated", handleAvatarUpdate);
+    return () => window.removeEventListener("avatar_updated", handleAvatarUpdate);
+  }, []);
+
+  // Helper to get avatar for a coach
+  const getCoachAvatar = (coach: Coach) => {
+    if (coach.avatar) return coach.avatar;
+    if (typeof window !== "undefined") {
+      const byName = localStorage.getItem(`gim_avatar_${coach.name}`);
+      if (byName) return byName;
+      const byLower = localStorage.getItem(`gim_avatar_${coach.name.toLowerCase()}`);
+      if (byLower) return byLower;
+      const byId = localStorage.getItem(`gim_avatar_${coach.id}`);
+      if (byId) return byId;
+    }
+    return "";
+  };
 
   if (sessionRole !== "admin" && sessionRole !== "pelatih") return null;
 
@@ -103,10 +126,29 @@ export default function PelatihTab({
             className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center justify-between gap-3 cursor-pointer hover:border-cyan-300 hover:shadow-2xl transition group active:scale-98"
           >
             <div className="flex items-center gap-3.5">
-              {/* Circular Avatar */}
-              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition">
-                <span>{featuredCoach.name.charAt(0).toUpperCase()}</span>
-              </div>
+              {(() => {
+                const avatar = getCoachAvatar(featuredCoach);
+                const isImg = isImageAvatar(avatar);
+                return (
+                  <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition">
+                    {isImg && avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={getAvatarImageUrl(avatar)}
+                        alt={featuredCoach.name}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    ) : avatar ? (
+                      <span className="text-2xl">{avatar}</span>
+                    ) : (
+                      <span>{featuredCoach.name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Info */}
               <div>
@@ -147,7 +189,7 @@ export default function PelatihTab({
         <div className="relative">
           <input
             type="text"
-            placeholder="Search/Filter by expertise..."
+            placeholder="Find coach name or specialty..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-3 pl-10 pr-10 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition"
@@ -155,72 +197,61 @@ export default function PelatihTab({
           <span className="absolute left-3.5 top-3.5 text-slate-400 text-xs sm:text-sm">
             🔍
           </span>
-          <button
-            onClick={() => setShowFilterDropdown((prev) => !prev)}
-            className="absolute right-3.5 top-3 text-slate-500 hover:text-blue-600 text-base font-bold cursor-pointer"
-            title="Menu Filter Keahlian"
-          >
-            ≡
-          </button>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3.5 top-3.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         {/* ==========================================
-            SEARCH / FILTER BY EXPERTISE DROPDOWN BUTTON
+            EXPERTISES HEADER & FILTER
             ========================================== */}
-        <div className="relative">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs sm:text-sm font-black text-slate-800 tracking-tight">
+            Expertises
+          </span>
+
           <button
             onClick={() => setShowFilterDropdown((prev) => !prev)}
-            className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-bold transition cursor-pointer border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
               showFilterDropdown || selectedExpertise !== "ALL"
-                ? "bg-cyan-50 text-cyan-800 border-cyan-300 ring-2 ring-cyan-400/20 shadow-xs"
-                : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80 shadow-2xs"
+                ? "bg-cyan-50 text-cyan-700 border-cyan-300 ring-2 ring-cyan-400/20"
+                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200/80 shadow-2xs"
             }`}
           >
-            <span className="flex items-center gap-1.5">
-              <span>Search/⇅ by expertise:</span>
-              <span className="text-blue-600 font-black">
-                {selectedExpertise === "ALL" ? "Semua Keahlian" : selectedExpertise}
-              </span>
-            </span>
-            <span>▼</span>
+            <span>🏊‍♂️</span>
+            <span>Filter Spesialisasi</span>
+            <span className="text-[10px]">▼</span>
           </button>
-
-          {/* Filter Dropdown Menu */}
-          {showFilterDropdown && (
-            <div className="mt-2 p-3 rounded-3xl bg-white border border-slate-100 shadow-xl space-y-2 animate-fadeIn z-30">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">
-                Pilih Kategori Keahlian / Spesialisasi:
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                {[
-                  { id: "ALL", label: "Semua Keahlian" },
-                  { id: "Kids", label: "Kids & Usia Dini" },
-                  { id: "Competitive", label: "Competitive" },
-                  { id: "Prestasi", label: "Kelas Prestasi" },
-                  { id: "Dada", label: "Gaya Dada (Breast)" },
-                  { id: "Bebas", label: "Gaya Bebas (Free)" },
-                  { id: "Kupu", label: "Gaya Kupu-kupu" },
-                  { id: "FINA", label: "Sertifikasi FINA" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedExpertise(item.id);
-                      setShowFilterDropdown(false);
-                    }}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer text-left border ${
-                      selectedExpertise === item.id
-                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                        : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Specialty Filter Dropdown (When toggled) */}
+        {showFilterDropdown && (
+          <div className="p-4 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-2.5 animate-fadeIn">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Pilih Bidang Pelatihan:
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {["ALL", "Kids Swimming", "Private Class", "Prestasi", "FINA"].map((exp) => (
+                <button
+                  key={exp}
+                  onClick={() => setSelectedExpertise(exp)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                    selectedExpertise === exp
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
+                  }`}
+                >
+                  {exp === "ALL" ? "Semua Bidang" : exp}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ==========================================
             COACH LIST CARDS (MATCHING MOCKUP)
@@ -231,13 +262,11 @@ export default function PelatihTab({
               <span className="text-3xl">🏊‍♂️</span>
               <h4 className="text-sm font-bold text-slate-700">Pelatih Tidak Ditemukan</h4>
               <p className="text-xs text-slate-400">
-                Tidak ada pelatih yang sesuai dengan kata kunci &quot;{searchQuery}&quot;.
+                Tidak ada data instruktur/pelatih yang sesuai dengan pencarian &quot;{searchQuery}&quot;.
               </p>
             </div>
           ) : (
             filteredCoaches.map((coach) => {
-              const assignedSessions = getCoachSchedules(coach.id, coach.name);
-
               return (
                 <div
                   key={coach.id}
@@ -246,9 +275,29 @@ export default function PelatihTab({
                 >
                   {/* Left: Avatar & Info */}
                   <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition">
-                      <span>{coach.name.charAt(0).toUpperCase()}</span>
-                    </div>
+                    {(() => {
+                      const avatar = getCoachAvatar(coach);
+                      const isImg = isImageAvatar(avatar);
+                      return (
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition">
+                          {isImg && avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getAvatarImageUrl(avatar)}
+                              alt={coach.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : avatar ? (
+                            <span className="text-xl">{avatar}</span>
+                          ) : (
+                            <span>{coach.name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div>
                       <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
@@ -296,9 +345,29 @@ export default function PelatihTab({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-lg flex items-center justify-center border-2 border-white shadow-md">
-                  <span>{selectedCoach.name.charAt(0).toUpperCase()}</span>
-                </div>
+                {(() => {
+                  const avatar = getCoachAvatar(selectedCoach);
+                  const isImg = isImageAvatar(avatar);
+                  return (
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-lg flex items-center justify-center border-2 border-white shadow-md overflow-hidden shrink-0">
+                      {isImg && avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={getAvatarImageUrl(avatar)}
+                          alt={selectedCoach.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : avatar ? (
+                        <span className="text-xl">{avatar}</span>
+                      ) : (
+                        <span>{selectedCoach.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div>
                   <h3 className="text-base font-black text-slate-900 capitalize">
                     {selectedCoach.name}

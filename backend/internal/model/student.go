@@ -21,6 +21,7 @@ type Student struct {
 	Phone          string          `json:"phone,omitempty"`
 	Age            string          `json:"age,omitempty"`
 	Status         string          `json:"status"`
+	Avatar         string          `json:"avatar"`
 	Logs           []AttendanceLog `json:"logs"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`

@@ -139,6 +139,7 @@ func runMigrations() error {
 
 	-- Add column avatar if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT '';
+	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT '';
 	`
 
 	_, err := DB.Exec(query)

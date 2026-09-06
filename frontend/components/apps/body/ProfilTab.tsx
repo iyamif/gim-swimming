@@ -181,8 +181,14 @@ export default function ProfilTab({
 
       if (finalAvatar) {
         localStorage.setItem(`gim_avatar_${sessionUser}`, finalAvatar);
+        localStorage.setItem(`gim_avatar_${sessionUser.toLowerCase()}`, finalAvatar);
+        localStorage.setItem(
+          `gim_avatar_${sessionUser.charAt(0).toUpperCase() + sessionUser.slice(1)}`,
+          finalAvatar
+        );
       } else {
         localStorage.removeItem(`gim_avatar_${sessionUser}`);
+        localStorage.removeItem(`gim_avatar_${sessionUser.toLowerCase()}`);
       }
 
       setCurrentAvatar(finalAvatar);
