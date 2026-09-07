@@ -1,0 +1,433 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"time"
+
+	"github.com/iyamif/gim-swimming/internal/model"
+)
+
+// AttendanceRepository handles database operations for attendances & notifications
+type AttendanceRepository interface {
+	Create(ctx context.Context, att *model.AttendanceRecord) error
+	FindAll(ctx context.Context) ([]model.AttendanceRecord, error)
+	FindByScheduleID(ctx context.Context, scheduleID string) ([]model.AttendanceRecord, error)
+	FindByCoachID(ctx context.Context, coachID string) ([]model.AttendanceRecord, error)
+	FindByStudentID(ctx context.Context, studentID string) ([]model.AttendanceRecord, error)
+
+	// Notifications
+	CreateNotification(ctx context.Context, notif *model.AdminNotification) error
+	GetNotifications(ctx context.Context, limit int) ([]model.AdminNotification, error)
+	MarkNotificationRead(ctx context.Context, id int64) error
+}
+
+type attendanceRepository struct {
+	db *sql.DB
+}
+
+// NewAttendanceRepository creates a new AttendanceRepository instance
+func NewAttendanceRepository(db *sql.DB) AttendanceRepository {
+	return &attendanceRepository{db: db}
+}
+
+// Create inserts a new attendance record
+func (r *attendanceRepository) Create(ctx context.Context, att *model.AttendanceRecord) error {
+	query := `
+		INSERT INTO attendances (
+			schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
+			user_id, user_role, person_type, person_id, person_name, status,
+			is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7,
+			$8, $9, $10, $11, $12, $13,
+			$14, $15, $16, $17, $18, $19, $20, $21
+		) RETURNING id, created_at
+	`
+
+	if att.CreatedAt.IsZero() {
+		att.CreatedAt = time.Now()
+	}
+
+	return r.db.QueryRowContext(
+		ctx,
+		query,
+		att.ScheduleID,
+		att.ScheduleTitle,
+		att.Class,
+		att.Date,
+		att.TimeStart,
+		att.TimeEnd,
+		att.PoolArea,
+		att.UserID,
+		att.UserRole,
+		att.PersonType,
+		att.PersonID,
+		att.PersonName,
+		att.Status,
+		att.IsLate,
+		att.LateReason,
+		att.Latitude,
+		att.Longitude,
+		att.DistanceKm,
+		att.IsValidLocation,
+		att.Notes,
+		att.CreatedAt,
+	).Scan(&att.ID, &att.CreatedAt)
+}
+
+// FindAll retrieves all attendance records ordered by created_at DESC
+func (r *attendanceRepository) FindAll(ctx context.Context) ([]model.AttendanceRecord, error) {
+	query := `
+		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
+		       user_id, user_role, person_type, person_id, person_name, status,
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		FROM attendances
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []model.AttendanceRecord
+	for rows.Next() {
+		var att model.AttendanceRecord
+		var userId, userRole, notes, lateReason sql.NullString
+
+		err := rows.Scan(
+			&att.ID,
+			&att.ScheduleID,
+			&att.ScheduleTitle,
+			&att.Class,
+			&att.Date,
+			&att.TimeStart,
+			&att.TimeEnd,
+			&att.PoolArea,
+			&userId,
+			&userRole,
+			&att.PersonType,
+			&att.PersonID,
+			&att.PersonName,
+			&att.Status,
+			&att.IsLate,
+			&lateReason,
+			&att.Latitude,
+			&att.Longitude,
+			&att.DistanceKm,
+			&att.IsValidLocation,
+			&notes,
+			&att.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if userId.Valid {
+			att.UserID = userId.String
+		}
+		if userRole.Valid {
+			att.UserRole = userRole.String
+		}
+		if notes.Valid {
+			att.Notes = notes.String
+		}
+		if lateReason.Valid {
+			att.LateReason = lateReason.String
+		}
+
+		records = append(records, att)
+	}
+
+	if records == nil {
+		records = []model.AttendanceRecord{}
+	}
+
+	return records, nil
+}
+
+// FindByScheduleID retrieves attendances for a specific schedule
+func (r *attendanceRepository) FindByScheduleID(ctx context.Context, scheduleID string) ([]model.AttendanceRecord, error) {
+	query := `
+		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
+		       user_id, user_role, person_type, person_id, person_name, status,
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		FROM attendances
+		WHERE schedule_id = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, scheduleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []model.AttendanceRecord
+	for rows.Next() {
+		var att model.AttendanceRecord
+		var userId, userRole, notes, lateReason sql.NullString
+
+		err := rows.Scan(
+			&att.ID,
+			&att.ScheduleID,
+			&att.ScheduleTitle,
+			&att.Class,
+			&att.Date,
+			&att.TimeStart,
+			&att.TimeEnd,
+			&att.PoolArea,
+			&userId,
+			&userRole,
+			&att.PersonType,
+			&att.PersonID,
+			&att.PersonName,
+			&att.Status,
+			&att.IsLate,
+			&lateReason,
+			&att.Latitude,
+			&att.Longitude,
+			&att.DistanceKm,
+			&att.IsValidLocation,
+			&notes,
+			&att.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if userId.Valid {
+			att.UserID = userId.String
+		}
+		if userRole.Valid {
+			att.UserRole = userRole.String
+		}
+		if notes.Valid {
+			att.Notes = notes.String
+		}
+		if lateReason.Valid {
+			att.LateReason = lateReason.String
+		}
+
+		records = append(records, att)
+	}
+
+	if records == nil {
+		records = []model.AttendanceRecord{}
+	}
+
+	return records, nil
+}
+
+// FindByCoachID retrieves attendances for a specific coach
+func (r *attendanceRepository) FindByCoachID(ctx context.Context, coachID string) ([]model.AttendanceRecord, error) {
+	query := `
+		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
+		       user_id, user_role, person_type, person_id, person_name, status,
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		FROM attendances
+		WHERE person_type = 'coach' AND (person_id = $1 OR user_id = $1)
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, coachID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []model.AttendanceRecord
+	for rows.Next() {
+		var att model.AttendanceRecord
+		var userId, userRole, notes, lateReason sql.NullString
+
+		err := rows.Scan(
+			&att.ID,
+			&att.ScheduleID,
+			&att.ScheduleTitle,
+			&att.Class,
+			&att.Date,
+			&att.TimeStart,
+			&att.TimeEnd,
+			&att.PoolArea,
+			&userId,
+			&userRole,
+			&att.PersonType,
+			&att.PersonID,
+			&att.PersonName,
+			&att.Status,
+			&att.IsLate,
+			&lateReason,
+			&att.Latitude,
+			&att.Longitude,
+			&att.DistanceKm,
+			&att.IsValidLocation,
+			&notes,
+			&att.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if userId.Valid {
+			att.UserID = userId.String
+		}
+		if userRole.Valid {
+			att.UserRole = userRole.String
+		}
+		if notes.Valid {
+			att.Notes = notes.String
+		}
+		if lateReason.Valid {
+			att.LateReason = lateReason.String
+		}
+
+		records = append(records, att)
+	}
+
+	if records == nil {
+		records = []model.AttendanceRecord{}
+	}
+
+	return records, nil
+}
+
+// FindByStudentID retrieves attendances for a specific student
+func (r *attendanceRepository) FindByStudentID(ctx context.Context, studentID string) ([]model.AttendanceRecord, error) {
+	query := `
+		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
+		       user_id, user_role, person_type, person_id, person_name, status,
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		FROM attendances
+		WHERE person_type = 'student' AND (person_id = $1 OR user_id = $1)
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []model.AttendanceRecord
+	for rows.Next() {
+		var att model.AttendanceRecord
+		var userId, userRole, notes, lateReason sql.NullString
+
+		err := rows.Scan(
+			&att.ID,
+			&att.ScheduleID,
+			&att.ScheduleTitle,
+			&att.Class,
+			&att.Date,
+			&att.TimeStart,
+			&att.TimeEnd,
+			&att.PoolArea,
+			&userId,
+			&userRole,
+			&att.PersonType,
+			&att.PersonID,
+			&att.PersonName,
+			&att.Status,
+			&att.IsLate,
+			&lateReason,
+			&att.Latitude,
+			&att.Longitude,
+			&att.DistanceKm,
+			&att.IsValidLocation,
+			&notes,
+			&att.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if userId.Valid {
+			att.UserID = userId.String
+		}
+		if userRole.Valid {
+			att.UserRole = userRole.String
+		}
+		if notes.Valid {
+			att.Notes = notes.String
+		}
+		if lateReason.Valid {
+			att.LateReason = lateReason.String
+		}
+
+		records = append(records, att)
+	}
+
+	if records == nil {
+		records = []model.AttendanceRecord{}
+	}
+
+	return records, nil
+}
+
+// CreateNotification inserts a notification for admin
+func (r *attendanceRepository) CreateNotification(ctx context.Context, notif *model.AdminNotification) error {
+	query := `
+		INSERT INTO notifications (title, message, type, is_read, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at
+	`
+
+	if notif.CreatedAt.IsZero() {
+		notif.CreatedAt = time.Now()
+	}
+
+	return r.db.QueryRowContext(
+		ctx,
+		query,
+		notif.Title,
+		notif.Message,
+		notif.Type,
+		notif.IsRead,
+		notif.CreatedAt,
+	).Scan(&notif.ID, &notif.CreatedAt)
+}
+
+// GetNotifications returns recent notifications
+func (r *attendanceRepository) GetNotifications(ctx context.Context, limit int) ([]model.AdminNotification, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+
+	query := `
+		SELECT id, title, message, type, is_read, created_at
+		FROM notifications
+		ORDER BY created_at DESC
+		LIMIT $1
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notifs []model.AdminNotification
+	for rows.Next() {
+		var n model.AdminNotification
+		if err := rows.Scan(&n.ID, &n.Title, &n.Message, &n.Type, &n.IsRead, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		notifs = append(notifs, n)
+	}
+
+	if notifs == nil {
+		notifs = []model.AdminNotification{}
+	}
+
+	return notifs, nil
+}
+
+// MarkNotificationRead updates notification read status
+func (r *attendanceRepository) MarkNotificationRead(ctx context.Context, id int64) error {
+	query := `UPDATE notifications SET is_read = true WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}

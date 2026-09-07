@@ -53,9 +53,59 @@ export interface ScheduleSession {
   status: "Active" | "Completed" | "Cancelled";
 }
 
+export interface AttendanceRecord {
+  id: number | string;
+  schedule_id: string;
+  schedule_title?: string;
+  class?: string;
+  class_name?: string;
+  date: string;
+  time_start?: string;
+  time_end?: string;
+  time_recorded?: string;
+  pool_area?: string;
+  user_id?: string;
+  user_role?: string;
+  person_type: "coach" | "student";
+  person_id: string;
+  person_name: string;
+  status: "Hadir" | "Terlambat" | "Izin" | "Sakit" | "Alpa";
+  is_late: boolean;
+  late_reason?: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+  is_valid_location: boolean;
+  notes?: string;
+  created_at: string;
+}
+
+export interface CheckInInput {
+  schedule_id: string;
+  person_type: "coach" | "student";
+  person_id: string;
+  person_name: string;
+  class_name?: string;
+  status?: string;
+  late_reason?: string;
+  latitude: number;
+  longitude: number;
+  notes?: string;
+}
+
+export interface AdminNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export interface NavItem {
   id: string;
   label: string;
   fullLabel: string;
   icon: string;
 }
+

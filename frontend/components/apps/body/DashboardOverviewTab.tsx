@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Student, Coach, Invoice, ScheduleSession } from "../types";
+import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
@@ -10,6 +10,9 @@ interface DashboardOverviewTabProps {
   coaches: Coach[];
   invoices: Invoice[];
   schedules?: ScheduleSession[];
+  attendances?: AttendanceRecord[];
+  notifications?: AdminNotification[];
+  onMarkNotificationRead?: (id: number | string) => Promise<void>;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -20,6 +23,9 @@ export default function DashboardOverviewTab({
   coaches,
   invoices,
   schedules = [],
+  attendances = [],
+  notifications = [],
+  onMarkNotificationRead,
   setActiveTab,
 }: DashboardOverviewTabProps) {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
@@ -415,55 +421,111 @@ export default function DashboardOverviewTab({
 
           {/* Top Right Translucent Notification Bell */}
           <div className="relative">
-            <button
-              onClick={() => setShowNotificationPopup(!showNotificationPopup)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
-              title="Notifikasi"
-            >
-              <span className="text-lg">🔔</span>
-              {pendingInvoices.length > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
-                  {pendingInvoices.length > 99 ? "99+" : pendingInvoices.length}
-                </span>
-              )}
-            </button>
+            {(() => {
+              const unreadNotifs = notifications.filter((n) => !n.is_read);
+              const totalUnread = unreadNotifs.length + pendingInvoices.length;
 
-            {/* Notification Dropdown */}
-            {showNotificationPopup && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-3xl p-4 shadow-2xl border border-slate-100 text-slate-800 z-50 animate-fadeIn">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2.5">
-                  <span className="text-xs font-bold text-slate-900">Pemberitahuan</span>
-                  <span className="text-[10px] font-bold text-cyan-600">
-                    {pendingInvoices.length} Baru
-                  </span>
-                </div>
-                {pendingInvoices.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-3 text-center italic">
-                    Tidak ada notifikasi baru.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingInvoices.map((inv) => (
-                      <div
-                        key={inv.id}
-                        onClick={() => {
-                          setShowNotificationPopup(false);
-                          if (setActiveTab) setActiveTab("keuangan");
-                        }}
-                        className="p-2.5 bg-cyan-50/50 rounded-2xl border border-cyan-100 cursor-pointer hover:bg-cyan-100/60 transition text-left"
-                      >
-                        <p className="text-xs font-bold text-slate-800">
-                          Transfer SPP {inv.name}
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          Rp {inv.amount.toLocaleString("id-ID")} • Menunggu Verifikasi
-                        </p>
+              return (
+                <>
+                  <button
+                    onClick={() => setShowNotificationPopup(!showNotificationPopup)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
+                    title="Notifikasi"
+                  >
+                    <span className="text-lg">🔔</span>
+                    {totalUnread > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
+                        {totalUnread > 99 ? "99+" : totalUnread}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Notification Dropdown */}
+                  {showNotificationPopup && (
+                    <div className="absolute right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-white rounded-3xl p-4 shadow-2xl border border-slate-100 text-slate-800 z-50 animate-fadeIn space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <span className="text-xs font-black text-slate-900">Pemberitahuan</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                          {totalUnread} Baru
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+
+                      {totalUnread === 0 && notifications.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-4 text-center italic">
+                          Tidak ada notifikasi baru.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {/* Real-time Attendance & System Notifications */}
+                          {notifications.slice(0, 8).map((notif) => (
+                            <div
+                              key={notif.id}
+                              onClick={async () => {
+                                if (onMarkNotificationRead && !notif.is_read) {
+                                  await onMarkNotificationRead(notif.id);
+                                }
+                                setShowNotificationPopup(false);
+                                if (notif.type === "attendance" && setActiveTab) {
+                                  setActiveTab("absensi");
+                                }
+                              }}
+                              className={`p-3 rounded-2xl border transition text-left cursor-pointer ${
+                                !notif.is_read
+                                  ? notif.title?.includes("Terlambat")
+                                    ? "bg-amber-50/70 border-amber-200"
+                                    : "bg-blue-50/70 border-blue-200"
+                                  : "bg-slate-50/60 border-slate-100 opacity-75"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                  <span>{notif.title?.includes("Terlambat") ? "⚠️" : "⏱️"}</span>
+                                  <span className="truncate">{notif.title}</span>
+                                </span>
+                                {!notif.is_read && (
+                                  <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-600 leading-snug">
+                                {notif.message}
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-medium mt-1">
+                                {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                              </p>
+                            </div>
+                          ))}
+
+                          {/* Pending Invoices */}
+                          {pendingInvoices.map((inv) => (
+                            <div
+                              key={inv.id}
+                              onClick={() => {
+                                setShowNotificationPopup(false);
+                                if (setActiveTab) setActiveTab("keuangan");
+                              }}
+                              className="p-3 bg-cyan-50/60 rounded-2xl border border-cyan-100 cursor-pointer hover:bg-cyan-100/60 transition text-left"
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="text-xs font-black text-slate-900 flex items-center gap-1">
+                                  <span>💳</span>
+                                  <span>Transfer SPP: {inv.name}</span>
+                                </p>
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-200 text-amber-900">
+                                  Review
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                Rp {inv.amount.toLocaleString("id-ID")} • Menunggu Verifikasi Admin
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

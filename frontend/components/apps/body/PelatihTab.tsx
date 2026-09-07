@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Coach, ScheduleSession, Student } from "../types";
+import { Coach, ScheduleSession, Student, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface PelatihTabProps {
@@ -9,6 +9,7 @@ interface PelatihTabProps {
   sessionRole: string;
   schedules?: ScheduleSession[];
   students?: Student[];
+  attendances?: AttendanceRecord[];
   setActiveTab?: (tab: string) => void;
 }
 
@@ -17,6 +18,7 @@ export default function PelatihTab({
   sessionRole,
   schedules = [],
   students = [],
+  attendances = [],
   setActiveTab,
 }: PelatihTabProps) {
   const [searchQuery, setSearchQuery] = useState("");

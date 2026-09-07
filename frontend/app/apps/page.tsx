@@ -18,8 +18,21 @@ import {
   verifyInvoicePayment,
   uploadInvoiceReceipt,
   syncCurrentUserAvatar,
+  fetchAttendances,
+  checkInAttendance,
+  fetchNotifications,
+  markNotificationRead,
 } from "../../lib/api";
-import { Student, Coach, Invoice, ScheduleSession, NavItem } from "../../components/apps/types";
+import {
+  Student,
+  Coach,
+  Invoice,
+  ScheduleSession,
+  NavItem,
+  AttendanceRecord,
+  AdminNotification,
+  CheckInInput,
+} from "../../components/apps/types";
 import ToastNotification from "../../components/apps/ToastNotification";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
 import { ParentHeader, AdminHeader } from "../../components/apps/AppsHeader";
@@ -46,6 +59,8 @@ export default function AppsPage() {
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [schedules, setSchedules] = useState<ScheduleSession[]>([]);
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -73,18 +88,28 @@ export default function AppsPage() {
   const loadAllData = useCallback(async () => {
     try {
       setLoadingData(true);
-      const [fetchedStudents, fetchedCoaches, fetchedSchedules, fetchedInvoices] =
-        await Promise.all([
-          fetchStudents(),
-          fetchCoaches(),
-          fetchSchedules(),
-          fetchInvoices(),
-        ]);
+      const [
+        fetchedStudents,
+        fetchedCoaches,
+        fetchedSchedules,
+        fetchedInvoices,
+        fetchedAttendances,
+        fetchedNotifications,
+      ] = await Promise.all([
+        fetchStudents(),
+        fetchCoaches(),
+        fetchSchedules(),
+        fetchInvoices(),
+        fetchAttendances(),
+        fetchNotifications(),
+      ]);
 
       setStudents(fetchedStudents);
       setCoaches(fetchedCoaches);
       setSchedules(fetchedSchedules);
       setInvoices(fetchedInvoices);
+      setAttendances(fetchedAttendances);
+      setNotifications(fetchedNotifications);
     } catch (err) {
       console.error("Error fetching database data:", err);
       triggerToast("Gagal memuat data dari database", "error");
@@ -509,6 +534,53 @@ export default function AppsPage() {
     }
   };
 
+  // Handler: Check-in attendance with GPS and Time validation
+  const handleCheckInAttendance = async (payload: CheckInInput): Promise<boolean | void> => {
+    try {
+      const res = await checkInAttendance(payload);
+      if (res) {
+        // Refresh attendances, notifications, and students (for meeting logs)
+        const [updatedAttendances, updatedNotifs, updatedStudents] = await Promise.all([
+          fetchAttendances(),
+          fetchNotifications(),
+          fetchStudents(),
+        ]);
+        setAttendances(updatedAttendances);
+        setNotifications(updatedNotifs);
+        setStudents(updatedStudents);
+
+        if (res.status === "Terlambat") {
+          triggerToast(
+            `Presensi berhasil tercatat (Status: Terlambat). Alasan keterlambatan telah dikirim ke admin.`,
+            "success"
+          );
+        } else {
+          triggerToast(
+            `Presensi berhasil! Kehadiran ${payload.person_name} telah tercatat di sistem. ✨`,
+            "success"
+          );
+        }
+        return true;
+      }
+    } catch (err: any) {
+      console.error("Check-in error:", err);
+      triggerToast(err.message || "Gagal melakukan presensi", "error");
+      throw err;
+    }
+  };
+
+  // Handler: Mark notification as read
+  const handleMarkNotificationRead = async (id: number | string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+    } catch (err) {
+      console.error("Mark notification read error:", err);
+    }
+  };
+
   if (!mounted || !sessionUser) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 text-slate-800 font-sans">
@@ -572,7 +644,9 @@ export default function AppsPage() {
               invoice={currentInvoice}
               schedules={schedules}
               coaches={coaches}
+              attendances={attendances}
               onUploadReceipt={handleParentUploadReceipt}
+              onCheckInAttendance={handleCheckInAttendance}
               showInstallBtn={showInstallBtn}
               onInstallClick={handleInstallClick}
               onLogout={handleLogout}
@@ -681,6 +755,8 @@ export default function AppsPage() {
             coaches={coaches}
             invoices={invoices}
             schedules={schedules}
+            attendances={attendances}
+            notifications={notifications}
             showInstallBtn={showInstallBtn}
             onInstallClick={handleInstallClick}
             onLogout={handleLogout}
@@ -689,6 +765,8 @@ export default function AppsPage() {
             onUpdateSchedule={handleUpdateSchedule}
             onDeleteSchedule={handleDeleteSchedule}
             onVerifyPayment={handleAdminVerifyPayment}
+            onCheckInAttendance={handleCheckInAttendance}
+            onMarkNotificationRead={handleMarkNotificationRead}
             onSubmitAttendance={handleAbsensiSubmit}
             onAddStudent={handleAddSiswaSubmit}
             onAddCoach={handleAddPelatihSubmit}

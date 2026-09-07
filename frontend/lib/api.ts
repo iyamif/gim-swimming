@@ -1,4 +1,11 @@
-import { Student, Coach, Invoice, ScheduleSession } from "../components/apps/types";
+import {
+  Student,
+  Coach,
+  Invoice,
+  ScheduleSession,
+  AttendanceRecord,
+  AdminNotification,
+} from "../components/apps/types";
 
 // Central API configuration for frontend-backend communication
 export function getApiBaseUrl(): string {
@@ -464,3 +471,294 @@ export async function updateAvatarPreset(avatar: string): Promise<string> {
   const data = await res.json();
   return data.avatar;
 }
+
+// ================= ATTENDANCES & NOTIFICATIONS =================
+
+export async function fetchAttendances(): Promise<AttendanceRecord[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/attendances`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Gagal mengambil data riwayat presensi");
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("fetchAttendances error:", err);
+    return [];
+  }
+}
+
+export async function checkInAttendance(payload: {
+  schedule_id: string;
+  person_type: "coach" | "student";
+  person_id: string;
+  person_name: string;
+  status?: string;
+  late_reason?: string;
+  latitude: number;
+  longitude: number;
+  notes?: string;
+}): Promise<AttendanceRecord> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/attendances/checkin`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || "Gagal melakukan presensi");
+    }
+
+    return json.data;
+  } catch (err) {
+    console.error("checkInAttendance error:", err);
+    throw err;
+  }
+}
+
+export async function fetchNotifications(): Promise<AdminNotification[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Gagal mengambil data notifikasi");
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("fetchNotifications error:", err);
+    return [];
+  }
+}
+
+export async function markNotificationRead(id: number | string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications/${id}/read`, {
+      method: "PATCH",
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("markNotificationRead error:", err);
+    return false;
+  }
+}
+
+// ================= GEOLOCATION & TIME CONSTRAINTS HELPERS =================
+
+export interface PoolVenueInfo {
+  key: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export const POOL_VENUES: Record<string, PoolVenueInfo> = {
+  nalendra: {
+    key: "nalendra",
+    name: "Hotel Nalendra Plaza Subang",
+    address: "Jl. Otto Iskandardinata No. 88, Karanganyar, Subang",
+    latitude: -6.565630,
+    longitude: 107.761040,
+  },
+  wera: {
+    key: "wera",
+    name: "Kolam Renang Yonif 312 Wera",
+    address: "Jl. Brigjen Katamso, Dangdeur, Subang",
+    latitude: -6.550500,
+    longitude: 107.747800,
+  },
+  ciater: {
+    key: "ciater",
+    name: "Kolam Renang Sari Ater / Ciater",
+    address: "Jl. Raya Ciater, Subang",
+    latitude: -6.738800,
+    longitude: 107.656500,
+  },
+};
+
+export function getPoolCoordinates(poolAreaName: string): { latitude: number; longitude: number; name: string } {
+  const norm = (poolAreaName || "").toLowerCase().trim();
+  if (norm.includes("wera") || norm.includes("312")) {
+    return {
+      latitude: POOL_VENUES.wera.latitude,
+      longitude: POOL_VENUES.wera.longitude,
+      name: POOL_VENUES.wera.name,
+    };
+  }
+  if (norm.includes("ciater") || norm.includes("sari ater")) {
+    return {
+      latitude: POOL_VENUES.ciater.latitude,
+      longitude: POOL_VENUES.ciater.longitude,
+      name: POOL_VENUES.ciater.name,
+    };
+  }
+  // Default Nalendra
+  return {
+    latitude: POOL_VENUES.nalendra.latitude,
+    longitude: POOL_VENUES.nalendra.longitude,
+    name: poolAreaName || POOL_VENUES.nalendra.name,
+  };
+}
+
+// Calculate Haversine distance in kilometers
+export function calculateDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  return Math.round(d * 100) / 100;
+}
+
+export interface AttendanceTimeStatus {
+  canCheckIn: boolean;
+  isLate: boolean;
+  isOpen: boolean;
+  openTimeString: string;
+  sessionStartTime: string;
+  minutesRemainingUntilOpen: number;
+  minutesPastStart: number;
+  statusBadge: "locked" | "ready" | "late";
+  statusMessage: string;
+}
+
+/**
+ * Validates attendance time window against the rules:
+ * 1. Opens 2 hours before session timeStart (e.g., 13:00 for 15:00 session)
+ * 2. On-time check-in is up to 15 minutes after session timeStart (13:00 - 15:15)
+ * 3. Late check-in is > 15 minutes after session timeStart (> 15:15), requiring late reason
+ */
+export function checkAttendanceTimeStatus(
+  scheduleDateStr: string, // YYYY-MM-DD
+  scheduleTimeStart: string // HH:MM
+): AttendanceTimeStatus {
+  const now = new Date();
+
+  // Parse session start date
+  let sessionStart: Date;
+  try {
+    if (scheduleDateStr && scheduleTimeStart) {
+      sessionStart = new Date(`${scheduleDateStr}T${scheduleTimeStart}:00`);
+    } else if (scheduleTimeStart) {
+      const todayStr = now.toISOString().split("T")[0];
+      sessionStart = new Date(`${todayStr}T${scheduleTimeStart}:00`);
+    } else {
+      sessionStart = new Date();
+    }
+  } catch {
+    sessionStart = new Date();
+  }
+
+  // 2 hours before start
+  const openTime = new Date(sessionStart.getTime() - 2 * 60 * 60 * 1000);
+  // 15 minutes after start
+  const lateThreshold = new Date(sessionStart.getTime() + 15 * 60 * 1000);
+
+  const openTimeString = openTime.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const sessionStartTime = sessionStart.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const nowMs = now.getTime();
+  const openMs = openTime.getTime();
+  const startMs = sessionStart.getTime();
+  const lateMs = lateThreshold.getTime();
+
+  // Check if date is on a different day than today
+  const todayDateStr = now.toLocaleDateString("en-CA"); // YYYY-MM-DD local
+  const isToday = scheduleDateStr === todayDateStr;
+
+  if (scheduleDateStr && scheduleDateStr < todayDateStr) {
+    return {
+      canCheckIn: false,
+      isLate: true,
+      isOpen: false,
+      openTimeString,
+      sessionStartTime,
+      minutesRemainingUntilOpen: 0,
+      minutesPastStart: 0,
+      statusBadge: "locked",
+      statusMessage: "Jadwal sesi ini sudah berlalu.",
+    };
+  }
+
+  if (scheduleDateStr && scheduleDateStr > todayDateStr) {
+    const diffDays = Math.ceil((new Date(scheduleDateStr).getTime() - new Date(todayDateStr).getTime()) / (1000 * 3600 * 24));
+    return {
+      canCheckIn: false,
+      isLate: false,
+      isOpen: false,
+      openTimeString,
+      sessionStartTime,
+      minutesRemainingUntilOpen: diffDays * 24 * 60,
+      minutesPastStart: 0,
+      statusBadge: "locked",
+      statusMessage: `Sesi dijadwalkan tanggal ${scheduleDateStr}. Presensi baru dibuka 2 jam sebelum sesi.`,
+    };
+  }
+
+  // Same Day: Check Hour Windows
+  if (nowMs < openMs) {
+    const minutesRemaining = Math.ceil((openMs - nowMs) / (60 * 1000));
+    return {
+      canCheckIn: false,
+      isLate: false,
+      isOpen: false,
+      openTimeString,
+      sessionStartTime,
+      minutesRemainingUntilOpen: minutesRemaining,
+      minutesPastStart: 0,
+      statusBadge: "locked",
+      statusMessage: `Presensi baru dibuka 2 jam sebelum sesi (pukul ${openTimeString} WIB). Tersisa ${minutesRemaining} menit lagi.`,
+    };
+  }
+
+  if (nowMs >= openMs && nowMs <= lateMs) {
+    return {
+      canCheckIn: true,
+      isLate: false,
+      isOpen: true,
+      openTimeString,
+      sessionStartTime,
+      minutesRemainingUntilOpen: 0,
+      minutesPastStart: Math.max(0, Math.floor((nowMs - startMs) / (60 * 1000))),
+      statusBadge: "ready",
+      statusMessage: `Presensi dibuka! Silakan check-in (Status: Hadir Tepat Waktu).`,
+    };
+  }
+
+  // After lateThreshold (> 15 minutes after start)
+  const minutesPast = Math.floor((nowMs - startMs) / (60 * 1000));
+  return {
+    canCheckIn: true,
+    isLate: true,
+    isOpen: true,
+    openTimeString,
+    sessionStartTime,
+    minutesRemainingUntilOpen: 0,
+    minutesPastStart: minutesPast,
+    statusBadge: "late",
+    statusMessage: `Presensi terlambat (${minutesPast} menit setelah sesi dimulai). Wajib mengisi alasan keterlambatan.`,
+  };
+}
+

@@ -131,6 +131,20 @@ func SetupRoutes(
 			invoiceGroup.PATCH("/:id/receipt", appHandler.UploadReceipt)
 		}
 
+		// Attendances Endpoints (Schedule-based with GPS & Time Constraints)
+		attendanceGroup := v1.Group("/attendances")
+		{
+			attendanceGroup.GET("", appHandler.GetAttendances)
+			attendanceGroup.POST("/checkin", appHandler.CheckInAttendance)
+		}
+
+		// Notifications Endpoints (Admin Notifications)
+		notificationGroup := v1.Group("/notifications")
+		{
+			notificationGroup.GET("", appHandler.GetNotifications)
+			notificationGroup.PATCH("/:id/read", appHandler.MarkNotificationRead)
+		}
+
 		// Role-based Verification Test Endpoints
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.AuthMiddleware(authService), middleware.RequireRoles(model.RoleAdmin))

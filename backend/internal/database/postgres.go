@@ -137,9 +137,45 @@ func runMigrations() error {
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS attendances (
+		id SERIAL PRIMARY KEY,
+		schedule_id VARCHAR(50) NOT NULL,
+		schedule_title VARCHAR(255) NOT NULL,
+		class VARCHAR(100) NOT NULL,
+		date VARCHAR(50) NOT NULL,
+		time_start VARCHAR(20) NOT NULL,
+		time_end VARCHAR(20) NOT NULL,
+		pool_area VARCHAR(100) NOT NULL,
+		user_id VARCHAR(50) DEFAULT '',
+		user_role VARCHAR(50) DEFAULT '',
+		person_type VARCHAR(50) NOT NULL, -- 'coach' or 'student'
+		person_id VARCHAR(50) NOT NULL,
+		person_name VARCHAR(255) NOT NULL,
+		status VARCHAR(50) NOT NULL DEFAULT 'Hadir',
+		is_late BOOLEAN DEFAULT false,
+		late_reason TEXT DEFAULT '',
+		latitude NUMERIC(10, 6) DEFAULT 0,
+		longitude NUMERIC(10, 6) DEFAULT 0,
+		distance_km NUMERIC(8, 3) DEFAULT 0,
+		is_valid_location BOOLEAN DEFAULT true,
+		notes TEXT DEFAULT '',
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS notifications (
+		id SERIAL PRIMARY KEY,
+		title VARCHAR(255) NOT NULL,
+		message TEXT NOT NULL,
+		type VARCHAR(50) DEFAULT 'system',
+		is_read BOOLEAN DEFAULT false,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
 	-- Add column avatar if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT '';
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT '';
+	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS is_late BOOLEAN DEFAULT false;
+	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS late_reason TEXT DEFAULT '';
 	`
 
 	_, err := DB.Exec(query)

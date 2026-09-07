@@ -47,6 +47,7 @@ func main() {
 	coachRepo := repository.NewCoachRepository(pgDB)
 	scheduleRepo := repository.NewScheduleRepository(pgDB)
 	invoiceRepo := repository.NewInvoiceRepository(pgDB)
+	attendanceRepo := repository.NewAttendanceRepository(pgDB)
 
 	// Seed database with default data if tables are empty
 	if pgDB != nil {
@@ -55,7 +56,7 @@ func main() {
 
 	// Services
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
-	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo)
+	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, userRepo)
@@ -64,7 +65,6 @@ func main() {
 	// 4. Setup Gin engine
 	router := gin.Default()
 	router.Use(CORSMiddleware())
-	router.Static("/foto-profile", "../frontend/public/foto-profile")
 
 	// 5. Setup routes
 	routes.SetupRoutes(router, authHandler, appHandler, authService)

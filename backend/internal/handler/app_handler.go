@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -344,3 +345,105 @@ func (h *AppHandler) UploadReceipt(c *gin.Context) {
 		"message": "Bukti transfer berhasil diunggah",
 	})
 }
+
+// ================= ATTENDANCES & NOTIFICATIONS =================
+
+// CheckInAttendance handles POST /api/v1/attendances/checkin
+func (h *AppHandler) CheckInAttendance(c *gin.Context) {
+	var input model.CheckInInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	var currentUser *model.User
+	if u, exists := c.Get("currentUser"); exists {
+		if userObj, ok := u.(*model.User); ok {
+			currentUser = userObj
+		}
+	}
+
+	att, err := h.appService.CheckInAttendance(c.Request.Context(), &input, currentUser)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	msg := "Presensi berhasil disimpan!"
+	if att.IsLate {
+		msg = "Presensi berhasil disimpan (Status: Terlambat - Alasan dicatat)"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": msg,
+		"data":    att,
+	})
+}
+
+// GetAttendances handles GET /api/v1/attendances
+func (h *AppHandler) GetAttendances(c *gin.Context) {
+	attendances, err := h.appService.GetAttendances(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    attendances,
+	})
+}
+
+// GetNotifications handles GET /api/v1/notifications
+func (h *AppHandler) GetNotifications(c *gin.Context) {
+	notifications, err := h.appService.GetNotifications(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    notifications,
+	})
+}
+
+// MarkNotificationRead handles PATCH /api/v1/notifications/:id/read
+func (h *AppHandler) MarkNotificationRead(c *gin.Context) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "ID notifikasi tidak valid",
+		})
+		return
+	}
+
+	if err := h.appService.MarkNotificationRead(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Notifikasi ditandai telah dibaca",
+	})
+}
+

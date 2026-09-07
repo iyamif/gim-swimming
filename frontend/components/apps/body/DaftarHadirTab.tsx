@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Student, Coach, ScheduleSession } from "../types";
+import { Student, Coach, ScheduleSession, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface DaftarHadirTabProps {
@@ -9,6 +9,7 @@ interface DaftarHadirTabProps {
   sessionRole: string;
   schedules?: ScheduleSession[];
   coaches?: Coach[];
+  attendances?: AttendanceRecord[];
   setActiveTab?: (tab: string) => void;
 }
 
@@ -17,6 +18,7 @@ export default function DaftarHadirTab({
   sessionRole,
   schedules = [],
   coaches = [],
+  attendances = [],
   setActiveTab,
 }: DaftarHadirTabProps) {
   const [searchQuery, setSearchQuery] = useState("");

@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Student, Coach, Invoice, ScheduleSession } from "../types";
+import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput } from "../types";
 import EditProfileModal from "../EditProfileModal";
-import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import {
+  isImageAvatar,
+  getAvatarImageUrl,
+  POOL_VENUES,
+  calculateDistanceKm,
+  checkAttendanceTimeStatus,
+} from "../../../lib/api";
 
 interface ParentBodyProps {
   sessionUser?: string;
@@ -11,7 +17,9 @@ interface ParentBodyProps {
   invoice?: Invoice;
   schedules?: ScheduleSession[];
   coaches?: Coach[];
+  attendances?: AttendanceRecord[];
   onUploadReceipt: (invoiceId: string) => void;
+  onCheckInAttendance?: (input: CheckInInput) => Promise<boolean | void>;
   showInstallBtn?: boolean;
   onInstallClick?: () => void;
   onLogout?: () => void;
@@ -26,7 +34,9 @@ export default function ParentBody({
   invoice,
   schedules = [],
   coaches = [],
+  attendances = [],
   onUploadReceipt,
+  onCheckInAttendance,
   showInstallBtn,
   onInstallClick,
   onLogout,
@@ -41,6 +51,43 @@ export default function ParentBody({
   const [isRefreshingLocal, setIsRefreshingLocal] = useState(false);
   const [copiedBank, setCopiedBank] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // GPS Geolocation & Attendance States
+  const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [useSimulatedPoolLocation, setUseSimulatedPoolLocation] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [lateReasonModalSchedule, setLateReasonModalSchedule] = useState<ScheduleSession | null>(null);
+  const [lateReasonText, setLateReasonText] = useState("");
+
+  const requestDeviceLocation = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationError("Browser tidak mendukung GPS Geolocation");
+      return;
+    }
+    setIsLocating(true);
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDeviceCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn("GPS error:", err.message);
+        setLocationError("Gagal mendeteksi lokasi GPS perangkat");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  useEffect(() => {
+    requestDeviceLocation();
+  }, []);
 
   // Progress Report (Rapor) States & Past Evaluations
   const [showAllPastEvaluations, setShowAllPastEvaluations] = useState(false);
@@ -348,6 +395,96 @@ export default function ParentBody({
       }
     : null;
 
+  // Student Attendances from DB
+  const studentAttendances = attendances.filter(
+    (a) =>
+      a.person_type === "student" &&
+      (String(a.person_id) === String(student.id) ||
+        a.person_name?.toLowerCase().trim() === student.name.toLowerCase().trim() ||
+        a.person_name?.toLowerCase().includes(student.name.toLowerCase().trim()) ||
+        student.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || ""))
+  );
+
+  const getVenueCoords = (poolArea?: string) => {
+    const p = poolArea?.toLowerCase() || "";
+    if (p.includes("312") || p.includes("wera")) {
+      return { lat: POOL_VENUES.wera.latitude, lng: POOL_VENUES.wera.longitude };
+    }
+    return { lat: POOL_VENUES.nalendra.latitude, lng: POOL_VENUES.nalendra.longitude };
+  };
+
+  const getEffectiveCoords = (schedulePoolArea?: string) => {
+    if (useSimulatedPoolLocation) {
+      const venue = getVenueCoords(schedulePoolArea);
+      return { lat: venue.lat + 0.0002, lng: venue.lng + 0.0002 };
+    }
+    return deviceCoords;
+  };
+
+  const calculateScheduleDistance = (schedule: ScheduleSession) => {
+    const coords = getEffectiveCoords(schedule.poolArea);
+    if (!coords) return null;
+    const venue = getVenueCoords(schedule.poolArea);
+    return calculateDistanceKm(coords.lat, coords.lng, venue.lat, venue.lng);
+  };
+
+  const getScheduleAttendance = (scheduleId?: string, scheduleDate?: string) => {
+    return studentAttendances.find(
+      (a) =>
+        (scheduleId && String(a.schedule_id) === String(scheduleId)) ||
+        (scheduleDate && a.date === scheduleDate)
+    );
+  };
+
+  const handlePerformCheckIn = async (schedule: ScheduleSession, lateReason?: string) => {
+    if (!onCheckInAttendance) return;
+    const effectiveLoc = getEffectiveCoords(schedule.poolArea);
+    if (!effectiveLoc) {
+      alert("Harap aktifkan GPS perangkat atau gunakan mode simulasi kolam untuk tes.");
+      return;
+    }
+
+    const timeStat = checkAttendanceTimeStatus(schedule.date || todayISO, schedule.timeStart);
+    if (!timeStat.isOpen) {
+      alert(timeStat.statusMessage);
+      return;
+    }
+
+    const dist = calculateScheduleDistance(schedule);
+    if (dist !== null && dist > 2.0) {
+      alert(
+        `Lokasi Anda berjarak ${dist.toFixed(2)} km dari kolam renang (Maksimal 2.0 km).\nHarap berada di lokasi kolam untuk melakukan presensi.`
+      );
+      return;
+    }
+
+    if (timeStat.isLate && !lateReason) {
+      setLateReasonModalSchedule(schedule);
+      return;
+    }
+
+    setIsCheckingIn(true);
+    try {
+      await onCheckInAttendance({
+        schedule_id: schedule.id,
+        person_type: "student",
+        person_id: String(student.id),
+        person_name: student.name,
+        class_name: schedule.class || student.class,
+        latitude: effectiveLoc.lat,
+        longitude: effectiveLoc.lng,
+        late_reason: lateReason || "",
+      });
+      setLateReasonModalSchedule(null);
+      setLateReasonText("");
+      if (onRefresh) await onRefresh();
+    } catch (err: any) {
+      alert(err.message || "Gagal melakukan presensi");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
   // Notifications Count
   const notificationCount =
     (showSPPReminder ? 1 : 0) + (todayStudentSchedules.length > 0 ? 1 : 0);
@@ -639,7 +776,7 @@ export default function ParentBody({
               </a>
             </div>
 
-            {/* Sesi Hari Ini if active */}
+            {/* Sesi Hari Ini & Presensi Siswa if active */}
             {todayStudentSchedules.length > 0 && (
               <div className="rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-4 relative overflow-hidden animate-fadeIn">
                 <div className="flex items-center justify-between flex-wrap gap-2 relative z-10 border-b border-white/15 pb-3">
@@ -650,7 +787,7 @@ export default function ParentBody({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
-                          Jadwal Latihan Hari Ini
+                          Jadwal Latihan &amp; Presensi Hari Ini
                         </h3>
                         <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs animate-pulse">
                           AKTIF
@@ -661,24 +798,128 @@ export default function ParentBody({
                       </p>
                     </div>
                   </div>
+
+                  {/* Simulated GPS toggle for testing */}
+                  <button
+                    onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition cursor-pointer ${
+                      useSimulatedPoolLocation
+                        ? "bg-emerald-400 text-slate-950 border-emerald-300 font-black shadow-xs"
+                        : "bg-white/15 hover:bg-white/25 text-cyan-100 border-white/20"
+                    }`}
+                    title="Simulasikan perangkat berada di titik kolam renang"
+                  >
+                    {useSimulatedPoolLocation ? "✓ GPS: Di Kolam (Simulasi)" : "📍 Tes GPS Kolam"}
+                  </button>
                 </div>
 
                 <div className="space-y-3 relative z-10">
-                  {todayStudentSchedules.map((schedule, idx) => (
-                    <div
-                      key={schedule.id || idx}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-sm space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-xs font-black text-white">
-                          {schedule.title} ({schedule.class})
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white text-[11px] font-bold">
-                          ⏰ {schedule.timeStart} - {schedule.timeEnd} WIB
-                        </span>
+                  {todayStudentSchedules.map((schedule, idx) => {
+                    const existingAtt = getScheduleAttendance(schedule.id, schedule.date);
+                    const isCheckedIn = !!existingAtt;
+                    const timeStat = checkAttendanceTimeStatus(schedule.date || todayISO, schedule.timeStart);
+                    const dist = calculateScheduleDistance(schedule);
+                    const isWithinRadius = dist !== null && dist <= 2.0;
+
+                    return (
+                      <div
+                        key={schedule.id || idx}
+                        className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-sm space-y-3"
+                      >
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <span className="text-xs sm:text-sm font-black text-white block">
+                              {schedule.title} ({schedule.class})
+                            </span>
+                            <span className="text-[11px] text-cyan-100 font-medium">
+                              📍 {schedule.poolArea || "Hotel Nalendra Plaza Subang"} • Coach {schedule.coachName || coach.name}
+                            </span>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white text-[11px] font-bold">
+                            ⏰ {schedule.timeStart} - {schedule.timeEnd} WIB
+                          </span>
+                        </div>
+
+                        {/* Attendance State & Action */}
+                        {isCheckedIn ? (
+                          <div className="p-3 rounded-xl bg-emerald-500/25 border border-emerald-300/40 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">✅</span>
+                              <div>
+                                <p className="text-xs font-black text-white">
+                                  {existingAtt?.status === "Terlambat" ? "Presensi Masuk (Terlambat)" : "Presensi Masuk (Hadir)"}
+                                </p>
+                                <p className="text-[10px] text-emerald-100">
+                                  Waktu: {existingAtt?.time_recorded || (existingAtt?.created_at ? `${new Date(existingAtt.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB` : "Tercatat")} • Radius: {existingAtt?.distance_km !== undefined ? `${existingAtt.distance_km.toFixed(2)} km` : "≤ 2.0 km"}
+                                </p>
+                                {existingAtt?.late_reason && (
+                                  <p className="text-[10px] text-amber-200 italic mt-0.5">
+                                    Alasan: &quot;{existingAtt.late_reason}&quot;
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-[10px] font-black">
+                              TERVERIFIKASI
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 pt-1 border-t border-white/15">
+                            {/* GPS Radar distance status */}
+                            <div className="flex items-center justify-between text-[11px] font-medium text-cyan-100 flex-wrap gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`h-2 w-2 rounded-full ${isWithinRadius ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+                                <span>
+                                  {dist !== null
+                                    ? `Jarak ke kolam: ${dist.toFixed(2)} km ${isWithinRadius ? "(✓ Radius ≤ 2.0 km)" : "(✕ Di luar radius 2.0 km)"}`
+                                    : isLocating
+                                    ? "🛰️ Mendeteksi GPS..."
+                                    : "GPS belum aktif"}
+                                </span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                !timeStat.isOpen
+                                  ? "bg-slate-800/60 text-slate-300"
+                                  : timeStat.isLate
+                                  ? "bg-amber-400 text-slate-950 font-black"
+                                  : "bg-emerald-400 text-slate-950 font-black"
+                              }`}>
+                                {!timeStat.isOpen ? "Belum Dibuka" : timeStat.isLate ? "Terlambat (> 15m)" : "Bisa Presensi"}
+                              </span>
+                            </div>
+
+                            {/* Check-in Button */}
+                            <button
+                              onClick={() => handlePerformCheckIn(schedule)}
+                              disabled={isCheckingIn || !timeStat.isOpen || !isWithinRadius}
+                              className={`w-full py-2.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                                !timeStat.isOpen
+                                  ? "bg-white/20 text-white/60 cursor-not-allowed"
+                                  : !isWithinRadius
+                                  ? "bg-rose-500/80 hover:bg-rose-600 text-white"
+                                  : timeStat.isLate
+                                  ? "bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-slate-950"
+                                  : "bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 text-slate-950"
+                              }`}
+                            >
+                              <span>⏱️</span>
+                              <span>
+                                {isCheckingIn
+                                  ? "Memproses Presensi..."
+                                  : !timeStat.isOpen
+                                  ? `Buka Presensi: ${timeStat.openTimeString} WIB`
+                                  : !isWithinRadius
+                                  ? "Mendekat ke Kolam Renang (< 2 km)"
+                                  : timeStat.isLate
+                                  ? "Presensi Terlambat (Isi Alasan)"
+                                  : "Presensi Siswa Hadir Sekarang"}
+                              </span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -761,6 +1002,100 @@ export default function ParentBody({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Catatan Riwayat Pertemuan Siswa (Basis SPP & Kehadiran) */}
+            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📝</span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                      Catatan Pertemuan Siswa
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-semibold">
+                      Riwayat Presensi &amp; Sesi Latihan Tervalidasi
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black">
+                  {studentAttendances.length > 0 ? `${studentAttendances.length} Sesi Tercatat` : `${student.logs?.length || 0} Sesi`}
+                </span>
+              </div>
+
+              {studentAttendances.length === 0 && (!student.logs || student.logs.length === 0) ? (
+                <div className="py-6 text-center text-slate-400 text-xs italic">
+                  Belum ada catatan presensi pertemuan yang terekam.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {/* Real GPS Attendance records */}
+                  {studentAttendances.map((att, idx) => (
+                    <div
+                      key={att.id || idx}
+                      className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 text-xs font-black shrink-0">
+                          S{studentAttendances.length - idx}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-900">
+                            Pertemuan ke-{studentAttendances.length - idx} • {att.date}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-medium">
+                            {att.class || att.class_name || student.class} • {att.time_recorded || (att.created_at ? `${new Date(att.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB` : "Selesai")} • Radius: {att.distance_km !== undefined ? `${att.distance_km.toFixed(2)} km` : "≤ 2.0 km"}
+                          </p>
+                          {att.late_reason && (
+                            <p className="text-[10px] text-amber-700 font-medium italic mt-0.5">
+                              ⚠️ Keterlambatan: &quot;{att.late_reason}&quot;
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 ml-auto sm:ml-0">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black ${
+                            att.status === "Terlambat"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          }`}
+                        >
+                          {att.status === "Terlambat" ? "⚠️ Terlambat" : "✓ Hadir"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Fallback baseline logs if no new attendances recorded yet */}
+                  {studentAttendances.length === 0 &&
+                    student.logs?.map((log, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 text-xs font-black shrink-0">
+                            S{student.logs!.length - idx}
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-slate-900">
+                              Pertemuan ke-{student.logs!.length - idx} • {log.date}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              {student.class} • Kolam Nalendra Plaza
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {log.status || "Hadir"}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
 
             {/* Announcements */}
@@ -1527,6 +1862,74 @@ export default function ParentBody({
                 className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: ALASAN KETERLAMBATAN SISWA
+          ========================================== */}
+      {lateReasonModalSchedule && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => {
+              if (!isCheckingIn) setLateReasonModalSchedule(null);
+            }}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 text-xl border border-amber-200">
+                ⚠️
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-900">
+                  Presensi Terlambat (&gt; 15 Menit)
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  {lateReasonModalSchedule.title} • {lateReasonModalSchedule.timeStart} WIB
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p className="font-bold">Ketentuan Presensi Terlambat:</p>
+              <p className="text-[11px] leading-relaxed text-amber-800">
+                Sesi latihan telah dimulai lebih dari 15 menit. Anda tetap dapat melakukan presensi kehadiran dengan mengisi alasan keterlambatan untuk catatan pelatih &amp; admin.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Alasan Keterlambatan <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                value={lateReasonText}
+                onChange={(e) => setLateReasonText(e.target.value)}
+                placeholder="Contoh: Terjebak macet di jalan, kendala transportasi, dll."
+                rows={3}
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition resize-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setLateReasonModalSchedule(null)}
+                disabled={isCheckingIn}
+                className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!lateReasonText.trim() || isCheckingIn}
+                onClick={() => handlePerformCheckIn(lateReasonModalSchedule, lateReasonText.trim())}
+                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs transition cursor-pointer shadow-md disabled:opacity-50"
+              >
+                {isCheckingIn ? "Mengirim..." : "Kirim Presensi"}
               </button>
             </div>
           </div>

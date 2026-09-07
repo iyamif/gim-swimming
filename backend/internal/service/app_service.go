@@ -35,14 +35,21 @@ type AppService interface {
 	CreateInvoice(ctx context.Context, input *model.CreateInvoiceInput) (*model.Invoice, error)
 	VerifyInvoice(ctx context.Context, id string, confirm bool) error
 	UploadInvoiceReceipt(ctx context.Context, id string, receiptURL string) error
+
+	// Attendances & Notifications
+	CheckInAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error)
+	GetAttendances(ctx context.Context) ([]model.AttendanceRecord, error)
+	GetNotifications(ctx context.Context) ([]model.AdminNotification, error)
+	MarkNotificationRead(ctx context.Context, id int64) error
 }
 
 type appService struct {
-	userRepo     repository.UserRepository
-	studentRepo  repository.StudentRepository
-	coachRepo    repository.CoachRepository
-	scheduleRepo repository.ScheduleRepository
-	invoiceRepo  repository.InvoiceRepository
+	userRepo       repository.UserRepository
+	studentRepo    repository.StudentRepository
+	coachRepo      repository.CoachRepository
+	scheduleRepo   repository.ScheduleRepository
+	invoiceRepo    repository.InvoiceRepository
+	attendanceRepo repository.AttendanceRepository
 }
 
 // NewAppService creates a new AppService
@@ -52,13 +59,15 @@ func NewAppService(
 	coachRepo repository.CoachRepository,
 	scheduleRepo repository.ScheduleRepository,
 	invoiceRepo repository.InvoiceRepository,
+	attendanceRepo repository.AttendanceRepository,
 ) AppService {
 	return &appService{
-		userRepo:     userRepo,
-		studentRepo:  studentRepo,
-		coachRepo:    coachRepo,
-		scheduleRepo: scheduleRepo,
-		invoiceRepo:  invoiceRepo,
+		userRepo:       userRepo,
+		studentRepo:    studentRepo,
+		coachRepo:      coachRepo,
+		scheduleRepo:   scheduleRepo,
+		invoiceRepo:    invoiceRepo,
+		attendanceRepo: attendanceRepo,
 	}
 }
 
@@ -423,3 +432,207 @@ func (s *appService) VerifyInvoice(ctx context.Context, id string, confirm bool)
 func (s *appService) UploadInvoiceReceipt(ctx context.Context, id string, receiptURL string) error {
 	return s.invoiceRepo.UploadReceipt(ctx, id, receiptURL)
 }
+
+// ================= ATTENDANCE & GEOLOCATION =================
+
+// Pool location coordinate dictionary
+func getPoolCoordinates(poolArea string) (float64, float64) {
+	norm := strings.ToLower(strings.TrimSpace(poolArea))
+	if strings.Contains(norm, "wera") || strings.Contains(norm, "312") {
+		// Kolam Renang Yonif 312 Wera Subang
+		return -6.550500, 107.747800
+	}
+	if strings.Contains(norm, "ciater") || strings.Contains(norm, "sari ater") {
+		return -6.738800, 107.656500
+	}
+	// Default: Hotel Nalendra Plaza Subang
+	return -6.565630, 107.761040
+}
+
+// calculateDistance calculates distance in kilometers using the Haversine formula
+func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371.0 // Earth radius in kilometers
+	dLat := (lat2 - lat1) * (math.Pi / 180.0)
+	dLon := (lon2 - lon1) * (math.Pi / 180.0)
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*(math.Pi/180.0))*math.Cos(lat2*(math.Pi/180.0))*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return R * c
+}
+
+// CheckInAttendance processes attendance with GPS radius & time window checks
+func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error) {
+	if input.ScheduleID == "" || input.PersonName == "" || input.PersonID == "" {
+		return nil, errors.New("schedule_id, person_id, dan person_name wajib diisi")
+	}
+
+	// 1. Fetch the schedule
+	schedule, err := s.scheduleRepo.FindByID(ctx, input.ScheduleID)
+	if err != nil || schedule == nil {
+		return nil, errors.New("jadwal sesi renang tidak ditemukan")
+	}
+
+	// 2. Validate Time Window
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Now().In(loc)
+
+	sessionStart, parseErr := time.ParseInLocation("2006-01-02 15:04", fmt.Sprintf("%s %s", schedule.Date, schedule.TimeStart), loc)
+	if parseErr != nil {
+		// Fallback parse
+		sessionStart, parseErr = time.ParseInLocation("2006-01-02", schedule.Date, loc)
+	}
+
+	isLate := false
+	status := input.Status
+	if status == "" {
+		status = "Hadir"
+	}
+
+	if parseErr == nil {
+		openWindow := sessionStart.Add(-2 * time.Hour)
+		lateThreshold := sessionStart.Add(15 * time.Minute)
+
+		// A. Check if check-in is attempted before openWindow (earlier than 2 hours before start)
+		if now.Before(openWindow) {
+			return nil, fmt.Errorf("presensi belum dibuka. Presensi untuk sesi '%s' baru bisa dilakukan mulai pukul %s WIB (2 jam sebelum sesi dimulai)", schedule.Title, openWindow.Format("15:04"))
+		}
+
+		// B. Check if check-in is attempted after lateThreshold (more than 15 minutes after start)
+		if now.After(lateThreshold) {
+			isLate = true
+			if status == "Hadir" || status == "" {
+				status = "Terlambat"
+			}
+			if strings.TrimSpace(input.LateReason) == "" && status == "Terlambat" {
+				return nil, errors.New("presensi melewati batas 15 menit setelah sesi dimulai. Wajib mengisi alasan keterlambatan untuk catatan admin")
+			}
+		} else {
+			if status == "Terlambat" {
+				status = "Hadir"
+			}
+		}
+	}
+
+	// 3. Validate Geolocation Distance (Max 2.0 KM from pool)
+	poolLat, poolLon := getPoolCoordinates(schedule.PoolArea)
+	var distanceKm float64 = 0.0
+	isValidLocation := true
+
+	if input.Latitude != 0 && input.Longitude != 0 {
+		distanceKm = calculateDistance(input.Latitude, input.Longitude, poolLat, poolLon)
+		if distanceKm > 2.0 && status != "Izin" && status != "Sakit" {
+			return nil, fmt.Errorf("presensi ditolak: Anda berada di luar radius 2 km dari kolam renang (Jarak Anda: %.2f km dari %s). Presensi hanya dapat dilakukan dalam radius maksimal 2.0 km", distanceKm, schedule.PoolArea)
+		}
+	}
+
+	// 4. Create Attendance Record
+	userId := ""
+	userRole := ""
+	if user != nil {
+		userId = fmt.Sprintf("%d", user.ID)
+		userRole = user.Role
+	}
+
+	att := &model.AttendanceRecord{
+		ScheduleID:      schedule.ID,
+		ScheduleTitle:   schedule.Title,
+		Class:           schedule.Class,
+		Date:            schedule.Date,
+		TimeStart:       schedule.TimeStart,
+		TimeEnd:         schedule.TimeEnd,
+		PoolArea:        schedule.PoolArea,
+		UserID:          userId,
+		UserRole:        userRole,
+		PersonType:      input.PersonType,
+		PersonID:        input.PersonID,
+		PersonName:      input.PersonName,
+		Status:          status,
+		IsLate:          isLate,
+		LateReason:      input.LateReason,
+		Latitude:        input.Latitude,
+		Longitude:       input.Longitude,
+		DistanceKm:      math.Round(distanceKm*100) / 100,
+		IsValidLocation: isValidLocation,
+		Notes:           input.Notes,
+		CreatedAt:       now,
+	}
+
+	if err := s.attendanceRepo.Create(ctx, att); err != nil {
+		return nil, err
+	}
+
+	// 5. If person is student, update student attendance logs and percentage
+	if input.PersonType == "student" {
+		studentIDInt := int64(0)
+		fmt.Sscanf(input.PersonID, "%d", &studentIDInt)
+		if studentIDInt > 0 {
+			logStatus := "Hadir"
+			if status == "Izin" || status == "Sakit" || status == "Alpa" {
+				logStatus = status
+			}
+			_ = s.studentRepo.AddAttendanceLog(ctx, &model.AttendanceLog{
+				StudentID: studentIDInt,
+				Date:      now.Format("02 Jan 2006"),
+				Status:    logStatus,
+				CreatedAt: now,
+			})
+
+			logs, err := s.studentRepo.GetLogsByStudentID(ctx, studentIDInt)
+			if err == nil && len(logs) > 0 {
+				presentCount := 0
+				for _, l := range logs {
+					if l.Status == "Hadir" || l.Status == "Izin" || l.Status == "Sakit" {
+						presentCount++
+					}
+				}
+				ratePct := int(math.Round(float64(presentCount) / float64(len(logs)) * 100))
+				_ = s.studentRepo.UpdateAttendanceRate(ctx, studentIDInt, fmt.Sprintf("%d%%", ratePct))
+			}
+		}
+	}
+
+	// 6. Generate Admin Notification
+	notifTitle := fmt.Sprintf("Presensi Pelatih: %s", input.PersonName)
+	notifType := "attendance_coach"
+	if input.PersonType == "student" {
+		notifTitle = fmt.Sprintf("Presensi Siswa: %s", input.PersonName)
+		notifType = "attendance_student"
+	}
+
+	var notifMsg string
+	if isLate {
+		notifMsg = fmt.Sprintf("%s telah absen (TERLAMBAT: %s) untuk sesi '%s' (%s, %s-%s WIB di %s). Jarak GPS: %.2f km.",
+			input.PersonName, input.LateReason, schedule.Title, schedule.Date, schedule.TimeStart, schedule.TimeEnd, schedule.PoolArea, distanceKm)
+	} else {
+		notifMsg = fmt.Sprintf("%s telah absen (Hadir Tepat Waktu) untuk sesi '%s' (%s, %s-%s WIB di %s). Jarak GPS: %.2f km.",
+			input.PersonName, schedule.Title, schedule.Date, schedule.TimeStart, schedule.TimeEnd, schedule.PoolArea, distanceKm)
+	}
+
+	_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+		Title:     notifTitle,
+		Message:   notifMsg,
+		Type:      notifType,
+		IsRead:    false,
+		CreatedAt: now,
+	})
+
+	return att, nil
+}
+
+// GetAttendances returns all attendances
+func (s *appService) GetAttendances(ctx context.Context) ([]model.AttendanceRecord, error) {
+	return s.attendanceRepo.FindAll(ctx)
+}
+
+// GetNotifications returns recent admin notifications
+func (s *appService) GetNotifications(ctx context.Context) ([]model.AdminNotification, error) {
+	return s.attendanceRepo.GetNotifications(ctx, 40)
+}
+
+// MarkNotificationRead marks a notification as read
+func (s *appService) MarkNotificationRead(ctx context.Context, id int64) error {
+	return s.attendanceRepo.MarkNotificationRead(ctx, id)
+}
+

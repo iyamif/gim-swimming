@@ -1,5 +1,12 @@
 import React from "react";
-import { Student, Coach, Invoice, ScheduleSession } from "../types";
+import {
+  Student,
+  Coach,
+  Invoice,
+  ScheduleSession,
+  AttendanceRecord,
+  AdminNotification,
+} from "../types";
 import DashboardOverviewTab from "./DashboardOverviewTab";
 import KeuanganTab from "./KeuanganTab";
 import DaftarHadirTab from "./DaftarHadirTab";
@@ -19,6 +26,8 @@ interface AppsBodyProps {
   coaches: Coach[];
   invoices: Invoice[];
   schedules: ScheduleSession[];
+  attendances?: AttendanceRecord[];
+  notifications?: AdminNotification[];
   showInstallBtn?: boolean;
   onInstallClick?: () => void;
   onLogout?: () => void;
@@ -27,6 +36,8 @@ interface AppsBodyProps {
   onUpdateSchedule?: (id: string, data: Partial<ScheduleSession>) => void;
   onDeleteSchedule: (id: string) => void;
   onVerifyPayment: (invoiceId: string, confirm: boolean) => void;
+  onCheckInAttendance?: (payload: any) => Promise<boolean | void>;
+  onMarkNotificationRead?: (id: number | string) => Promise<void>;
   onSubmitAttendance: (
     className: string,
     attendanceMap: Record<string, "Hadir" | "Sakit" | "Izin" | "Alpa">
@@ -56,6 +67,8 @@ export default function AppsBody({
   coaches,
   invoices,
   schedules,
+  attendances = [],
+  notifications = [],
   showInstallBtn,
   onInstallClick,
   onLogout,
@@ -64,6 +77,8 @@ export default function AppsBody({
   onUpdateSchedule,
   onDeleteSchedule,
   onVerifyPayment,
+  onCheckInAttendance,
+  onMarkNotificationRead,
   onSubmitAttendance,
   onAddStudent,
   onAddCoach,
@@ -78,6 +93,9 @@ export default function AppsBody({
           coaches={coaches}
           invoices={invoices}
           schedules={schedules}
+          attendances={attendances}
+          notifications={notifications}
+          onMarkNotificationRead={onMarkNotificationRead}
           setActiveTab={setActiveTab}
         />
       )}
@@ -100,6 +118,7 @@ export default function AppsBody({
           sessionRole={sessionRole}
           students={students}
           coaches={coaches}
+          attendances={attendances}
           sessionUser={sessionUser}
           onVerifyPayment={onVerifyPayment}
           setActiveTab={setActiveTab}
@@ -112,6 +131,7 @@ export default function AppsBody({
           sessionRole={sessionRole}
           schedules={schedules}
           coaches={coaches}
+          attendances={attendances}
           setActiveTab={setActiveTab}
         />
       )}
@@ -122,6 +142,7 @@ export default function AppsBody({
           sessionRole={sessionRole}
           schedules={schedules}
           students={students}
+          attendances={attendances}
           setActiveTab={setActiveTab}
         />
       )}
@@ -129,7 +150,14 @@ export default function AppsBody({
       {activeTab === "absensi" && (
         <AbsensiTab
           students={students}
+          coaches={coaches}
+          schedules={schedules}
+          attendances={attendances}
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          onCheckInAttendance={onCheckInAttendance}
           onSubmitAttendance={onSubmitAttendance}
+          setActiveTab={setActiveTab}
         />
       )}
 
