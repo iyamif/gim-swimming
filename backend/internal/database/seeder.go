@@ -170,7 +170,7 @@ func SeedStudentsAndAttendance(db *sql.DB) {
 	}{
 		{
 			name:           "Rian",
-			class:          "Beginner",
+			class:          "Prestasi",
 			attendanceRate: "80%",
 			parent:         "Bambang",
 			phone:          "081234567891",
@@ -277,10 +277,10 @@ func SeedCoaches(db *sql.DB) {
 	}{
 		{
 			name:  "Coach Adi",
-			spec:  "Gaya Bebas / Dada",
+			spec:  "Pelatih Prestasi & Gaya Bebas",
 			phone: "085353333220",
 			email: "adi@gimswimming.com",
-			class: "Beginner",
+			class: "Prestasi",
 		},
 		{
 			name:  "Coach Linda",
@@ -347,18 +347,18 @@ func SeedSchedules(db *sql.DB) {
 		status       string
 	}{
 		{
-			title:        "Beginner Class (Pagi)",
-			class:        "Beginner Class",
+			title:        "Prestasi Class (Sore)",
+			class:        "Prestasi",
 			date:         "2026-09-05",
-			timeStart:    "08:00",
-			timeEnd:      "10:00",
-			poolArea:     "Kolam Utama A",
+			timeStart:    "15:00",
+			timeEnd:      "17:30",
+			poolArea:     "312 Wera",
 			coachID:      "1",
 			coachName:    "Coach Adi",
 			coachPhone:   "085353333220",
 			studentIDs:   []string{"1"},
 			studentNames: []string{"Rian"},
-			notes:        "Fokus latihan meluncur & teknik pernapasan",
+			notes:        "Fokus latihan intensif teknik & ketahanan fisik",
 			status:       "Active",
 		},
 		{

@@ -178,7 +178,7 @@ export default function DaftarHadirTab({
                   {featuredStudent.name}
                 </h3>
                 <p className="text-xs text-slate-500 font-bold mt-0.5">
-                  Lev: {featuredStudent.class || "Beginner"}
+                  Lev: {featuredStudent.class || "Prestasi"}
                 </p>
                 <p className="text-[11px] text-slate-400 font-medium">
                   Wali: {featuredStudent.parent || "Orang Tua"} • Hadir {featuredStudent.attendanceRate || "100%"}
@@ -252,7 +252,7 @@ export default function DaftarHadirTab({
                 Filter Berdasarkan Program Kelas:
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {["ALL", "Private", "Semi Private", "Regular"].map((cls) => (
+                {["ALL", "Prestasi", "Kids Swimming", "Private Class"].map((cls) => (
                   <button
                     key={cls}
                     onClick={() => setSelectedClass(cls)}
@@ -351,7 +351,7 @@ export default function DaftarHadirTab({
                         {student.name}
                       </h4>
                       <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                        Lev: {student.class || "Beginner"}
+                        Lev: {student.class || "Prestasi"}
                       </p>
                       <p className="text-[10px] text-slate-400 font-medium">
                         Kehadiran: {student.attendanceRate} • {student.parent || "Wali Murid"}

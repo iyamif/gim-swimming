@@ -106,7 +106,7 @@ export default function JadwalTab({
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const [formTimeStart, setFormTimeStart] = useState("15:00");
-  const [formTimeEnd, setFormTimeEnd] = useState("17:00");
+  const [formTimeEnd, setFormTimeEnd] = useState("16:00");
   const [formClass, setFormClass] = useState("Private Class");
   const [formPoolArea, setFormPoolArea] = useState("Nalendra");
   const [formCoachId, setFormCoachId] = useState(coaches[0]?.id || "custom");
@@ -127,7 +127,7 @@ export default function JadwalTab({
   const editCalendarRef = useRef<HTMLDivElement>(null);
 
   const [editTimeStart, setEditTimeStart] = useState("15:00");
-  const [editTimeEnd, setEditTimeEnd] = useState("17:00");
+  const [editTimeEnd, setEditTimeEnd] = useState("16:00");
   const [editClass, setEditClass] = useState("Private Class");
   const [editPoolArea, setEditPoolArea] = useState("Nalendra");
   const [editCoachId, setEditCoachId] = useState("");
@@ -203,9 +203,20 @@ export default function JadwalTab({
     }
   };
 
-  // Toggle or add date in create calendar (up to 4 dates max)
+  // Helper to determine max dates allowed per class program
+  const getMaxDatesForClass = (cls: string): number => {
+    const c = (cls || "").toLowerCase();
+    if (c.includes("prestasi")) {
+      return 12; // 12x pertemuan per bulan
+    }
+    return 4; // 4 pertemuan default
+  };
+
+  // Toggle or add date in create calendar (up to 12 for Prestasi, 4 for others)
   const handleToggleDate = (dateStr: string) => {
     if (dateStr < todayStr) return; // Disallow past dates
+
+    const maxAllowed = getMaxDatesForClass(formClass);
 
     if (selectedDates.includes(dateStr)) {
       if (selectedDates.length === 1) {
@@ -214,14 +225,35 @@ export default function JadwalTab({
         setSelectedDates((prev) => prev.filter((d) => d !== dateStr));
       }
     } else {
-      if (selectedDates.length >= 4) {
+      if (selectedDates.length >= maxAllowed) {
         alert(
-          "Maksimal 4 tanggal latihan telah dipilih! Silakan klik pada tanggal yang aktif untuk membatalkan sebelum memilih tanggal baru."
+          `Maksimal ${maxAllowed} tanggal latihan telah dipilih untuk program ${formClass}! Silakan klik pada tanggal yang aktif untuk membatalkan sebelum memilih tanggal baru.`
         );
         return;
       }
       setSelectedDates((prev) => [...prev, dateStr].sort());
     }
+  };
+
+  // Quick Auto-Add 12 Meetings for Prestasi (Senin, Rabu, Jumat)
+  const handleAutoAdd12Prestasi = () => {
+    const base = selectedDates[0] || todayStr;
+    const results: string[] = [];
+    const [y, m, d] = base.split("-").map(Number);
+    let curr = new Date(y, m - 1, d);
+
+    // Collect next 12 occurrences of Mon (1), Wed (3), Fri (5)
+    while (results.length < 12) {
+      const dayOfWeek = curr.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat
+      if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
+        const cy = curr.getFullYear();
+        const cm = String(curr.getMonth() + 1).padStart(2, "0");
+        const cd = String(curr.getDate()).padStart(2, "0");
+        results.push(`${cy}-${cm}-${cd}`);
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+    setSelectedDates(results.sort());
   };
 
   // Quick Auto-Add 4 Weekly Meetings (+7 days each)
@@ -239,38 +271,175 @@ export default function JadwalTab({
     setSelectedDates((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Quick time preset buttons
-  const timePresets = [
-    { label: "Pagi (08:00 - 10:00)", start: "08:00", end: "10:00" },
-    { label: "Siang (10:00 - 11:30)", start: "10:00", end: "11:30" },
-    { label: "Sore A (15:00 - 17:00)", start: "15:00", end: "17:00" },
-    { label: "Sore B (16:00 - 17:30)", start: "16:00", end: "17:30" },
-  ];
+  // ==========================================
+  // PROGRAM DURATION & TIME HELPERS
+  // ==========================================
+  const getRequiredDurationMinutes = (cls: string): number => {
+    const c = (cls || "").toLowerCase();
+    if (c.includes("kid") || c.includes("baby")) {
+      return 30; // 30 mins
+    }
+    if (c.includes("prestasi")) {
+      return 150; // 2 hours 30 mins
+    }
+    if (c.includes("private")) {
+      return 60; // 60 mins (1 hour)
+    }
+    return 60;
+  };
+
+  const getRequiredDurationBadge = (cls: string) => {
+    const c = (cls || "").toLowerCase();
+    if (c.includes("kid") || c.includes("baby")) {
+      return {
+        text: "30 Menit (Kids / Baby)",
+        badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
+        desc: "Durasi otomatis 30 menit",
+      };
+    }
+    if (c.includes("prestasi")) {
+      return {
+        text: "2 Jam 30 Menit (15:00 - 17:30 WIB)",
+        badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+        desc: "Jadwal resmi Prestasi: 15.00 s/d 17.30 WIB",
+      };
+    }
+    return {
+      text: "60 Menit (Private Class)",
+      badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+      desc: "Durasi otomatis 60 menit (1 Jam)",
+    };
+  };
+
+  const calculateEndTimeForClass = (startTime: string, cls: string): string => {
+    if (!startTime) return "16:00";
+    const c = (cls || "").toLowerCase();
+    if (c.includes("prestasi") && (!startTime || startTime === "15:00")) {
+      return "17:30";
+    }
+    const duration = getRequiredDurationMinutes(cls);
+    const [hStr, mStr] = startTime.split(":");
+    const h = parseInt(hStr || "0", 10);
+    const m = parseInt(mStr || "0", 10);
+    const totalMins = h * 60 + m + duration;
+    const endH = Math.floor(totalMins / 60) % 24;
+    const endM = totalMins % 60;
+    return `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+  };
+
+  const getClassTimePresets = (cls: string) => {
+    const c = (cls || "").toLowerCase();
+    if (c.includes("kid") || c.includes("baby")) {
+      return [
+        { label: "Pagi A (08:00 - 08:30)", start: "08:00", end: "08:30" },
+        { label: "Pagi B (09:00 - 09:30)", start: "09:00", end: "09:30" },
+        { label: "Sore A (15:00 - 15:30)", start: "15:00", end: "15:30" },
+        { label: "Sore B (16:00 - 16:30)", start: "16:00", end: "16:30" },
+      ];
+    }
+    if (c.includes("prestasi")) {
+      return [
+        { label: "Sore Prestasi (15:00 - 17:30)", start: "15:00", end: "17:30" },
+      ];
+    }
+    return [
+      { label: "Pagi (08:00 - 09:00)", start: "08:00", end: "09:00" },
+      { label: "Siang (10:00 - 11:00)", start: "10:00", end: "11:00" },
+      { label: "Sore A (15:00 - 16:00)", start: "15:00", end: "16:00" },
+      { label: "Sore B (16:30 - 17:30)", start: "16:30", end: "17:30" },
+    ];
+  };
+
+  const validateDurationForClass = (cls: string, start: string, end: string): string | null => {
+    if (!start || !end) return "Jam mulai dan jam selesai wajib diisi!";
+    const sMins = timeToMinutes(start);
+    const eMins = timeToMinutes(end);
+    const diff = eMins - sMins;
+
+    if (diff <= 0) {
+      return "Jam selesai latihan harus lebih besar daripada jam mulai!";
+    }
+
+    const c = (cls || "").toLowerCase();
+    if (c.includes("kid") || c.includes("baby")) {
+      if (diff !== 30) {
+        return `Durasi latihan untuk program Kids / Baby harus tepat 30 menit (saat ini ${diff} menit). Contoh: 15:00 - 15:30 WIB.`;
+      }
+    } else if (c.includes("prestasi")) {
+      if (diff !== 150) {
+        return `Durasi latihan untuk program Prestasi harus tepat 2 jam 30 menit / 150 menit (saat ini ${diff} menit). Jadwal resmi: 15:00 - 17:30 WIB.`;
+      }
+    } else if (c.includes("private")) {
+      if (diff !== 60) {
+        return `Durasi latihan untuk program Private Class harus tepat 60 menit / 1 jam (saat ini ${diff} menit). Contoh: 15:00 - 16:00 WIB.`;
+      }
+    }
+    return null;
+  };
+
+  // Helper to determine if a class is 1-on-1 (1 pelatih, 1 murid)
+  const isSingleStudentClass = (cls: string): boolean => {
+    const c = (cls || "").toLowerCase();
+    return c.includes("private") || c.includes("kid") || c.includes("baby");
+  };
 
   // Class Change in Create Modal
   const handleClassChange = (newClass: string) => {
     setFormClass(newClass);
-    if (newClass === "Private Class" || newClass === "Kids Swimming") {
+    if (isSingleStudentClass(newClass)) {
       setFormPoolArea("Nalendra");
+      setFormTimeEnd(calculateEndTimeForClass(formTimeStart, newClass));
+      setSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
+      if (selectedDates.length > 4) {
+        setSelectedDates((prev) => prev.slice(0, 4));
+      }
     } else if (newClass === "Prestasi") {
       setFormPoolArea("312 Wera");
+      setFormTimeStart("15:00");
+      setFormTimeEnd("17:30");
+      // Auto-generate 12 dates for Senin, Rabu, Jumat starting from base date
+      const base = selectedDates[0] || todayStr;
+      const results: string[] = [];
+      const [y, m, d] = base.split("-").map(Number);
+      let curr = new Date(y, m - 1, d);
+      while (results.length < 12) {
+        const dayOfWeek = curr.getDay();
+        if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
+          const cy = curr.getFullYear();
+          const cm = String(curr.getMonth() + 1).padStart(2, "0");
+          const cd = String(curr.getDate()).padStart(2, "0");
+          results.push(`${cy}-${cm}-${cd}`);
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+      setSelectedDates(results.sort());
     }
-    if (newClass === "Private Class") {
-      setSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
-    }
+  };
+
+  // Time Start Change in Create Modal
+  const handleFormTimeStartChange = (newStart: string) => {
+    setFormTimeStart(newStart);
+    setFormTimeEnd(calculateEndTimeForClass(newStart, formClass));
   };
 
   // Class Change in Edit Modal
   const handleEditClassChange = (newClass: string) => {
     setEditClass(newClass);
-    if (newClass === "Private Class" || newClass === "Kids Swimming") {
+    if (isSingleStudentClass(newClass)) {
       setEditPoolArea("Nalendra");
+      setEditTimeEnd(calculateEndTimeForClass(editTimeStart, newClass));
+      setEditSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
     } else if (newClass === "Prestasi") {
       setEditPoolArea("312 Wera");
+      setEditTimeStart("15:00");
+      setEditTimeEnd("17:30");
     }
-    if (newClass === "Private Class") {
-      setEditSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
-    }
+  };
+
+  // Time Start Change in Edit Modal
+  const handleEditTimeStartChange = (newStart: string) => {
+    setEditTimeStart(newStart);
+    setEditTimeEnd(calculateEndTimeForClass(newStart, editClass));
   };
 
   const handleCoachChange = (val: string) => {
@@ -294,7 +463,7 @@ export default function JadwalTab({
   };
 
   const toggleStudentSelection = (studentId: string) => {
-    if (formClass === "Private Class") {
+    if (isSingleStudentClass(formClass)) {
       if (selectedStudentIds.includes(studentId)) {
         setSelectedStudentIds([]);
       } else {
@@ -310,7 +479,7 @@ export default function JadwalTab({
   };
 
   const toggleEditStudentSelection = (studentId: string) => {
-    if (editClass === "Private Class") {
+    if (isSingleStudentClass(editClass)) {
       if (editSelectedStudentIds.includes(studentId)) {
         setEditSelectedStudentIds([]);
       } else {
@@ -400,10 +569,12 @@ export default function JadwalTab({
   const handleOpenEditModal = (sch: ScheduleSession) => {
     setEditingSchedule(sch);
     setEditDate(sch.date || todayStr);
-    setEditTimeStart(sch.timeStart || "15:00");
-    setEditTimeEnd(sch.timeEnd || "17:00");
-    setEditClass(sch.class || "Private Class");
-    setEditPoolArea(sch.poolArea || "Nalendra");
+    const cls = sch.class || "Private Class";
+    setEditClass(cls);
+    const start = sch.timeStart || (cls === "Prestasi" ? "15:00" : "15:00");
+    setEditTimeStart(start);
+    setEditTimeEnd(sch.timeEnd || calculateEndTimeForClass(start, cls));
+    setEditPoolArea(sch.poolArea || (cls === "Prestasi" ? "312 Wera" : "Nalendra"));
 
     const matchedCoach = coaches.find(
       (c) => c.id === sch.coachId || c.name.toLowerCase() === sch.coachName.toLowerCase()
@@ -433,7 +604,7 @@ export default function JadwalTab({
         const d = new Date(sch.date + "T00:00:00");
         setEditCalYear(d.getFullYear());
         setEditCalMonth(d.getMonth());
-      } catch {}
+      } catch { }
     }
   };
 
@@ -448,9 +619,10 @@ export default function JadwalTab({
       return;
     }
 
-    // 2. Validate time duration
-    if (timeToMinutes(formTimeStart) >= timeToMinutes(formTimeEnd)) {
-      alert("Jam selesai harus lebih besar dari jam mulai!");
+    // 2. Validate time duration per class
+    const durationErr = validateDurationForClass(formClass, formTimeStart, formTimeEnd);
+    if (durationErr) {
+      alert(`⚠️ VALIDASI DURASI JADWAL:\n\n${durationErr}`);
       return;
     }
 
@@ -485,9 +657,10 @@ export default function JadwalTab({
       return;
     }
 
-    // 6. Validate single student for Private Class (1-on-1)
-    if (formClass === "Private Class" && matchedNames.length > 1) {
-      alert("Program Private Class (1-on-1) hanya boleh untuk 1 orang siswa. Silakan pilih 1 siswa.");
+    // 6. Validate single student for 1-on-1 classes (Private Class and Kids / Baby)
+    if (isSingleStudentClass(formClass) && matchedNames.length > 1) {
+      const label = formClass === "Kids Swimming" ? "Kids / Baby" : formClass;
+      alert(`Program ${label} adalah sesi 1-on-1 (1 pelatih hanya 1 murid). Silakan pilih 1 orang siswa.`);
       return;
     }
 
@@ -498,8 +671,7 @@ export default function JadwalTab({
       const sessionSuffix = selectedDates.length > 1 ? ` (P-${idx + 1})` : "";
       const baseTitle =
         formTitle.trim() ||
-        `${formClass} (${matchedNames.slice(0, 2).join(", ")}${
-          matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
+        `${formClass} (${matchedNames.slice(0, 2).join(", ")}${matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
         })`;
 
       const title = `${baseTitle}${sessionSuffix}`;
@@ -542,9 +714,10 @@ export default function JadwalTab({
       return;
     }
 
-    // 2. Validate time duration
-    if (timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)) {
-      alert("Jam selesai harus lebih besar dari jam mulai!");
+    // 2. Validate time duration per class
+    const durationErr = validateDurationForClass(editClass, editTimeStart, editTimeEnd);
+    if (durationErr) {
+      alert(`⚠️ VALIDASI DURASI JADWAL:\n\n${durationErr}`);
       return;
     }
 
@@ -572,9 +745,10 @@ export default function JadwalTab({
       return;
     }
 
-    // 6. Validate single student for Private Class (1-on-1)
-    if (editClass === "Private Class" && matchedNames.length > 1) {
-      alert("Program Private Class (1-on-1) hanya boleh untuk 1 orang siswa. Silakan pilih 1 siswa.");
+    // 6. Validate single student for 1-on-1 classes (Private Class and Kids / Baby)
+    if (isSingleStudentClass(editClass) && matchedNames.length > 1) {
+      const label = editClass === "Kids Swimming" ? "Kids / Baby" : editClass;
+      alert(`Program ${label} adalah sesi 1-on-1 (1 pelatih hanya 1 murid). Silakan pilih 1 orang siswa.`);
       return;
     }
 
@@ -583,8 +757,7 @@ export default function JadwalTab({
     const updatedData: Partial<ScheduleSession> = {
       title:
         editTitle.trim() ||
-        `${editClass} (${matchedNames.slice(0, 2).join(", ")}${
-          matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
+        `${editClass} (${matchedNames.slice(0, 2).join(", ")}${matchedNames.length > 2 ? ` +${matchedNames.length - 2}` : ""
         })`,
       class: editClass,
       date: editDate,
@@ -688,11 +861,10 @@ export default function JadwalTab({
             <button
               key={cls}
               onClick={() => setFilterClass(cls)}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer shrink-0 ${
-                filterClass === cls
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer shrink-0 ${filterClass === cls
                   ? "bg-cyan-500 text-white shadow-xs"
                   : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
-              }`}
+                }`}
             >
               {cls}
             </button>
@@ -901,13 +1073,13 @@ export default function JadwalTab({
                     <label className="block text-xs font-bold text-slate-700">
                       Program Kelas
                     </label>
-                    {editClass === "Private Class" ? (
+                    {isSingleStudentClass(editClass) ? (
                       <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                        1 Siswa
+                        1 Siswa (1-on-1)
                       </span>
                     ) : (
                       <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
-                        Multi
+                        Multi Siswa
                       </span>
                     )}
                   </div>
@@ -916,9 +1088,9 @@ export default function JadwalTab({
                     onChange={(e) => handleEditClassChange(e.target.value)}
                     className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Private Class">Private Class (1-on-1)</option>
-                    <option value="Prestasi">Prestasi</option>
-                    <option value="Kids Swimming">Kids</option>
+                    <option value="Private Class">Private Class (1-on-1 • 60 Menit)</option>
+                    <option value="Kids Swimming">Kids / Baby (1-on-1 • 30 Menit)</option>
+                    <option value="Prestasi">Prestasi (12x Pertemuan • Sen, Rab, Jum • 15:00 - 17:30 WIB)</option>
                   </select>
                 </div>
 
@@ -987,11 +1159,10 @@ export default function JadwalTab({
                   role="button"
                   tabIndex={0}
                   onClick={() => setIsEditCalendarOpen((prev) => !prev)}
-                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
-                    isEditCalendarOpen
+                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isEditCalendarOpen
                       ? "border-blue-500 bg-white ring-2 ring-blue-100 shadow-sm"
                       : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-900">
@@ -1032,9 +1203,8 @@ export default function JadwalTab({
                       {DAY_NAMES_INDO.map((day, idx) => (
                         <span
                           key={day}
-                          className={`text-[10px] font-bold ${
-                            idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
-                          }`}
+                          className={`text-[10px] font-bold ${idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
+                            }`}
                         >
                           {day}
                         </span>
@@ -1069,15 +1239,14 @@ export default function JadwalTab({
                                 setEditDate(fullDateStr);
                                 setIsEditCalendarOpen(false);
                               }}
-                              className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${
-                                isPast
+                              className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${isPast
                                   ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
                                   : isSelected
-                                  ? "bg-blue-600 text-white font-black shadow-sm"
-                                  : isToday
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : "hover:bg-slate-100 text-slate-700"
-                              }`}
+                                    ? "bg-blue-600 text-white font-black shadow-sm"
+                                    : isToday
+                                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                      : "hover:bg-slate-100 text-slate-700"
+                                }`}
                             >
                               {day}
                             </button>
@@ -1097,11 +1266,12 @@ export default function JadwalTab({
                   <label className="block text-xs font-bold text-slate-700">
                     Jam Sesi Latihan (WIB)
                   </label>
-                  {timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd) && (
-                    <span className="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded">
-                      ⚠️ Jam selesai harus &gt; mulai
-                    </span>
-                  )}
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRequiredDurationBadge(editClass).badgeClass
+                      }`}
+                  >
+                    ⏱️ {getRequiredDurationBadge(editClass).text}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1113,13 +1283,13 @@ export default function JadwalTab({
                       type="time"
                       required
                       value={editTimeStart}
-                      onChange={(e) => setEditTimeStart(e.target.value)}
+                      onChange={(e) => handleEditTimeStartChange(e.target.value)}
                       className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 font-bold block mb-1">
-                      Jam Selesai
+                      Jam Selesai (Otomatis)
                     </span>
                     <input
                       type="time"
@@ -1131,10 +1301,18 @@ export default function JadwalTab({
                   </div>
                 </div>
 
+                {/* Validation message if duration mismatch */}
+                {validateDurationForClass(editClass, editTimeStart, editTimeEnd) && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
+                    <span className="shrink-0 text-xs">⚠️</span>
+                    <span>{validateDurationForClass(editClass, editTimeStart, editTimeEnd)}</span>
+                  </div>
+                )}
+
                 {/* Presets */}
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
                   <span className="text-[10px] font-bold text-slate-400 mr-1">Preset:</span>
-                  {timePresets.map((tp) => (
+                  {getClassTimePresets(editClass).map((tp) => (
                     <button
                       key={tp.label}
                       type="button"
@@ -1156,9 +1334,55 @@ export default function JadwalTab({
                   <label className="block text-xs font-bold text-slate-700">
                     Pilih Siswa yang Mengikuti
                   </label>
-                  <span className="text-[10px] text-blue-600 font-bold">
-                    {editSelectedStudentIds.length} Siswa Terpilih
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {editClass === "Prestasi" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filtered = students.filter((s) => {
+                            const q = editStudentSearchQuery.toLowerCase().trim();
+                            if (!q) return true;
+                            return (
+                              s.name.toLowerCase().includes(q) ||
+                              s.class.toLowerCase().includes(q)
+                            );
+                          });
+                          const allIds = filtered.map((s) => s.id);
+                          const allSelected =
+                            allIds.length > 0 &&
+                            allIds.every((id) => editSelectedStudentIds.includes(id));
+                          if (allSelected) {
+                            setEditSelectedStudentIds([]);
+                          } else {
+                            setEditSelectedStudentIds(allIds);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      >
+                        <span>✓</span>
+                        <span>
+                          {(() => {
+                            const filtered = students.filter((s) => {
+                              const q = editStudentSearchQuery.toLowerCase().trim();
+                              if (!q) return true;
+                              return (
+                                s.name.toLowerCase().includes(q) ||
+                                s.class.toLowerCase().includes(q)
+                              );
+                            });
+                            const allIds = filtered.map((s) => s.id);
+                            const allSelected =
+                              allIds.length > 0 &&
+                              allIds.every((id) => editSelectedStudentIds.includes(id));
+                            return allSelected ? "Batal" : "Pilih Semua (Select All)";
+                          })()}
+                        </span>
+                      </button>
+                    )}
+                    <span className="text-[10px] text-blue-600 font-bold">
+                      {editSelectedStudentIds.length} Siswa Terpilih
+                    </span>
+                  </div>
                 </div>
 
                 <input
@@ -1184,16 +1408,15 @@ export default function JadwalTab({
                       return (
                         <label
                           key={student.id}
-                          className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${
-                            isChecked
+                          className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
                               ? "bg-blue-50 border border-blue-300 text-blue-950 font-bold shadow-2xs"
                               : "hover:bg-white border border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <input
-                              type={editClass === "Private Class" ? "radio" : "checkbox"}
-                              name={editClass === "Private Class" ? "editPrivateRadio" : undefined}
+                              type={isSingleStudentClass(editClass) ? "radio" : "checkbox"}
+                              name={isSingleStudentClass(editClass) ? "editSingleStudentRadio" : undefined}
                               checked={isChecked}
                               onChange={() => toggleEditStudentSelection(student.id)}
                               className="text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer shrink-0"
@@ -1252,14 +1475,13 @@ export default function JadwalTab({
                     !editDate ||
                     timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
                   }
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${
-                    Boolean(editConflictingSchedule) ||
-                    editSelectedStudentIds.length === 0 ||
-                    !editDate ||
-                    timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${Boolean(editConflictingSchedule) ||
+                      editSelectedStudentIds.length === 0 ||
+                      !editDate ||
+                      timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
                       ? "bg-slate-400 cursor-not-allowed opacity-75"
                       : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-blue-500/25 active:scale-95"
-                  }`}
+                    }`}
                 >
                   {editConflictingSchedule
                     ? "⚠️ Jadwal Pelatih Bentrok (Sesuaikan Waktu)"
@@ -1334,13 +1556,13 @@ export default function JadwalTab({
                     <label className="block text-xs font-bold text-slate-700">
                       Program Kelas
                     </label>
-                    {formClass === "Private Class" ? (
+                    {isSingleStudentClass(formClass) ? (
                       <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                        1 Siswa
+                        1 Siswa (1-on-1)
                       </span>
                     ) : (
                       <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
-                        Multi
+                        Multi Siswa
                       </span>
                     )}
                   </div>
@@ -1349,9 +1571,9 @@ export default function JadwalTab({
                     onChange={(e) => handleClassChange(e.target.value)}
                     className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Private Class">Private Class (1-on-1)</option>
-                    <option value="Prestasi">Prestasi</option>
-                    <option value="Kids Swimming">Kids</option>
+                    <option value="Private Class">Private Class (1-on-1 • 60 Menit)</option>
+                    <option value="Kids Swimming">Kids / Baby (1-on-1 • 30 Menit)</option>
+                    <option value="Prestasi">Prestasi (12x Pertemuan • Sen, Rab, Jum • 15:00 - 17:30 WIB)</option>
                   </select>
                 </div>
 
@@ -1413,8 +1635,10 @@ export default function JadwalTab({
                   </label>
                   <span className="text-[10px] text-cyan-600 font-bold bg-cyan-50 px-2 py-0.5 rounded">
                     {selectedDates.length === 0
-                      ? "Pilih 1 s/d 4 Tanggal"
-                      : `${selectedDates.length} Tanggal Terpilih (Maks. 4)`}
+                      ? formClass === "Prestasi"
+                        ? "Pilih 1 s/d 12 Tanggal (Sen, Rab, Jum)"
+                        : "Pilih 1 s/d 4 Tanggal"
+                      : `${selectedDates.length} Tanggal Terpilih (Maks. ${getMaxDatesForClass(formClass)})`}
                   </span>
                 </div>
 
@@ -1429,11 +1653,10 @@ export default function JadwalTab({
                       setIsCalendarOpen((prev) => !prev);
                     }
                   }}
-                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
-                    isCalendarOpen
+                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isCalendarOpen
                       ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
                       : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
-                  }`}
+                    }`}
                 >
                   {selectedDates.length === 0 ? (
                     <span className="text-xs text-slate-400">
@@ -1488,27 +1711,43 @@ export default function JadwalTab({
                         </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleAutoAdd4Weekly}
-                        className="px-2.5 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-black border border-cyan-200 transition cursor-pointer"
-                      >
-                        ⚡ Paket 4 Pekan Rutin
-                      </button>
+                      {formClass === "Prestasi" ? (
+                        <button
+                          type="button"
+                          onClick={handleAutoAdd12Prestasi}
+                          className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer"
+                        >
+                          ⚡ 12x (Sen, Rab, Jum)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleAutoAdd4Weekly}
+                          className="px-2.5 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-black border border-cyan-200 transition cursor-pointer"
+                        >
+                          ⚡ Paket 4 Pekan Rutin
+                        </button>
+                      )}
                     </div>
 
                     {/* Day Headers */}
                     <div className="grid grid-cols-7 gap-1 text-center">
-                      {DAY_NAMES_INDO.map((day, idx) => (
-                        <span
-                          key={day}
-                          className={`text-[10px] font-bold ${
-                            idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
-                          }`}
-                        >
-                          {day}
-                        </span>
-                      ))}
+                      {DAY_NAMES_INDO.map((day, idx) => {
+                        const isPrestasiHeader = formClass === "Prestasi" && (idx === 1 || idx === 3 || idx === 5);
+                        return (
+                          <span
+                            key={day}
+                            className={`text-[10px] font-bold ${isPrestasiHeader
+                                ? "text-blue-700 font-black underline decoration-blue-400"
+                                : idx === 0 || idx === 6
+                                  ? "text-cyan-600"
+                                  : "text-slate-400"
+                              }`}
+                          >
+                            {day}
+                          </span>
+                        );
+                      })}
                     </div>
 
                     {/* Month Matrix Grid */}
@@ -1532,27 +1771,35 @@ export default function JadwalTab({
                           const isToday = fullDateStr === todayStr;
                           const selectedIdx = selectedDates.indexOf(fullDateStr);
 
+                          const dateObj = new Date(calYear, calMonth, day);
+                          const dayOfWeek = dateObj.getDay();
+                          const isPrestasiDay = formClass === "Prestasi" && (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5);
+
                           cells.push(
                             <button
                               key={fullDateStr}
                               type="button"
                               disabled={isPast}
                               onClick={() => handleToggleDate(fullDateStr)}
-                              className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${
-                                isPast
+                              className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${isPast
                                   ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
                                   : isSelected
-                                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
-                                  : isToday
-                                  ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                  : "hover:bg-slate-100 text-slate-700"
-                              }`}
+                                    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
+                                    : isToday
+                                      ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                      : isPrestasiDay
+                                        ? "bg-blue-50/70 hover:bg-blue-100 text-blue-800 border border-blue-200/80 font-black"
+                                        : "hover:bg-slate-100 text-slate-700"
+                                }`}
                             >
                               <span>{day}</span>
                               {isSelected && (
                                 <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-amber-400 text-slate-900 rounded-full text-[8px] font-black flex items-center justify-center ring-1 ring-white">
                                   {selectedIdx + 1}
                                 </span>
+                              )}
+                              {!isSelected && isPrestasiDay && !isPast && (
+                                <span className="absolute bottom-0.5 h-1 w-1 bg-blue-500 rounded-full" />
                               )}
                             </button>
                           );
@@ -1563,7 +1810,11 @@ export default function JadwalTab({
                     </div>
 
                     <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] text-slate-500">
-                      <span>Pilih 1 s/d 4 tanggal latihan</span>
+                      <span>
+                        {formClass === "Prestasi"
+                          ? "Pilih 1 s/d 12 tanggal (Senin, Rabu, Jumat)"
+                          : "Pilih 1 s/d 4 tanggal latihan"}
+                      </span>
                       <button
                         type="button"
                         onClick={() => setIsCalendarOpen(false)}
@@ -1582,11 +1833,12 @@ export default function JadwalTab({
                   <label className="block text-xs font-bold text-slate-700">
                     Jam Sesi Latihan (WIB)
                   </label>
-                  {timeToMinutes(formTimeStart) >= timeToMinutes(formTimeEnd) && (
-                    <span className="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded">
-                      ⚠️ Jam selesai harus &gt; mulai
-                    </span>
-                  )}
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRequiredDurationBadge(formClass).badgeClass
+                      }`}
+                  >
+                    ⏱️ {getRequiredDurationBadge(formClass).text}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1598,13 +1850,13 @@ export default function JadwalTab({
                       type="time"
                       required
                       value={formTimeStart}
-                      onChange={(e) => setFormTimeStart(e.target.value)}
+                      onChange={(e) => handleFormTimeStartChange(e.target.value)}
                       className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white"
                     />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 font-bold block mb-1">
-                      Jam Selesai
+                      Jam Selesai (Otomatis)
                     </span>
                     <input
                       type="time"
@@ -1616,10 +1868,18 @@ export default function JadwalTab({
                   </div>
                 </div>
 
+                {/* Validation message if duration mismatch */}
+                {validateDurationForClass(formClass, formTimeStart, formTimeEnd) && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
+                    <span className="shrink-0 text-xs">⚠️</span>
+                    <span>{validateDurationForClass(formClass, formTimeStart, formTimeEnd)}</span>
+                  </div>
+                )}
+
                 {/* Presets */}
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
                   <span className="text-[10px] font-bold text-slate-400 mr-1">Preset:</span>
-                  {timePresets.map((tp) => (
+                  {getClassTimePresets(formClass).map((tp) => (
                     <button
                       key={tp.label}
                       type="button"
@@ -1641,9 +1901,55 @@ export default function JadwalTab({
                   <label className="block text-xs font-bold text-slate-700">
                     Pilih Siswa yang Mengikuti
                   </label>
-                  <span className="text-[10px] text-cyan-600 font-bold">
-                    {selectedStudentIds.length} Siswa Terpilih
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {formClass === "Prestasi" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filtered = students.filter((s) => {
+                            const q = studentSearchQuery.toLowerCase().trim();
+                            if (!q) return true;
+                            return (
+                              s.name.toLowerCase().includes(q) ||
+                              s.class.toLowerCase().includes(q)
+                            );
+                          });
+                          const allIds = filtered.map((s) => s.id);
+                          const allSelected =
+                            allIds.length > 0 &&
+                            allIds.every((id) => selectedStudentIds.includes(id));
+                          if (allSelected) {
+                            setSelectedStudentIds([]);
+                          } else {
+                            setSelectedStudentIds(allIds);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      >
+                        <span>✓</span>
+                        <span>
+                          {(() => {
+                            const filtered = students.filter((s) => {
+                              const q = studentSearchQuery.toLowerCase().trim();
+                              if (!q) return true;
+                              return (
+                                s.name.toLowerCase().includes(q) ||
+                                s.class.toLowerCase().includes(q)
+                              );
+                            });
+                            const allIds = filtered.map((s) => s.id);
+                            const allSelected =
+                              allIds.length > 0 &&
+                              allIds.every((id) => selectedStudentIds.includes(id));
+                            return allSelected ? "Batal Pilih Semua" : "Pilih Semua (Select All)";
+                          })()}
+                        </span>
+                      </button>
+                    )}
+                    <span className="text-[10px] text-cyan-600 font-bold">
+                      {selectedStudentIds.length} Siswa Terpilih
+                    </span>
+                  </div>
                 </div>
 
                 <input
@@ -1669,16 +1975,15 @@ export default function JadwalTab({
                       return (
                         <label
                           key={student.id}
-                          className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${
-                            isChecked
+                          className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
                               ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
                               : "hover:bg-white border border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <input
-                              type={formClass === "Private Class" ? "radio" : "checkbox"}
-                              name={formClass === "Private Class" ? "privateStudentRadio" : undefined}
+                              type={isSingleStudentClass(formClass) ? "radio" : "checkbox"}
+                              name={isSingleStudentClass(formClass) ? "singleStudentRadio" : undefined}
                               checked={isChecked}
                               onChange={() => toggleStudentSelection(student.id)}
                               className="text-cyan-600 focus:ring-cyan-500 h-4 w-4 cursor-pointer shrink-0"
@@ -1713,19 +2018,18 @@ export default function JadwalTab({
                 <button
                   type="submit"
                   disabled={conflictingSchedules.length > 0 || selectedDates.length === 0}
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${
-                    conflictingSchedules.length > 0 || selectedDates.length === 0
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedules.length > 0 || selectedDates.length === 0
                       ? "bg-slate-400 cursor-not-allowed opacity-75"
                       : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
-                  }`}
+                    }`}
                 >
                   {conflictingSchedules.length > 0
                     ? `⚠️ ${conflictingSchedules.length} Jadwal Bentrok (Perbaiki Waktu)`
                     : selectedDates.length === 0
-                    ? "Pilih Tanggal Pertemuan Terlebih Dahulu"
-                    : selectedDates.length > 1
-                    ? `Simpan & Tambahkan ${selectedDates.length} Jadwal Sekaligus`
-                    : "Simpan & Tambahkan Jadwal"}
+                      ? "Pilih Tanggal Pertemuan Terlebih Dahulu"
+                      : selectedDates.length > 1
+                        ? `Simpan & Tambahkan ${selectedDates.length} Jadwal Sekaligus`
+                        : "Simpan & Tambahkan Jadwal"}
                 </button>
                 <button
                   type="button"

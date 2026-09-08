@@ -74,24 +74,52 @@ export default function AppsPage() {
   };
 
   // Load all real data from PostgreSQL Backend
-  const loadAllData = useCallback(async () => {
+  const loadAllData = useCallback(async (roleParam?: string, userParam?: string) => {
     try {
       setLoadingData(true);
+      const role =
+        roleParam ||
+        sessionRole ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("gim_swimming_role") || ""
+          : "");
+      const user =
+        userParam ||
+        sessionUser ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("gim_swimming_user") || ""
+          : "");
+
       const [
         fetchedStudents,
         fetchedCoaches,
         fetchedSchedules,
         fetchedInvoices,
         fetchedAttendances,
-        fetchedNotifications,
       ] = await Promise.all([
         fetchStudents(),
         fetchCoaches(),
         fetchSchedules(),
         fetchInvoices(),
         fetchAttendances(),
-        fetchNotifications(),
       ]);
+
+      // If role is Orang Tua, find corresponding student name to accurately query notifications
+      let queryName = user;
+      if (role.toLowerCase().trim() === "orang tua") {
+        const normalizedUser = user.toLowerCase();
+        const matched = fetchedStudents.find(
+          (s) =>
+            s.name.toLowerCase().includes(normalizedUser) ||
+            s.parent.toLowerCase().includes(normalizedUser) ||
+            (normalizedUser === "ortu" && s.name.toLowerCase() === "rian")
+        );
+        if (matched) {
+          queryName = matched.name;
+        }
+      }
+
+      const fetchedNotifications = await fetchNotifications(role, queryName);
 
       setStudents(fetchedStudents);
       setCoaches(fetchedCoaches);
@@ -104,7 +132,7 @@ export default function AppsPage() {
     } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [sessionRole, sessionUser]);
 
   // Pull-to-refresh handler: reloads all database data and profile avatar + checks SW updates
   const handlePullRefresh = async () => {
@@ -352,6 +380,9 @@ export default function AppsPage() {
       const created = await createSchedule(data);
       if (created) {
         setSchedules((prev) => [created, ...prev]);
+        // Refresh notifications immediately so new targeted schedule notification appears right away
+        const notifs = await fetchNotifications(sessionRole, sessionUser);
+        setNotifications(notifs);
       }
     } catch (err) {
       console.error("Failed to add schedule:", err);
@@ -366,6 +397,8 @@ export default function AppsPage() {
         setSchedules((prev) =>
           prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
         );
+        const notifs = await fetchNotifications(sessionRole, sessionUser);
+        setNotifications(notifs);
       }
     } catch (err: any) {
       console.warn("Update schedule API warning:", err);
@@ -495,7 +528,7 @@ export default function AppsPage() {
         // Refresh attendances, notifications, students, and schedules (for session notes sync)
         const [updatedAttendances, updatedNotifs, updatedStudents, updatedSchedules] = await Promise.all([
           fetchAttendances(),
-          fetchNotifications(),
+          fetchNotifications(sessionRole, sessionUser),
           fetchStudents(),
           fetchSchedules(),
         ]);
@@ -526,7 +559,7 @@ export default function AppsPage() {
   // Handler: Clear all notifications
   const handleClearAllNotifications = async () => {
     try {
-      await clearAllNotifications();
+      await clearAllNotifications(sessionRole, sessionUser);
       setNotifications([]);
     } catch (err) {
       console.error("Clear notifications error:", err);
@@ -562,53 +595,87 @@ export default function AppsPage() {
   // ORANG TUA (PARENT) VIEW: All-in-One Dashboard Page
   // ==========================================
   if (sessionRole === "orang tua") {
-    // Dynamically find student matching the logged in username or parent name
-    const normalizedUser = sessionUser.toLowerCase();
-    const currentStudent =
+    // Dynamically find student matching the logged in username or parent name with instant fallback
+    const normalizedUser = (sessionUser || "").toLowerCase();
+
+    const defaultStudent: Student = {
+      id: "1",
+      name: sessionUser && sessionUser !== "ortu" ? sessionUser : "Rian",
+      class: "Prestasi",
+      attendanceRate: "100%",
+      parent: sessionUser || "Wali Murid",
+      phone: "081234567890",
+      age: "7 Tahun",
+      status: "Active",
+      logs: [],
+    };
+
+    const currentStudent: Student =
       students.find(
         (s) =>
           s.name.toLowerCase().includes(normalizedUser) ||
           s.parent.toLowerCase().includes(normalizedUser) ||
           (normalizedUser === "ortu" && s.name.toLowerCase() === "rian")
-      ) || students[0];
+      ) ||
+      students[0] ||
+      defaultStudent;
 
-    const currentInvoice =
+    const defaultCoach: Coach = {
+      id: "1",
+      name: "Pelatih Utama",
+      spec: "Instruktur Renang",
+      phone: "081234567890",
+      email: "coach@gimswimming.com",
+      class: currentStudent?.class || "Prestasi",
+    };
+
+    const coachData: Coach =
+      coaches.find((c) => c.class === (currentStudent?.class || "Prestasi")) ||
+      coaches[0] ||
+      defaultCoach;
+
+    const defaultInvoice: Invoice = {
+      id: "1",
+      studentId: currentStudent.id,
+      name: currentStudent.name,
+      amount: 450000,
+      desc: "SPP Bulanan Renang",
+      status: "Lunas",
+      uploadReceipt: null,
+    };
+
+    const currentInvoice: Invoice =
       invoices.find(
         (i) =>
           i.studentId === String(currentStudent?.id) ||
           i.name.toLowerCase() === currentStudent?.name.toLowerCase()
-      ) || invoices[0];
-
-    const coachData =
-      coaches.find((c) => c.class === (currentStudent?.class || "Beginner")) || coaches[0];
+      ) ||
+      invoices[0] ||
+      defaultInvoice;
 
     return (
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-10 flex flex-col">
-        {currentStudent ? (
-          <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
-            <ParentBody
-              sessionUser={sessionUser}
-              sessionRole={sessionRole}
-              student={currentStudent}
-              coach={coachData}
-              invoice={currentInvoice}
-              schedules={schedules}
-              coaches={coaches}
-              attendances={attendances}
-              notifications={notifications}
-              onUploadReceipt={handleParentUploadReceipt}
-              onCheckInAttendance={handleCheckInAttendance}
-              onMarkNotificationRead={handleMarkNotificationRead}
-              onClearAllNotifications={handleClearAllNotifications}
-              showInstallBtn={showInstallBtn}
-              onInstallClick={handleInstallClick}
-              onLogout={handleLogout}
-              onRefresh={handlePullRefresh}
-            />
-          </PullToRefresh>
-        ) : (
-          <div className="flex-1" />
-        )}
+        <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
+          <ParentBody
+            sessionUser={sessionUser}
+            sessionRole={sessionRole}
+            student={currentStudent}
+            coach={coachData}
+            invoice={currentInvoice}
+            schedules={schedules}
+            coaches={coaches}
+            attendances={attendances}
+            notifications={notifications}
+            onUploadReceipt={handleParentUploadReceipt}
+            onCheckInAttendance={handleCheckInAttendance}
+            onMarkNotificationRead={handleMarkNotificationRead}
+            onClearAllNotifications={handleClearAllNotifications}
+            showInstallBtn={showInstallBtn}
+            onInstallClick={handleInstallClick}
+            onLogout={handleLogout}
+            onRefresh={handlePullRefresh}
+          />
+        </PullToRefresh>
 
         <IOSInstallModal
           isOpen={showIOSPrompt}
@@ -656,6 +723,7 @@ export default function AppsPage() {
         setActiveTab={setActiveTab}
         sessionUser={sessionUser}
         sessionRole={sessionRole}
+        notifications={notifications}
         onLogout={handleLogout}
       />
 
@@ -665,6 +733,7 @@ export default function AppsPage() {
         setActiveTab={setActiveTab}
         sessionUser={sessionUser}
         sessionRole={sessionRole}
+        notifications={notifications}
         onLogout={handleLogout}
       />
 
@@ -692,6 +761,10 @@ export default function AppsPage() {
               onInstallClick={handleInstallClick}
               onLogout={handleLogout}
               onRefresh={handlePullRefresh}
+              notifications={notifications}
+              onMarkNotificationRead={handleMarkNotificationRead}
+              onClearAllNotifications={handleClearAllNotifications}
+              setActiveTab={setActiveTab}
             />
           </div>
         )}

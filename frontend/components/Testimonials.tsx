@@ -23,9 +23,9 @@ export default function Testimonials() {
     {
       id: 3,
       name: "Andi Wijaya",
-      role: "Karyawan Swasta",
-      program: "Beginner Class",
-      text: "Belajar berenang di usia dewasa awalnya terasa canggung, tetapi pelatih di GIM Swimming sangat profesional dan mengutamakan rasa aman selama proses belajar.",
+      role: "Atlet / Perenang Dewasa",
+      program: "Latihan Prestasi",
+      text: "Program Latihan Prestasi di GIM Swimming sangat intensif dan terstruktur. Teknik pernapasan, daya tahan, dan catatan waktu saya meningkat pesat!",
       rating: 5,
       initials: "AW",
       gradient: "from-purple-400 to-indigo-500",

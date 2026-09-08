@@ -486,44 +486,57 @@ export default function DashboardOverviewTab({
                         </p>
                       ) : (
                         <div className="space-y-2">
-                          {/* Real-time Attendance & System Notifications */}
-                          {notifications.slice(0, 8).map((notif) => (
-                            <div
-                              key={notif.id}
-                              onClick={async () => {
-                                if (onMarkNotificationRead && !notif.is_read) {
-                                  await onMarkNotificationRead(notif.id);
-                                }
-                                setShowNotificationPopup(false);
-                                if (notif.type === "attendance" && setActiveTab) {
-                                  setActiveTab("absensi");
-                                }
-                              }}
-                              className={`p-3 rounded-2xl border transition text-left cursor-pointer backdrop-blur-md ${
-                                !notif.is_read
-                                  ? notif.title?.includes("Terlambat")
-                                    ? "bg-amber-50/80 border-amber-200/80 shadow-xs"
-                                    : "bg-blue-50/80 border-blue-200/80 shadow-xs"
-                                  : "bg-white/60 border-slate-200/50 opacity-80"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1 mb-1">
-                                <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                                  <span>{notif.title?.includes("Terlambat") ? "⚠️" : "⏱️"}</span>
-                                  <span className="truncate">{notif.title}</span>
-                                </span>
-                                {!notif.is_read && (
-                                  <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />
-                                )}
+                          {/* Real-time Attendance, Schedule & System Notifications */}
+                          {notifications.slice(0, 12).map((notif) => {
+                            const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
+                            const isLate = notif.title?.includes("Terlambat");
+                            const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+                            
+                            let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
+                            if (!notif.is_read) {
+                              if (isSchedule) {
+                                cardBg = "bg-emerald-50/90 border-emerald-200/90 shadow-xs";
+                              } else if (isLate) {
+                                cardBg = "bg-amber-50/90 border-amber-200/90 shadow-xs";
+                              } else {
+                                cardBg = "bg-blue-50/90 border-blue-200/90 shadow-xs";
+                              }
+                            }
+
+                            return (
+                              <div
+                                key={notif.id}
+                                onClick={async () => {
+                                  if (onMarkNotificationRead && !notif.is_read) {
+                                    await onMarkNotificationRead(notif.id);
+                                  }
+                                  setShowNotificationPopup(false);
+                                  if (isSchedule && setActiveTab) {
+                                    setActiveTab("jadwal");
+                                  } else if (notif.type?.includes("attendance") && setActiveTab) {
+                                    setActiveTab("absensi");
+                                  }
+                                }}
+                                className={`p-3 rounded-2xl border transition text-left cursor-pointer backdrop-blur-md ${cardBg}`}
+                              >
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                    <span>{icon}</span>
+                                    <span className="truncate">{notif.title}</span>
+                                  </span>
+                                  {!notif.is_read && (
+                                    <span className={`h-2 w-2 rounded-full shrink-0 ${isSchedule ? "bg-emerald-600" : isLate ? "bg-amber-600" : "bg-blue-600"}`} />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-600 leading-snug">
+                                  {notif.message}
+                                </p>
+                                <p className="text-[9px] text-slate-400 font-medium mt-1">
+                                  {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                                </p>
                               </div>
-                              <p className="text-[11px] text-slate-600 leading-snug">
-                                {notif.message}
-                              </p>
-                              <p className="text-[9px] text-slate-400 font-medium mt-1">
-                                {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
-                              </p>
-                            </div>
-                          ))}
+                            );
+                          })}
 
                           {/* Pending Invoices */}
                           {pendingInvoices.map((inv) => (
@@ -873,6 +886,110 @@ export default function DashboardOverviewTab({
                         {schedule.notes}
                       </div>
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            2.5 NOTIFIKASI & PEMBERITAHUAN TERBARU CONTAINER
+            ========================================== */}
+        {notifications.length > 0 && (
+          <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-sm border border-slate-100 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📢</span>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <span>Pemberitahuan &amp; Jadwal Terbaru</span>
+                    {notifications.filter((n) => !n.is_read).length > 0 && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white shadow-xs animate-pulse">
+                        {notifications.filter((n) => !n.is_read).length} Baru
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Pemberitahuan jadwal pelatihan dan aktivitas absensi
+                  </p>
+                </div>
+              </div>
+
+              {onClearAllNotifications && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onClearAllNotifications();
+                  }}
+                  className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition cursor-pointer border border-slate-200/80"
+                >
+                  Bersihkan Semua
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              {notifications.slice(0, 4).map((notif) => {
+                const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
+                const isLate = notif.title?.includes("Terlambat");
+                const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+
+                return (
+                  <div
+                    key={notif.id}
+                    className={`p-3.5 rounded-2xl border transition text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      !notif.is_read
+                        ? isSchedule
+                          ? "bg-emerald-50/70 border-emerald-200/90 shadow-2xs"
+                          : isLate
+                          ? "bg-amber-50/70 border-amber-200/90 shadow-2xs"
+                          : "bg-blue-50/70 border-blue-200/90 shadow-2xs"
+                        : "bg-slate-50/70 border-slate-200/60 opacity-80"
+                    }`}
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base">{icon}</span>
+                        <span className="text-xs font-black text-slate-900">{notif.title}</span>
+                        {!notif.is_read && (
+                          <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-500 text-white">
+                            BARU
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400 font-medium ml-auto sm:ml-0">
+                          {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed pl-6">
+                        {notif.message}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 pl-6 sm:pl-0 shrink-0">
+                      {isSchedule && setActiveTab && (
+                        <button
+                          onClick={() => {
+                            if (onMarkNotificationRead && !notif.is_read) {
+                              onMarkNotificationRead(notif.id);
+                            }
+                            setActiveTab("jadwal");
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95"
+                        >
+                          Buka Jadwal →
+                        </button>
+                      )}
+                      {!notif.is_read && onMarkNotificationRead && (
+                        <button
+                          onClick={() => onMarkNotificationRead(notif.id)}
+                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95"
+                          title="Tandai Sudah Dibaca"
+                        >
+                          ✓ Dibaca
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

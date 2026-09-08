@@ -98,6 +98,10 @@ export interface AdminNotification {
   title: string;
   message: string;
   type: string;
+  target_role?: string;
+  target_user_id?: string;
+  target_name?: string;
+  schedule_id?: string;
   is_read: boolean;
   created_at: string;
 }

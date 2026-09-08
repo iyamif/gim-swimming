@@ -406,7 +406,31 @@ func (h *AppHandler) GetAttendances(c *gin.Context) {
 
 // GetNotifications handles GET /api/v1/notifications
 func (h *AppHandler) GetNotifications(c *gin.Context) {
-	notifications, err := h.appService.GetNotifications(c.Request.Context())
+	role := c.Query("role")
+	name := c.Query("name")
+	if name == "" {
+		name = c.Query("user")
+	}
+	userId := c.Query("userId")
+
+	// Check AuthMiddleware context values if query params are not provided
+	if ctxRole, exists := c.Get("role"); exists && role == "" {
+		if r, ok := ctxRole.(string); ok {
+			role = r
+		}
+	}
+	if ctxUser, exists := c.Get("username"); exists && name == "" {
+		if u, ok := ctxUser.(string); ok {
+			name = u
+		}
+	}
+	if ctxUserId, exists := c.Get("userId"); exists && userId == "" {
+		if uid, ok := ctxUserId.(string); ok {
+			userId = uid
+		}
+	}
+
+	notifications, err := h.appService.GetNotifications(c.Request.Context(), role, name, userId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -449,7 +473,30 @@ func (h *AppHandler) MarkNotificationRead(c *gin.Context) {
 
 // ClearAllNotifications handles DELETE /api/v1/notifications
 func (h *AppHandler) ClearAllNotifications(c *gin.Context) {
-	if err := h.appService.ClearAllNotifications(c.Request.Context()); err != nil {
+	role := c.Query("role")
+	name := c.Query("name")
+	if name == "" {
+		name = c.Query("user")
+	}
+	userId := c.Query("userId")
+
+	if ctxRole, exists := c.Get("role"); exists && role == "" {
+		if r, ok := ctxRole.(string); ok {
+			role = r
+		}
+	}
+	if ctxUser, exists := c.Get("username"); exists && name == "" {
+		if u, ok := ctxUser.(string); ok {
+			name = u
+		}
+	}
+	if ctxUserId, exists := c.Get("userId"); exists && userId == "" {
+		if uid, ok := ctxUserId.(string); ok {
+			userId = uid
+		}
+	}
+
+	if err := h.appService.ClearAllNotifications(c.Request.Context(), role, name, userId); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"error":   err.Error(),

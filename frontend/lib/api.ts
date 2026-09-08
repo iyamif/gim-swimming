@@ -519,9 +519,15 @@ export async function checkInAttendance(payload: {
   }
 }
 
-export async function fetchNotifications(): Promise<AdminNotification[]> {
+export async function fetchNotifications(role?: string, name?: string, userId?: string): Promise<AdminNotification[]> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications`, {
+    const params = new URLSearchParams();
+    if (role) params.set("role", role);
+    if (name) params.set("name", name);
+    if (userId) params.set("userId", userId);
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications${queryString}`, {
       headers: getHeaders(),
       cache: "no-store",
     });
@@ -547,9 +553,15 @@ export async function markNotificationRead(id: number | string): Promise<boolean
   }
 }
 
-export async function clearAllNotifications(): Promise<boolean> {
+export async function clearAllNotifications(role?: string, name?: string, userId?: string): Promise<boolean> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications`, {
+    const params = new URLSearchParams();
+    if (role) params.set("role", role);
+    if (name) params.set("name", name);
+    if (userId) params.set("userId", userId);
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications${queryString}`, {
       method: "DELETE",
       headers: getHeaders(),
     });

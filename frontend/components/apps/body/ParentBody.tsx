@@ -491,9 +491,25 @@ export default function ParentBody({
     }
   };
 
+  // Filter student-relevant notifications
+  const studentNotifications = notifications.filter((n) => {
+    if (!n.target_role || n.target_role === "all") return true;
+    if (n.target_role === "orang tua" || n.target_role === "student") {
+      if (!n.target_name) return true;
+      return (
+        n.target_name.toLowerCase().includes(student.name.toLowerCase()) ||
+        student.name.toLowerCase().includes(n.target_name.toLowerCase())
+      );
+    }
+    return false;
+  });
+
   // Notifications Count
+  const unreadNotifsCount = studentNotifications.filter((n) => !n.is_read).length;
   const notificationCount =
-    (showSPPReminder ? 1 : 0) + (todayStudentSchedules.length > 0 ? 1 : 0);
+    unreadNotifsCount +
+    (showSPPReminder ? 1 : 0) +
+    (todayStudentSchedules.length > 0 ? 1 : 0);
 
   // Navigation items config
   const navTabs = [
@@ -574,7 +590,7 @@ export default function ParentBody({
                 <span className="text-base sm:text-lg">🔔</span>
                 {notificationCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
-                    {notificationCount}
+                    {notificationCount > 99 ? "99+" : notificationCount}
                   </span>
                 )}
               </button>
@@ -615,6 +631,56 @@ export default function ParentBody({
                   </div>
 
                   <div className="space-y-2">
+                    {/* Real-time Targeted Notifications for Student */}
+                    {studentNotifications.map((notif) => {
+                      const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
+                      const isLate = notif.title?.includes("Terlambat");
+                      const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+                      
+                      let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
+                      if (!notif.is_read) {
+                        if (isSchedule) {
+                          cardBg = "bg-emerald-50/90 border-emerald-200/90 shadow-xs";
+                        } else if (isLate) {
+                          cardBg = "bg-amber-50/90 border-amber-200/90 shadow-xs";
+                        } else {
+                          cardBg = "bg-blue-50/90 border-blue-200/90 shadow-xs";
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={async () => {
+                            if (onMarkNotificationRead && !notif.is_read) {
+                              await onMarkNotificationRead(notif.id);
+                            }
+                            setShowNotificationPopup(false);
+                            if (isSchedule) {
+                              setParentActiveTab("jadwal");
+                            }
+                          }}
+                          className={`p-2.5 rounded-2xl border transition text-left cursor-pointer backdrop-blur-md ${cardBg}`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                              <span>{icon}</span>
+                              <span className="truncate">{notif.title}</span>
+                            </span>
+                            {!notif.is_read && (
+                              <span className={`h-2 w-2 rounded-full shrink-0 ${isSchedule ? "bg-emerald-600" : isLate ? "bg-amber-600" : "bg-blue-600"}`} />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-snug">
+                            {notif.message}
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-medium mt-1">
+                            {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                          </p>
+                        </div>
+                      );
+                    })}
+
                     {invoice && invoice.status === "Belum Dibayar" && (
                       <div className="p-2.5 bg-rose-50/80 backdrop-blur-md rounded-2xl border border-rose-200/60 text-left">
                         <p className="text-xs font-bold text-rose-800">
@@ -648,14 +714,11 @@ export default function ParentBody({
                       </div>
                     )}
 
-                    <div className="p-2.5 bg-slate-50/80 backdrop-blur-md rounded-2xl border border-slate-200/60 text-left">
-                      <p className="text-xs font-bold text-slate-800">
-                        📢 Info Akademik Renang
+                    {studentNotifications.length === 0 && !showSPPReminder && todayStudentSchedules.length === 0 && (
+                      <p className="text-xs text-slate-400 py-3 text-center italic">
+                        Tidak ada pemberitahuan baru.
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        Ujian Kenaikan Tingkatan Renang diadakan 14 September 2026.
-                      </p>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -809,6 +872,110 @@ export default function ParentBody({
                 <span>Hubungi Pelatih</span>
               </a>
             </div>
+
+            {/* ==========================================
+                PEMBERITAHUAN & JADWAL BARU SISWA CONTAINER
+                ========================================== */}
+            {studentNotifications.length > 0 && (
+              <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-sm border border-slate-100 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📢</span>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                        <span>Pemberitahuan Pelatihan Siswa</span>
+                        {unreadNotifsCount > 0 && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white shadow-xs animate-pulse">
+                            {unreadNotifsCount} Baru
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Info jadwal latihan terbaru dan update kehadiran {student.name}
+                      </p>
+                    </div>
+                  </div>
+
+                  {onClearAllNotifications && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onClearAllNotifications();
+                      }}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition cursor-pointer border border-slate-200/80"
+                    >
+                      Bersihkan Semua
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  {studentNotifications.slice(0, 3).map((notif) => {
+                    const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
+                    const isLate = notif.title?.includes("Terlambat");
+                    const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+
+                    return (
+                      <div
+                        key={notif.id}
+                        className={`p-3.5 rounded-2xl border transition text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          !notif.is_read
+                            ? isSchedule
+                              ? "bg-emerald-50/80 border-emerald-200/90 shadow-2xs"
+                              : isLate
+                              ? "bg-amber-50/80 border-amber-200/90 shadow-2xs"
+                              : "bg-blue-50/80 border-blue-200/90 shadow-2xs"
+                            : "bg-slate-50/70 border-slate-200/60 opacity-80"
+                        }`}
+                      >
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-base">{icon}</span>
+                            <span className="text-xs font-black text-slate-900">{notif.title}</span>
+                            {!notif.is_read && (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-500 text-white">
+                                BARU
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-medium ml-auto sm:ml-0">
+                              {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed pl-6">
+                            {notif.message}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 pl-6 sm:pl-0 shrink-0">
+                          {isSchedule && (
+                            <button
+                              onClick={() => {
+                                if (onMarkNotificationRead && !notif.is_read) {
+                                  onMarkNotificationRead(notif.id);
+                                }
+                                setParentActiveTab("jadwal");
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95"
+                            >
+                              Lihat Jadwal →
+                            </button>
+                          )}
+                          {!notif.is_read && onMarkNotificationRead && (
+                            <button
+                              onClick={() => onMarkNotificationRead(notif.id)}
+                              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95"
+                              title="Tandai Sudah Dibaca"
+                            >
+                              ✓ Dibaca
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Sesi Hari Ini & Presensi Siswa if active */}
             {todayStudentSchedules.length > 0 && (

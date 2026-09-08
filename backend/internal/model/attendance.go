@@ -41,12 +41,16 @@ type CheckInInput struct {
 	Notes      string  `json:"notes"`
 }
 
-// AdminNotification represents in-app notification for admin
+// AdminNotification represents in-app notification for admin, coach, or student
 type AdminNotification struct {
-	ID        int64     `json:"id"`
-	Title     string    `json:"title"`
-	Message   string    `json:"message"`
-	Type      string    `json:"type"` // "attendance_coach", "attendance_student", "system"
-	IsRead    bool      `json:"is_read"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	Title        string    `json:"title"`
+	Message      string    `json:"message"`
+	Type         string    `json:"type"` // "attendance_coach", "attendance_student", "schedule_coach", "schedule_student", "schedule_admin", "system"
+	TargetRole   string    `json:"target_role,omitempty"` // "admin", "pelatih", "orang tua", "all"
+	TargetUserID string    `json:"target_user_id,omitempty"`
+	TargetName   string    `json:"target_name,omitempty"` // e.g. "Adi", "Rian"
+	ScheduleID   string    `json:"schedule_id,omitempty"`
+	IsRead       bool      `json:"is_read"`
+	CreatedAt    time.Time `json:"created_at"`
 }

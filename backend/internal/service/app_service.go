@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,9 +40,9 @@ type AppService interface {
 	// Attendances & Notifications
 	CheckInAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error)
 	GetAttendances(ctx context.Context) ([]model.AttendanceRecord, error)
-	GetNotifications(ctx context.Context) ([]model.AdminNotification, error)
+	GetNotifications(ctx context.Context, role, name, userId string) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
-	ClearAllNotifications(ctx context.Context) error
+	ClearAllNotifications(ctx context.Context, role, name, userId string) error
 }
 
 type appService struct {
@@ -264,10 +265,85 @@ func (s *appService) GetSchedules(ctx context.Context) ([]model.ScheduleSession,
 	return s.scheduleRepo.FindAll(ctx)
 }
 
+// timeStringToMinutes converts "15:00" or "15:00 WIB" to minutes from 00:00
+func timeStringToMinutes(tStr string) (int, error) {
+	tStr = strings.TrimSpace(strings.ReplaceAll(tStr, "WIB", ""))
+	parts := strings.Split(tStr, ":")
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("format waktu tidak valid: %s", tStr)
+	}
+	h, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, err
+	}
+	m, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, err
+	}
+	return h*60 + m, nil
+}
+
+// validateScheduleDuration validates duration rules per class program:
+// - Kids / Baby: 30 minutes
+// - Prestasi: 2 hours 30 minutes (15:00 - 17:30 WIB)
+// - Private Class: 60 minutes (1 hour)
+func validateScheduleDuration(className, timeStart, timeEnd string) error {
+	startMins, err := timeStringToMinutes(timeStart)
+	if err != nil {
+		return fmt.Errorf("jam mulai tidak valid: %w", err)
+	}
+	endMins, err := timeStringToMinutes(timeEnd)
+	if err != nil {
+		return fmt.Errorf("jam selesai tidak valid: %w", err)
+	}
+
+	diff := endMins - startMins
+	if diff <= 0 {
+		return errors.New("jam selesai latihan harus lebih besar daripada jam mulai")
+	}
+
+	normClass := strings.ToLower(strings.TrimSpace(className))
+
+	if strings.Contains(normClass, "kid") || strings.Contains(normClass, "baby") {
+		if diff != 30 {
+			return errors.New("durasi latihan untuk program Kids / Baby harus tepat 30 menit (contoh: 15:00 - 15:30)")
+		}
+	} else if strings.Contains(normClass, "prestasi") {
+		if diff != 150 {
+			return errors.New("durasi latihan untuk program Prestasi harus 2 jam 30 menit (jadwal resmi: 15:00 - 17:30 WIB)")
+		}
+	} else if strings.Contains(normClass, "private") {
+		if diff != 60 {
+			return errors.New("durasi latihan untuk program Private Class harus tepat 60 menit / 1 jam (contoh: 15:00 - 16:00)")
+		}
+	}
+
+	return nil
+}
+
+// validateSingleStudentSchedule ensures 1-on-1 classes (Private and Kids/Baby) have at most 1 student
+func validateSingleStudentSchedule(className string, studentIDs []string) error {
+	normClass := strings.ToLower(strings.TrimSpace(className))
+	if (strings.Contains(normClass, "private") || strings.Contains(normClass, "kid") || strings.Contains(normClass, "baby")) && len(studentIDs) > 1 {
+		return errors.New("program kelas ini adalah 1-on-1 (1 pelatih hanya 1 murid). Silakan pilih maksimal 1 siswa")
+	}
+	return nil
+}
+
 // CreateSchedule adds a new schedule session
 func (s *appService) CreateSchedule(ctx context.Context, input *model.CreateScheduleInput) (*model.ScheduleSession, error) {
 	if input.Title == "" || input.Date == "" || input.TimeStart == "" || input.TimeEnd == "" {
 		return nil, errors.New("title, date, timeStart, and timeEnd are required")
+	}
+
+	// Validate duration based on class
+	if err := validateScheduleDuration(input.Class, input.TimeStart, input.TimeEnd); err != nil {
+		return nil, err
+	}
+
+	// Validate 1-on-1 single student rule (Private Class and Kids / Baby)
+	if err := validateSingleStudentSchedule(input.Class, input.StudentIDs); err != nil {
+		return nil, err
 	}
 
 	// Validate that the date is not in the past
@@ -312,6 +388,82 @@ func (s *appService) CreateSchedule(ctx context.Context, input *model.CreateSche
 	if err := s.scheduleRepo.Create(ctx, session); err != nil {
 		return nil, err
 	}
+
+	// Generate Targeted Notifications
+	formattedDate := formatIndonesianDate(session.Date)
+	timeRange := fmt.Sprintf("%s - %s WIB", session.TimeStart, session.TimeEnd)
+	if strings.Contains(session.TimeStart, "WIB") {
+		timeRange = fmt.Sprintf("%s - %s", session.TimeStart, session.TimeEnd)
+	}
+
+	studentNamesStr := strings.Join(session.StudentNames, ", ")
+	if studentNamesStr == "" {
+		studentNamesStr = "Belum ditentukan"
+	}
+
+	// 1. Notification for Assigned Coach
+	if session.CoachName != "" {
+		coachTitle := "Jadwal Pelatihan Baru"
+		coachMsg := fmt.Sprintf("Halo Pelatih %s, Anda memiliki jadwal pelatihan baru: '%s' pada %s pukul %s di %s bersama siswa: %s.",
+			session.CoachName, session.Title, formattedDate, timeRange, session.PoolArea, studentNamesStr)
+
+		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+			Title:        coachTitle,
+			Message:      coachMsg,
+			Type:         "schedule_coach",
+			TargetRole:   "pelatih",
+			TargetUserID: session.CoachID,
+			TargetName:   session.CoachName,
+			ScheduleID:   session.ID,
+			IsRead:       false,
+			CreatedAt:    now,
+		})
+	}
+
+	// 2. Notifications for Selected Student(s) & Parents
+	for idx, studentName := range session.StudentNames {
+		trimmedName := strings.TrimSpace(studentName)
+		if trimmedName == "" {
+			continue
+		}
+		studentID := ""
+		if idx < len(session.StudentIDs) {
+			studentID = session.StudentIDs[idx]
+		}
+
+		studentTitle := "Jadwal Pelatihan Baru"
+		studentMsg := fmt.Sprintf("Halo %s, Anda memiliki jadwal pelatihan baru: '%s' pada %s pukul %s di %s bersama Pelatih %s.",
+			trimmedName, session.Title, formattedDate, timeRange, session.PoolArea, session.CoachName)
+
+		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+			Title:        studentTitle,
+			Message:      studentMsg,
+			Type:         "schedule_student",
+			TargetRole:   "orang tua",
+			TargetUserID: studentID,
+			TargetName:   trimmedName,
+			ScheduleID:   session.ID,
+			IsRead:       false,
+			CreatedAt:    now,
+		})
+	}
+
+	// 3. Admin Notification
+	adminTitle := "Jadwal Pelatihan Ditambahkan"
+	adminMsg := fmt.Sprintf("Jadwal baru '%s' telah dibuat untuk Pelatih %s dan siswa: %s (%s, pukul %s di %s).",
+		session.Title, session.CoachName, studentNamesStr, formattedDate, timeRange, session.PoolArea)
+
+	_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+		Title:        adminTitle,
+		Message:      adminMsg,
+		Type:         "schedule_admin",
+		TargetRole:   "admin",
+		TargetUserID: "",
+		TargetName:   "admin",
+		ScheduleID:   session.ID,
+		IsRead:       false,
+		CreatedAt:    now,
+	})
 
 	return session, nil
 }
@@ -377,11 +529,84 @@ func (s *appService) UpdateSchedule(ctx context.Context, id string, input *model
 	if input.Status != "" {
 		existing.Status = input.Status
 	}
+
+	// Validate duration on update
+	if err := validateScheduleDuration(existing.Class, existing.TimeStart, existing.TimeEnd); err != nil {
+		return nil, err
+	}
+
+	// Validate 1-on-1 single student rule (Private Class and Kids / Baby)
+	if err := validateSingleStudentSchedule(existing.Class, existing.StudentIDs); err != nil {
+		return nil, err
+	}
+
 	existing.UpdatedAt = time.Now()
 
 	if err := s.scheduleRepo.Update(ctx, existing); err != nil {
 		return nil, err
 	}
+
+	// Generate Updated Notifications if schedule details were updated
+	formattedDate := formatIndonesianDate(existing.Date)
+	timeRange := fmt.Sprintf("%s - %s WIB", existing.TimeStart, existing.TimeEnd)
+	studentNamesStr := strings.Join(existing.StudentNames, ", ")
+	if studentNamesStr == "" {
+		studentNamesStr = "Belum ditentukan"
+	}
+
+	// 1. Updated Coach Notification
+	if existing.CoachName != "" {
+		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+			Title:        "Jadwal Pelatihan Diperbarui",
+			Message:      fmt.Sprintf("Halo Pelatih %s, jadwal pelatihan '%s' telah diperbarui untuk tanggal %s pukul %s di %s bersama siswa: %s.",
+				existing.CoachName, existing.Title, formattedDate, timeRange, existing.PoolArea, studentNamesStr),
+			Type:         "schedule_coach",
+			TargetRole:   "pelatih",
+			TargetUserID: existing.CoachID,
+			TargetName:   existing.CoachName,
+			ScheduleID:   existing.ID,
+			IsRead:       false,
+			CreatedAt:    time.Now(),
+		})
+	}
+
+	// 2. Updated Student Notifications
+	for idx, studentName := range existing.StudentNames {
+		trimmedName := strings.TrimSpace(studentName)
+		if trimmedName == "" {
+			continue
+		}
+		studentID := ""
+		if idx < len(existing.StudentIDs) {
+			studentID = existing.StudentIDs[idx]
+		}
+		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+			Title:        "Jadwal Pelatihan Diperbarui",
+			Message:      fmt.Sprintf("Halo %s, jadwal pelatihan '%s' telah diperbarui untuk tanggal %s pukul %s di %s bersama Pelatih %s.",
+				trimmedName, existing.Title, formattedDate, timeRange, existing.PoolArea, existing.CoachName),
+			Type:         "schedule_student",
+			TargetRole:   "orang tua",
+			TargetUserID: studentID,
+			TargetName:   trimmedName,
+			ScheduleID:   existing.ID,
+			IsRead:       false,
+			CreatedAt:    time.Now(),
+		})
+	}
+
+	// 3. Admin Notification
+	_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+		Title:        "Jadwal Pelatihan Diperbarui",
+		Message:      fmt.Sprintf("Jadwal '%s' telah diperbarui untuk Pelatih %s dan siswa: %s (%s, pukul %s di %s).",
+			existing.Title, existing.CoachName, studentNamesStr, formattedDate, timeRange, existing.PoolArea),
+		Type:         "schedule_admin",
+		TargetRole:   "admin",
+		TargetUserID: "",
+		TargetName:   "admin",
+		ScheduleID:   existing.ID,
+		IsRead:       false,
+		CreatedAt:    time.Now(),
+	})
 
 	return existing, nil
 }
@@ -628,11 +853,15 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 	}
 
 	_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
-		Title:     notifTitle,
-		Message:   notifMsg,
-		Type:      notifType,
-		IsRead:    false,
-		CreatedAt: now,
+		Title:        notifTitle,
+		Message:      notifMsg,
+		Type:         notifType,
+		TargetRole:   "admin",
+		TargetUserID: userId,
+		TargetName:   input.PersonName,
+		ScheduleID:   schedule.ID,
+		IsRead:       false,
+		CreatedAt:    now,
 	})
 
 	return att, nil
@@ -643,9 +872,9 @@ func (s *appService) GetAttendances(ctx context.Context) ([]model.AttendanceReco
 	return s.attendanceRepo.FindAll(ctx)
 }
 
-// GetNotifications returns recent admin notifications
-func (s *appService) GetNotifications(ctx context.Context) ([]model.AdminNotification, error) {
-	return s.attendanceRepo.GetNotifications(ctx, 40)
+// GetNotifications returns recent notifications filtered by target role and name
+func (s *appService) GetNotifications(ctx context.Context, role, name, userId string) ([]model.AdminNotification, error) {
+	return s.attendanceRepo.GetNotifications(ctx, role, name, userId, 40)
 }
 
 // MarkNotificationRead marks a notification as read
@@ -653,8 +882,49 @@ func (s *appService) MarkNotificationRead(ctx context.Context, id int64) error {
 	return s.attendanceRepo.MarkNotificationRead(ctx, id)
 }
 
-// ClearAllNotifications deletes all notifications from database
-func (s *appService) ClearAllNotifications(ctx context.Context) error {
-	return s.attendanceRepo.ClearAllNotifications(ctx)
+// ClearAllNotifications deletes notifications based on role and user scope
+func (s *appService) ClearAllNotifications(ctx context.Context, role, name, userId string) error {
+	return s.attendanceRepo.ClearAllNotifications(ctx, role, name, userId)
+}
+
+// formatIndonesianDate converts a date string like "2026-09-09" to "Rabu, 09 Sep 2026"
+func formatIndonesianDate(dateStr string) string {
+	if dateStr == "" {
+		return ""
+	}
+	t, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		// If already formatted or custom format, return as is
+		return dateStr
+	}
+
+	days := map[time.Weekday]string{
+		time.Sunday:    "Minggu",
+		time.Monday:    "Senin",
+		time.Tuesday:   "Selasa",
+		time.Wednesday: "Rabu",
+		time.Thursday:  "Kamis",
+		time.Friday:    "Jumat",
+		time.Saturday:  "Sabtu",
+	}
+
+	months := map[time.Month]string{
+		time.January:   "Jan",
+		time.February:  "Feb",
+		time.March:     "Mar",
+		time.April:     "Apr",
+		time.May:       "Mei",
+		time.June:      "Jun",
+		time.July:      "Jul",
+		time.August:    "Agu",
+		time.September: "Sep",
+		time.October:   "Okt",
+		time.November:  "Nov",
+		time.December:  "Des",
+	}
+
+	dayName := days[t.Weekday()]
+	monthName := months[t.Month()]
+	return fmt.Sprintf("%s, %02d %s %d", dayName, t.Day(), monthName, t.Year())
 }
 

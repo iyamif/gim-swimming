@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/iyamif/gim-swimming/internal/model"
@@ -18,9 +19,9 @@ type AttendanceRepository interface {
 
 	// Notifications
 	CreateNotification(ctx context.Context, notif *model.AdminNotification) error
-	GetNotifications(ctx context.Context, limit int) ([]model.AdminNotification, error)
+	GetNotifications(ctx context.Context, role, name, userId string, limit int) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
-	ClearAllNotifications(ctx context.Context) error
+	ClearAllNotifications(ctx context.Context, role, name, userId string) error
 }
 
 type attendanceRepository struct {
@@ -368,11 +369,11 @@ func (r *attendanceRepository) FindByStudentID(ctx context.Context, studentID st
 	return records, nil
 }
 
-// CreateNotification inserts a notification for admin
+// CreateNotification inserts a notification for admin, coach, or student
 func (r *attendanceRepository) CreateNotification(ctx context.Context, notif *model.AdminNotification) error {
 	query := `
-		INSERT INTO notifications (title, message, type, is_read, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO notifications (title, message, type, target_role, target_user_id, target_name, schedule_id, is_read, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at
 	`
 
@@ -386,25 +387,76 @@ func (r *attendanceRepository) CreateNotification(ctx context.Context, notif *mo
 		notif.Title,
 		notif.Message,
 		notif.Type,
+		notif.TargetRole,
+		notif.TargetUserID,
+		notif.TargetName,
+		notif.ScheduleID,
 		notif.IsRead,
 		notif.CreatedAt,
 	).Scan(&notif.ID, &notif.CreatedAt)
 }
 
-// GetNotifications returns recent notifications
-func (r *attendanceRepository) GetNotifications(ctx context.Context, limit int) ([]model.AdminNotification, error) {
+// GetNotifications returns recent notifications filtered by target role and target name/user
+func (r *attendanceRepository) GetNotifications(ctx context.Context, role, name, userId string, limit int) ([]model.AdminNotification, error) {
 	if limit <= 0 {
-		limit = 30
+		limit = 40
 	}
 
-	query := `
-		SELECT id, title, message, type, is_read, created_at
-		FROM notifications
-		ORDER BY created_at DESC
-		LIMIT $1
-	`
+	normalizedRole := strings.ToLower(strings.TrimSpace(role))
+	normalizedName := strings.ToLower(strings.TrimSpace(name))
+	trimmedUserId := strings.TrimSpace(userId)
 
-	rows, err := r.db.QueryContext(ctx, query, limit)
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if normalizedRole == "admin" || (normalizedRole == "" && normalizedName == "" && trimmedUserId == "") {
+		// Admin gets all notifications
+		query = `
+			SELECT id, title, message, type, COALESCE(target_role, ''), COALESCE(target_user_id, ''), COALESCE(target_name, ''), COALESCE(schedule_id, ''), is_read, created_at
+			FROM notifications
+			ORDER BY created_at DESC
+			LIMIT $1
+		`
+		rows, err = r.db.QueryContext(ctx, query, limit)
+	} else if normalizedRole == "pelatih" {
+		// Pelatih gets notifications specifically for them or broadcast
+		query = `
+			SELECT id, title, message, type, COALESCE(target_role, ''), COALESCE(target_user_id, ''), COALESCE(target_name, ''), COALESCE(schedule_id, ''), is_read, created_at
+			FROM notifications
+			WHERE (
+				(target_role = 'pelatih' AND (
+					target_name = '' 
+					OR ($2 <> '' AND (LOWER(target_name) LIKE '%' || $2 || '%' OR $2 LIKE '%' || LOWER(target_name) || '%'))
+					OR ($3 <> '' AND target_user_id = $3)
+				))
+				OR (target_role = 'all' AND target_name = '')
+				OR (target_role = '' AND type IN ('attendance_coach', 'schedule_coach', 'system'))
+			)
+			ORDER BY created_at DESC
+			LIMIT $1
+		`
+		rows, err = r.db.QueryContext(ctx, query, limit, normalizedName, trimmedUserId)
+	} else {
+		// Orang tua / Student gets notifications specifically for them or broadcast
+		query = `
+			SELECT id, title, message, type, COALESCE(target_role, ''), COALESCE(target_user_id, ''), COALESCE(target_name, ''), COALESCE(schedule_id, ''), is_read, created_at
+			FROM notifications
+			WHERE (
+				(target_role IN ('orang tua', 'student') AND (
+					target_name = '' 
+					OR ($2 <> '' AND (LOWER(target_name) LIKE '%' || $2 || '%' OR $2 LIKE '%' || LOWER(target_name) || '%'))
+					OR ($3 <> '' AND target_user_id = $3)
+				))
+				OR (target_role = 'all' AND target_name = '')
+				OR (target_role = '' AND type IN ('attendance_student', 'schedule_student', 'system'))
+			)
+			ORDER BY created_at DESC
+			LIMIT $1
+		`
+		rows, err = r.db.QueryContext(ctx, query, limit, normalizedName, trimmedUserId)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +465,7 @@ func (r *attendanceRepository) GetNotifications(ctx context.Context, limit int) 
 	var notifs []model.AdminNotification
 	for rows.Next() {
 		var n model.AdminNotification
-		if err := rows.Scan(&n.ID, &n.Title, &n.Message, &n.Type, &n.IsRead, &n.CreatedAt); err != nil {
+		if err := rows.Scan(&n.ID, &n.Title, &n.Message, &n.Type, &n.TargetRole, &n.TargetUserID, &n.TargetName, &n.ScheduleID, &n.IsRead, &n.CreatedAt); err != nil {
 			return nil, err
 		}
 		notifs = append(notifs, n)
@@ -433,9 +485,39 @@ func (r *attendanceRepository) MarkNotificationRead(ctx context.Context, id int6
 	return err
 }
 
-// ClearAllNotifications deletes all notifications
-func (r *attendanceRepository) ClearAllNotifications(ctx context.Context) error {
-	query := `DELETE FROM notifications`
-	_, err := r.db.ExecContext(ctx, query)
+// ClearAllNotifications deletes notifications based on role/scope
+func (r *attendanceRepository) ClearAllNotifications(ctx context.Context, role, name, userId string) error {
+	normalizedRole := strings.ToLower(strings.TrimSpace(role))
+	normalizedName := strings.ToLower(strings.TrimSpace(name))
+	trimmedUserId := strings.TrimSpace(userId)
+
+	if normalizedRole == "admin" || (normalizedRole == "" && normalizedName == "" && trimmedUserId == "") {
+		query := `DELETE FROM notifications`
+		_, err := r.db.ExecContext(ctx, query)
+		return err
+	}
+
+	if normalizedRole == "pelatih" {
+		query := `
+			DELETE FROM notifications
+			WHERE target_role = 'pelatih' AND (
+				target_name = '' 
+				OR ($1 <> '' AND (LOWER(target_name) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(target_name) || '%'))
+				OR ($2 <> '' AND target_user_id = $2)
+			)
+		`
+		_, err := r.db.ExecContext(ctx, query, normalizedName, trimmedUserId)
+		return err
+	}
+
+	query := `
+		DELETE FROM notifications
+		WHERE target_role IN ('orang tua', 'student') AND (
+			target_name = '' 
+			OR ($1 <> '' AND (LOWER(target_name) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(target_name) || '%'))
+			OR ($2 <> '' AND target_user_id = $2)
+		)
+	`
+	_, err := r.db.ExecContext(ctx, query, normalizedName, trimmedUserId)
 	return err
 }

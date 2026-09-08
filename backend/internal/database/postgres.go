@@ -167,15 +167,28 @@ func runMigrations() error {
 		title VARCHAR(255) NOT NULL,
 		message TEXT NOT NULL,
 		type VARCHAR(50) DEFAULT 'system',
+		target_role VARCHAR(50) DEFAULT '',
+		target_user_id VARCHAR(50) DEFAULT '',
+		target_name VARCHAR(255) DEFAULT '',
+		schedule_id VARCHAR(50) DEFAULT '',
 		is_read BOOLEAN DEFAULT false,
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 
-	-- Add column avatar if not exists
+	-- Add column migrations if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT '';
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar VARCHAR(255) DEFAULT '';
 	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS is_late BOOLEAN DEFAULT false;
 	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS late_reason TEXT DEFAULT '';
+	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_role VARCHAR(50) DEFAULT '';
+	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_user_id VARCHAR(50) DEFAULT '';
+	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_name VARCHAR(255) DEFAULT '';
+	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS schedule_id VARCHAR(50) DEFAULT '';
+
+	-- Migrate legacy 'Beginner' classes to 'Prestasi'
+	UPDATE students SET class = 'Prestasi' WHERE class ILIKE 'beginner%';
+	UPDATE coaches SET class = 'Prestasi' WHERE class ILIKE 'beginner%';
+	UPDATE schedules SET class = 'Prestasi', title = REPLACE(title, 'Beginner', 'Prestasi') WHERE class ILIKE 'beginner%';
 	`
 
 	_, err := DB.Exec(query)

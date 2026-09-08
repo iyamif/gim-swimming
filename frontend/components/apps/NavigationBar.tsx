@@ -10,6 +10,7 @@ interface NavigationBarProps {
   setActiveTab: (id: string) => void;
   sessionUser: string;
   sessionRole: string;
+  notifications?: import("./types").AdminNotification[];
   onLogout?: () => void;
 }
 
@@ -19,6 +20,7 @@ export function DesktopSidebar({
   setActiveTab,
   sessionUser,
   sessionRole,
+  notifications = [],
   onLogout,
 }: NavigationBarProps) {
   const [userAvatar, setUserAvatar] = useState<string>("");
@@ -39,6 +41,11 @@ export function DesktopSidebar({
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
   const isCustomImage = isImageAvatar(userAvatar);
+
+  const unreadTotal = notifications.filter((n) => !n.is_read).length;
+  const unreadSchedule = notifications.filter(
+    (n) => !n.is_read && (n.type?.includes("schedule") || n.title?.toLowerCase().includes("jadwal"))
+  ).length;
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-slate-100 bg-white text-slate-700 shrink-0">
@@ -114,18 +121,33 @@ export function DesktopSidebar({
             ]
         ).map((item) => {
           const isActive = activeTab === item.id;
+          const showScheduleBadge = item.id === "jadwal" && unreadSchedule > 0;
+          const showOverviewBadge = item.id === "dashboard" && unreadTotal > 0;
+
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-2xl transition-all duration-200 cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-2xl transition-all duration-200 cursor-pointer relative ${
                 isActive
                   ? "bg-cyan-50/80 text-cyan-600 border-l-4 border-cyan-500 shadow-sm"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
               <span className="text-base">{item.icon}</span>
-              <span>{item.fullLabel}</span>
+              <span className="flex-1 text-left truncate">{item.fullLabel}</span>
+
+              {showScheduleBadge && (
+                <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white shadow-xs animate-pulse">
+                  +{unreadSchedule}
+                </span>
+              )}
+
+              {showOverviewBadge && !showScheduleBadge && (
+                <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-xs">
+                  {unreadTotal > 99 ? "99+" : unreadTotal}
+                </span>
+              )}
             </button>
           );
         })}
@@ -167,12 +189,14 @@ export function MobileBottomNav({
   setActiveTab,
   sessionUser,
   sessionRole,
+  notifications = [],
 }: {
   activeTab: string;
   setActiveTab: (id: string) => void;
   navItems?: NavItem[];
   sessionUser?: string;
   sessionRole?: string;
+  notifications?: import("./types").AdminNotification[];
   onLogout?: () => void;
 }) {
   const [userAvatar, setUserAvatar] = useState<string>("");
@@ -194,17 +218,25 @@ export function MobileBottomNav({
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "U";
   const isCustomImage = isImageAvatar(userAvatar);
 
+  const unreadTotal = notifications.filter((n) => !n.is_read).length;
+  const unreadSchedule = notifications.filter(
+    (n) => !n.is_read && (n.type?.includes("schedule") || n.title?.toLowerCase().includes("jadwal"))
+  ).length;
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 h-[calc(4.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-3 md:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.06)]">
       {/* 1. Home */}
       <button
         onClick={() => setActiveTab("dashboard")}
-        className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+        className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
           activeTab === "dashboard" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
         }`}
       >
         <span className="text-xl mb-0.5">🏠</span>
         <span className="text-[10px] tracking-tight">Home</span>
+        {unreadTotal > 0 && (
+          <span className="absolute top-1 right-[28%] h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+        )}
       </button>
 
       {/* 2. Siswa / Timeline */}
@@ -240,12 +272,15 @@ export function MobileBottomNav({
       {sessionRole === "pelatih" ? (
         <button
           onClick={() => setActiveTab("jadwal")}
-          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
             activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
           }`}
         >
           <span className="text-xl mb-0.5">📅</span>
           <span className="text-[10px] tracking-tight">Jadwal</span>
+          {unreadSchedule > 0 && (
+            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+          )}
         </button>
       ) : (
         <button

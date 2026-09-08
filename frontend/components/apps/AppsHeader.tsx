@@ -137,6 +137,10 @@ interface AdminHeaderProps {
   onInstallClick: () => void;
   onLogout: () => void;
   onRefresh?: () => void | Promise<void>;
+  notifications?: import("./types").AdminNotification[];
+  onMarkNotificationRead?: (id: number | string) => Promise<void>;
+  onClearAllNotifications?: () => Promise<void>;
+  setActiveTab?: (tab: string) => void;
 }
 
 export function AdminHeader({
@@ -146,8 +150,13 @@ export function AdminHeader({
   onInstallClick,
   onLogout,
   onRefresh,
+  notifications = [],
+  onMarkNotificationRead,
+  onClearAllNotifications,
+  setActiveTab,
 }: AdminHeaderProps) {
   const [isRefreshingLocal, setIsRefreshingLocal] = React.useState(false);
+  const [showNotificationPopup, setShowNotificationPopup] = React.useState(false);
 
   const handleManualRefresh = async () => {
     if (onRefresh && !isRefreshingLocal) {
@@ -160,8 +169,10 @@ export function AdminHeader({
     }
   };
 
+  const unreadNotifs = notifications.filter((n) => !n.is_read);
+
   return (
-    <header className="flex h-18 sm:h-20 items-center justify-between border-b border-slate-100 bg-white px-6">
+    <header className="flex h-18 sm:h-20 items-center justify-between border-b border-slate-100 bg-white px-6 relative z-30">
       <div>
         <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
           {title}
@@ -180,6 +191,103 @@ export function AdminHeader({
             <span className="hidden sm:inline">Refresh Data</span>
           </button>
         )}
+
+        {/* Notification Bell with Popup */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotificationPopup(!showNotificationPopup)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition cursor-pointer relative shadow-2xs"
+            title="Notifikasi"
+          >
+            <span className="text-base">🔔</span>
+            {unreadNotifs.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white ring-2 ring-white shadow-xs animate-pulse">
+                {unreadNotifs.length > 99 ? "99+" : unreadNotifs.length}
+              </span>
+            )}
+          </button>
+
+          {showNotificationPopup && (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-black/5"
+                onClick={() => setShowNotificationPopup(false)}
+              />
+              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-white rounded-3xl p-4 shadow-2xl border border-slate-100 text-slate-800 z-50 animate-fadeIn space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="text-xs font-black text-slate-900">Pemberitahuan</span>
+                  {notifications.length > 0 && onClearAllNotifications && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onClearAllNotifications();
+                      }}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-3 text-center italic">
+                    Tidak ada notifikasi baru.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {notifications.slice(0, 8).map((notif) => {
+                      const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
+                      const isLate = notif.title?.includes("Terlambat");
+                      const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={async () => {
+                            if (onMarkNotificationRead && !notif.is_read) {
+                              await onMarkNotificationRead(notif.id);
+                            }
+                            setShowNotificationPopup(false);
+                            if (isSchedule && setActiveTab) {
+                              setActiveTab("jadwal");
+                            } else if (notif.type?.includes("attendance") && setActiveTab) {
+                              setActiveTab("absensi");
+                            }
+                          }}
+                          className={`p-2.5 rounded-2xl border transition text-left cursor-pointer ${
+                            !notif.is_read
+                              ? isSchedule
+                                ? "bg-emerald-50/80 border-emerald-200"
+                                : isLate
+                                ? "bg-amber-50/80 border-amber-200"
+                                : "bg-blue-50/80 border-blue-200"
+                              : "bg-slate-50/60 border-slate-100 opacity-80"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="text-xs font-black text-slate-900 flex items-center gap-1">
+                              <span>{icon}</span>
+                              <span className="truncate">{notif.title}</span>
+                            </span>
+                            {!notif.is_read && (
+                              <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-snug">
+                            {notif.message}
+                          </p>
+                          <p className="text-[9px] text-slate-400 mt-1">
+                            {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Dynamic Role Badge */}
         <span
@@ -241,6 +349,10 @@ export default function AppsHeader(
       onInstallClick={props.onInstallClick}
       onLogout={props.onLogout}
       onRefresh={props.onRefresh}
+      notifications={props.notifications}
+      onMarkNotificationRead={props.onMarkNotificationRead}
+      onClearAllNotifications={props.onClearAllNotifications}
+      setActiveTab={props.setActiveTab}
     />
   );
 }
