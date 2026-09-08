@@ -448,23 +448,6 @@ func (s *appService) CreateSchedule(ctx context.Context, input *model.CreateSche
 		})
 	}
 
-	// 3. Admin Notification
-	adminTitle := "Jadwal Pelatihan Ditambahkan"
-	adminMsg := fmt.Sprintf("Jadwal baru '%s' telah dibuat untuk Pelatih %s dan siswa: %s (%s, pukul %s di %s).",
-		session.Title, session.CoachName, studentNamesStr, formattedDate, timeRange, session.PoolArea)
-
-	_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
-		Title:        adminTitle,
-		Message:      adminMsg,
-		Type:         "schedule_admin",
-		TargetRole:   "admin",
-		TargetUserID: "",
-		TargetName:   "admin",
-		ScheduleID:   session.ID,
-		IsRead:       false,
-		CreatedAt:    now,
-	})
-
 	return session, nil
 }
 
@@ -593,20 +576,6 @@ func (s *appService) UpdateSchedule(ctx context.Context, id string, input *model
 			CreatedAt:    time.Now(),
 		})
 	}
-
-	// 3. Admin Notification
-	_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
-		Title:        "Jadwal Pelatihan Diperbarui",
-		Message:      fmt.Sprintf("Jadwal '%s' telah diperbarui untuk Pelatih %s dan siswa: %s (%s, pukul %s di %s).",
-			existing.Title, existing.CoachName, studentNamesStr, formattedDate, timeRange, existing.PoolArea),
-		Type:         "schedule_admin",
-		TargetRole:   "admin",
-		TargetUserID: "",
-		TargetName:   "admin",
-		ScheduleID:   existing.ID,
-		IsRead:       false,
-		CreatedAt:    time.Now(),
-	})
 
 	return existing, nil
 }

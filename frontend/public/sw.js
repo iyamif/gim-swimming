@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v2";
+const CACHE_VERSION = "gim-swimming-v3";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -122,9 +122,53 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
+// Push notification event listener
+self.addEventListener("push", (event) => {
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      const title = data.title || "GIM Swimming Club";
+      const options = {
+        body: data.message || data.body || "Pemberitahuan baru tersedia",
+        icon: "/icon.png",
+        badge: "/icon.png",
+        data: data,
+        vibrate: [100, 50, 100],
+      };
+      event.waitUntil(self.registration.showNotification(title, options));
+    } catch (e) {
+      event.waitUntil(
+        self.registration.showNotification("GIM Swimming Club", {
+          body: event.data.text(),
+          icon: "/icon.png",
+          badge: "/icon.png",
+        })
+      );
+    }
+  }
+});
+
+// Notification click event listener
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes("/apps") && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow("/apps");
+      }
+    })
+  );
+});
+
 // Listen for message from client to skip waiting immediately
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
+

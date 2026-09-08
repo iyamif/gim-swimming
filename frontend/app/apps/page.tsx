@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   API_BASE_URL,
@@ -35,6 +35,13 @@ import {
   CheckInInput,
 } from "../../components/apps/types";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
+import NotificationToast from "../../components/apps/NotificationToast";
+import {
+  playNotificationChime,
+  triggerNotificationHaptic,
+  showWebNotification,
+  requestNotificationPermission,
+} from "../../lib/notificationUtils";
 import { ParentHeader, AdminHeader } from "../../components/apps/AppsHeader";
 import { DesktopSidebar, MobileBottomNav } from "../../components/apps/NavigationBar";
 import ParentBody from "../../components/apps/body/ParentBody";
@@ -59,6 +66,11 @@ export default function AppsPage() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Real-time Notification State & Tracking Refs
+  const [toastNotification, setToastNotification] = useState<AdminNotification | null>(null);
+  const knownNotificationIdsRef = useRef<Set<number>>(new Set());
+  const initialLoadDoneRef = useRef<boolean>(false);
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -121,6 +133,10 @@ export default function AppsPage() {
 
       const fetchedNotifications = await fetchNotifications(role, queryName);
 
+      // Seed known notifications set on initial load so we don't trigger toast for existing notifications
+      fetchedNotifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+      initialLoadDoneRef.current = true;
+
       setStudents(fetchedStudents);
       setCoaches(fetchedCoaches);
       setSchedules(fetchedSchedules);
@@ -133,6 +149,152 @@ export default function AppsPage() {
       setLoadingData(false);
     }
   }, [sessionRole, sessionUser]);
+
+  // Proactively request browser notification permission on mount if supported
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        requestNotificationPermission().catch(() => {});
+      }
+    }
+  }, []);
+
+  // Background idle polling: checks for new notifications silently every 3.5s without manual refresh
+  useEffect(() => {
+    if (!sessionRole && !sessionUser) return;
+
+    let isSubscribed = true;
+
+    const performSilentPoll = async () => {
+      try {
+        const role = sessionRole;
+        let queryName = sessionUser;
+
+        if (role.toLowerCase().trim() === "orang tua") {
+          const normalizedUser = (sessionUser || "").toLowerCase();
+          const matched = students.find(
+            (s) =>
+              s.name.toLowerCase().includes(normalizedUser) ||
+              s.parent.toLowerCase().includes(normalizedUser) ||
+              (normalizedUser === "ortu" && s.name.toLowerCase() === "rian")
+          );
+          if (matched) {
+            queryName = matched.name;
+          }
+        }
+
+        const latestNotifications = await fetchNotifications(role, queryName);
+        if (!isSubscribed) return;
+
+        // Seed initial notifications if not already seeded
+        if (!initialLoadDoneRef.current) {
+          latestNotifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+          initialLoadDoneRef.current = true;
+          setNotifications(latestNotifications);
+          return;
+        }
+
+        // Detect any new unread notification that arrived while the user was idle
+        const newUnreadItems = latestNotifications.filter(
+          (n) => !n.is_read && !knownNotificationIdsRef.current.has(n.id)
+        );
+
+        if (newUnreadItems.length > 0) {
+          // Add newly discovered notification IDs to known set
+          newUnreadItems.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+          latestNotifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+
+          // Update notifications state immediately
+          setNotifications(latestNotifications);
+
+          // Pop the newest incoming notification into the in-app floating Toast banner
+          const newest = newUnreadItems[0];
+          setToastNotification(newest);
+
+          // Sound chime & haptic feedback
+          playNotificationChime();
+          triggerNotificationHaptic();
+
+          // Native browser Web Notification
+          showWebNotification(newest.title, {
+            body: newest.message,
+            icon: "/icon.png",
+          });
+
+          // Check if schedules or attendances need silent sync in the background
+          const hasScheduleUpdate = newUnreadItems.some(
+            (n) =>
+              n.type?.includes("schedule") ||
+              n.title?.toLowerCase().includes("jadwal") ||
+              n.message?.toLowerCase().includes("jadwal")
+          );
+          const hasAttendanceUpdate = newUnreadItems.some(
+            (n) =>
+              n.type?.includes("attendance") ||
+              n.title?.toLowerCase().includes("hadir") ||
+              n.title?.toLowerCase().includes("absen")
+          );
+
+          if (hasScheduleUpdate) {
+            fetchSchedules()
+              .then((updatedSchedules) => {
+                if (isSubscribed && updatedSchedules) {
+                  setSchedules(updatedSchedules);
+                }
+              })
+              .catch(() => {});
+          }
+
+          if (hasAttendanceUpdate) {
+            fetchAttendances()
+              .then((updatedAttendances) => {
+                if (isSubscribed && updatedAttendances) {
+                  setAttendances(updatedAttendances);
+                }
+              })
+              .catch(() => {});
+          }
+        } else {
+          // Sync read status or deleted items smoothly without flickering
+          setNotifications((prev) => {
+            if (
+              prev.length === latestNotifications.length &&
+              prev.every(
+                (p, idx) =>
+                  p.id === latestNotifications[idx]?.id &&
+                  p.is_read === latestNotifications[idx]?.is_read
+              )
+            ) {
+              return prev;
+            }
+            return latestNotifications;
+          });
+        }
+      } catch (err) {
+        // Silent error handling for background polling
+      }
+    };
+
+    // Polling interval: every 3.5s while idle
+    const intervalId = setInterval(performSilentPoll, 3500);
+
+    // Immediate poll when tab becomes active / focused / screen unlocked
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        performSilentPoll();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [sessionRole, sessionUser, students]);
 
   // Pull-to-refresh handler: reloads all database data and profile avatar + checks SW updates
   const handlePullRefresh = async () => {
@@ -556,6 +718,37 @@ export default function AppsPage() {
     }
   };
 
+  // Handler: Action on Toast notification click
+  const handleToastClick = async (notif: AdminNotification) => {
+    try {
+      if (!notif.is_read) {
+        await handleMarkNotificationRead(notif.id);
+      }
+    } catch (_) {}
+
+    const isSchedule =
+      notif.type?.includes("schedule") ||
+      notif.title?.toLowerCase().includes("jadwal") ||
+      notif.message?.toLowerCase().includes("jadwal");
+    const isAttendance =
+      notif.type?.includes("attendance") ||
+      notif.title?.toLowerCase().includes("absen") ||
+      notif.title?.toLowerCase().includes("hadir");
+
+    if (sessionRole === "orang tua") {
+      if (isSchedule) {
+        window.dispatchEvent(new CustomEvent("parent_switch_tab", { detail: "jadwal" }));
+      }
+    } else {
+      if (isSchedule) {
+        setActiveTab("jadwal");
+      } else if (isAttendance) {
+        setActiveTab("absensi");
+      }
+    }
+    setToastNotification(null);
+  };
+
   // Handler: Clear all notifications
   const handleClearAllNotifications = async () => {
     try {
@@ -655,6 +848,13 @@ export default function AppsPage() {
 
     return (
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-10 flex flex-col">
+        {/* Real-time In-App Floating Notification Toast Alert */}
+        <NotificationToast
+          notification={toastNotification}
+          onDismiss={() => setToastNotification(null)}
+          onClickAction={handleToastClick}
+        />
+
         <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
           <ParentBody
             sessionUser={sessionUser}
@@ -717,6 +917,13 @@ export default function AppsPage() {
           : "bg-[#f8fafc]"
       } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
     >
+      {/* Real-time In-App Floating Notification Toast Alert */}
+      <NotificationToast
+        notification={toastNotification}
+        onDismiss={() => setToastNotification(null)}
+        onClickAction={handleToastClick}
+      />
+
       <DesktopSidebar
         navItems={navItems}
         activeTab={activeTab}

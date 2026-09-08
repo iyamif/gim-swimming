@@ -411,10 +411,13 @@ func (r *attendanceRepository) GetNotifications(ctx context.Context, role, name,
 	var err error
 
 	if normalizedRole == "admin" || (normalizedRole == "" && normalizedName == "" && trimmedUserId == "") {
-		// Admin gets all notifications
+		// Admin gets notifications targeted to admin or general broadcast,
+		// but NOT schedule notifications meant for coaches or students.
 		query = `
 			SELECT id, title, message, type, COALESCE(target_role, ''), COALESCE(target_user_id, ''), COALESCE(target_name, ''), COALESCE(schedule_id, ''), is_read, created_at
 			FROM notifications
+			WHERE (target_role = 'admin' OR target_role = 'all' OR target_role = '')
+			  AND type NOT IN ('schedule_coach', 'schedule_student', 'schedule_admin')
 			ORDER BY created_at DESC
 			LIMIT $1
 		`
@@ -492,7 +495,7 @@ func (r *attendanceRepository) ClearAllNotifications(ctx context.Context, role, 
 	trimmedUserId := strings.TrimSpace(userId)
 
 	if normalizedRole == "admin" || (normalizedRole == "" && normalizedName == "" && trimmedUserId == "") {
-		query := `DELETE FROM notifications`
+		query := `DELETE FROM notifications WHERE target_role = 'admin' OR target_role = 'all' OR (target_role = '' AND type NOT IN ('schedule_coach', 'schedule_student'))`
 		_, err := r.db.ExecContext(ctx, query)
 		return err
 	}

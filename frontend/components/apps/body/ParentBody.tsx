@@ -51,6 +51,16 @@ export default function ParentBody({
   // Navigation tab state: home, jadwal, progres, profile
   const [parentActiveTab, setParentActiveTab] = useState<"home" | "jadwal" | "progres" | "profile">("home");
 
+  React.useEffect(() => {
+    const handleSwitchTab = (e: any) => {
+      if (e.detail && ["home", "jadwal", "progres", "profile"].includes(e.detail)) {
+        setParentActiveTab(e.detail);
+      }
+    };
+    window.addEventListener("parent_switch_tab", handleSwitchTab);
+    return () => window.removeEventListener("parent_switch_tab", handleSwitchTab);
+  }, []);
+
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [userAvatar, setUserAvatar] = useState<string>("");
