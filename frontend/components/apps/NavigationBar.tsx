@@ -236,16 +236,28 @@ export function MobileBottomNav({
         </span>
       </div>
 
-      {/* 4. Keuangan */}
-      <button
-        onClick={() => setActiveTab("keuangan")}
-        className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-          activeTab === "keuangan" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-        }`}
-      >
-        <span className="text-xl mb-0.5">💰</span>
-        <span className="text-[10px] tracking-tight">Keuangan</span>
-      </button>
+      {/* 4. Keuangan (Admin) / Jadwal (Pelatih) */}
+      {sessionRole === "pelatih" ? (
+        <button
+          onClick={() => setActiveTab("jadwal")}
+          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <span className="text-xl mb-0.5">📅</span>
+          <span className="text-[10px] tracking-tight">Jadwal</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => setActiveTab("keuangan")}
+          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "keuangan" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <span className="text-xl mb-0.5">💰</span>
+          <span className="text-[10px] tracking-tight">Keuangan</span>
+        </button>
+      )}
 
       {/* 5. User Profile Button */}
       <button

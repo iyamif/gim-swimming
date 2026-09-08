@@ -15,6 +15,7 @@ import RegistrasiTab from "./RegistrasiTab";
 import JadwalTab from "./JadwalTab";
 import ProfilTab from "./ProfilTab";
 import PelatihTab from "./PelatihTab";
+import KehadiranTab from "./KehadiranTab";
 import PullToRefresh from "../PullToRefresh";
 
 interface AppsBodyProps {
@@ -38,6 +39,7 @@ interface AppsBodyProps {
   onVerifyPayment: (invoiceId: string, confirm: boolean) => void;
   onCheckInAttendance?: (payload: any) => Promise<boolean | void>;
   onMarkNotificationRead?: (id: number | string) => Promise<void>;
+  onClearAllNotifications?: () => Promise<void>;
   onSubmitAttendance: (
     className: string,
     attendanceMap: Record<string, "Hadir" | "Sakit" | "Izin" | "Alpa">
@@ -79,6 +81,7 @@ export default function AppsBody({
   onVerifyPayment,
   onCheckInAttendance,
   onMarkNotificationRead,
+  onClearAllNotifications,
   onSubmitAttendance,
   onAddStudent,
   onAddCoach,
@@ -96,6 +99,7 @@ export default function AppsBody({
           attendances={attendances}
           notifications={notifications}
           onMarkNotificationRead={onMarkNotificationRead}
+          onClearAllNotifications={onClearAllNotifications}
           setActiveTab={setActiveTab}
         />
       )}
@@ -161,6 +165,17 @@ export default function AppsBody({
         />
       )}
 
+      {activeTab === "kehadiran" && (
+        <KehadiranTab
+          schedules={schedules}
+          coaches={coaches}
+          attendances={attendances}
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          setActiveTab={setActiveTab}
+        />
+      )}
+
       {activeTab === "create" && (
         <RegistrasiTab
           onAddStudent={onAddStudent}
@@ -192,7 +207,8 @@ export default function AppsBody({
         activeTab === "keuangan" ||
         activeTab === "profile" ||
         activeTab === "daftar_hadir" ||
-        activeTab === "pelatih"
+        activeTab === "pelatih" ||
+        activeTab === "kehadiran"
           ? "p-0"
           : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
       }`}

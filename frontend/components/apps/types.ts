@@ -69,7 +69,7 @@ export interface AttendanceRecord {
   person_type: "coach" | "student";
   person_id: string;
   person_name: string;
-  status: "Hadir" | "Terlambat" | "Izin" | "Sakit" | "Alpa";
+  status: "Hadir" | "Terlambat" | "Izin" | "Sakit" | "Alpa" | "Selesai" | string;
   is_late: boolean;
   late_reason?: string;
   latitude: number;

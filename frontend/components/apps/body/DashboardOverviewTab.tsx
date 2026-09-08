@@ -13,6 +13,7 @@ interface DashboardOverviewTabProps {
   attendances?: AttendanceRecord[];
   notifications?: AdminNotification[];
   onMarkNotificationRead?: (id: number | string) => Promise<void>;
+  onClearAllNotifications?: () => Promise<void>;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -26,6 +27,7 @@ export default function DashboardOverviewTab({
   attendances = [],
   notifications = [],
   onMarkNotificationRead,
+  onClearAllNotifications,
   setActiveTab,
 }: DashboardOverviewTabProps) {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
@@ -295,7 +297,7 @@ export default function DashboardOverviewTab({
       label: "Kehadiran",
       icon: "⏱️",
       bgCircle: "bg-orange-50 border-orange-100 text-orange-500",
-      action: () => setActiveTab && setActiveTab("absensi"),
+      action: () => setActiveTab && setActiveTab("kehadiran"),
     },
     {
       id: "izin",
@@ -368,17 +370,20 @@ export default function DashboardOverviewTab({
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (FULL WIDTH)
           ========================================== */}
-      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
-        {/* Clean Subtle Concentric Line Pattern */}
-        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
-        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
-        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 rounded-none">
+        {/* Subtle Decorative Background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Clean Subtle Concentric Line Pattern */}
+          <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
+          <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
+          <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25" />
 
-        {/* Soft Ambient Depth Glow at Bottom */}
-        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
+          {/* Soft Ambient Depth Glow at Bottom */}
+          <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl" />
+          <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
+        </div>
 
-        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-10">
+        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
           {/* User Profile Capsule */}
           <div className="flex items-center gap-3.5">
             <button
@@ -420,7 +425,7 @@ export default function DashboardOverviewTab({
           </div>
 
           {/* Top Right Translucent Notification Bell */}
-          <div className="relative">
+          <div className="relative z-50">
             {(() => {
               const unreadNotifs = notifications.filter((n) => !n.is_read);
               const totalUnread = unreadNotifs.length + pendingInvoices.length;
@@ -440,14 +445,39 @@ export default function DashboardOverviewTab({
                     )}
                   </button>
 
+                  {/* Backdrop for closing notification dropdown on click outside */}
+                  {showNotificationPopup && (
+                    <div
+                      className="fixed inset-0 z-40 bg-black/5"
+                      onClick={() => setShowNotificationPopup(false)}
+                    />
+                  )}
+
                   {/* Notification Dropdown */}
                   {showNotificationPopup && (
-                    <div className="absolute right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-white rounded-3xl p-4 shadow-2xl border border-slate-100 text-slate-800 z-50 animate-fadeIn space-y-3">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                        <span className="text-xs font-black text-slate-900">Pemberitahuan</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
-                          {totalUnread} Baru
-                        </span>
+                    <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-white/75 backdrop-blur-2xl rounded-3xl p-4 shadow-2xl border border-white/60 text-slate-800 z-50 animate-fadeIn space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-200/50 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-900">Pemberitahuan</span>
+                          {totalUnread > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50/80 text-blue-700 border border-blue-100/60">
+                              {totalUnread} Baru
+                            </span>
+                          )}
+                        </div>
+                        {notifications.length > 0 && onClearAllNotifications && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await onClearAllNotifications();
+                            }}
+                            className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50/80 hover:bg-blue-100 text-blue-700 hover:text-blue-800 transition cursor-pointer active:scale-95 border border-blue-100/60 shadow-xs"
+                            title="Hapus Semua Pemberitahuan"
+                          >
+                            Clear All
+                          </button>
+                        )}
                       </div>
 
                       {totalUnread === 0 && notifications.length === 0 ? (
@@ -469,12 +499,12 @@ export default function DashboardOverviewTab({
                                   setActiveTab("absensi");
                                 }
                               }}
-                              className={`p-3 rounded-2xl border transition text-left cursor-pointer ${
+                              className={`p-3 rounded-2xl border transition text-left cursor-pointer backdrop-blur-md ${
                                 !notif.is_read
                                   ? notif.title?.includes("Terlambat")
-                                    ? "bg-amber-50/70 border-amber-200"
-                                    : "bg-blue-50/70 border-blue-200"
-                                  : "bg-slate-50/60 border-slate-100 opacity-75"
+                                    ? "bg-amber-50/80 border-amber-200/80 shadow-xs"
+                                    : "bg-blue-50/80 border-blue-200/80 shadow-xs"
+                                  : "bg-white/60 border-slate-200/50 opacity-80"
                               }`}
                             >
                               <div className="flex items-center justify-between gap-1 mb-1">
@@ -533,11 +563,11 @@ export default function DashboardOverviewTab({
       {/* ==========================================
           CONTENT SECTION WRAPPER
           ========================================== */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 relative z-10">
         {/* ==========================================
             2. CALENDAR CARD (WEEKLY STRIP / MONTH VIEW)
             ========================================== */}
-        <div className="-mt-10 relative z-20">
+        <div className="-mt-10 relative z-10">
           <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-3">
             {/* Header: Navigation & Quick Actions */}
             <div className="flex items-center justify-between flex-wrap gap-2">

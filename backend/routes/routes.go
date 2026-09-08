@@ -143,6 +143,7 @@ func SetupRoutes(
 		{
 			notificationGroup.GET("", appHandler.GetNotifications)
 			notificationGroup.PATCH("/:id/read", appHandler.MarkNotificationRead)
+			notificationGroup.DELETE("", appHandler.ClearAllNotifications)
 		}
 
 		// Role-based Verification Test Endpoints

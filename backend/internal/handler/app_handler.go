@@ -447,3 +447,19 @@ func (h *AppHandler) MarkNotificationRead(c *gin.Context) {
 	})
 }
 
+// ClearAllNotifications handles DELETE /api/v1/notifications
+func (h *AppHandler) ClearAllNotifications(c *gin.Context) {
+	if err := h.appService.ClearAllNotifications(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Semua notifikasi berhasil dihapus",
+	})
+}
+

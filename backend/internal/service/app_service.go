@@ -41,6 +41,7 @@ type AppService interface {
 	GetAttendances(ctx context.Context) ([]model.AttendanceRecord, error)
 	GetNotifications(ctx context.Context) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
+	ClearAllNotifications(ctx context.Context) error
 }
 
 type appService struct {
@@ -490,7 +491,9 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 		status = "Hadir"
 	}
 
-	if parseErr == nil {
+	isCheckOut := status == "Selesai" || strings.Contains(status, "Keluar")
+
+	if parseErr == nil && !isCheckOut {
 		openWindow := sessionStart.Add(-2 * time.Hour)
 		lateThreshold := sessionStart.Add(15 * time.Minute)
 
@@ -563,6 +566,12 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 		return nil, err
 	}
 
+	// If notes provided on checkout/coach attendance, update schedule notes
+	if strings.TrimSpace(input.Notes) != "" && (isCheckOut || input.PersonType == "coach") {
+		schedule.Notes = input.Notes
+		_ = s.scheduleRepo.Update(ctx, schedule)
+	}
+
 	// 5. If person is student, update student attendance logs and percentage
 	if input.PersonType == "student" {
 		studentIDInt := int64(0)
@@ -602,7 +611,15 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 	}
 
 	var notifMsg string
-	if isLate {
+	if isCheckOut {
+		notifTitle = fmt.Sprintf("Presensi Keluar: %s", input.PersonName)
+		noteSnippet := ""
+		if strings.TrimSpace(input.Notes) != "" {
+			noteSnippet = fmt.Sprintf(" • Catatan Evaluasi: \"%s\"", input.Notes)
+		}
+		notifMsg = fmt.Sprintf("%s telah menyelesaikan sesi (Presensi Keluar) untuk '%s' (%s, %s-%s WIB di %s)%s.",
+			input.PersonName, schedule.Title, schedule.Date, schedule.TimeStart, schedule.TimeEnd, schedule.PoolArea, noteSnippet)
+	} else if isLate {
 		notifMsg = fmt.Sprintf("%s telah absen (TERLAMBAT: %s) untuk sesi '%s' (%s, %s-%s WIB di %s). Jarak GPS: %.2f km.",
 			input.PersonName, input.LateReason, schedule.Title, schedule.Date, schedule.TimeStart, schedule.TimeEnd, schedule.PoolArea, distanceKm)
 	} else {
@@ -634,5 +651,10 @@ func (s *appService) GetNotifications(ctx context.Context) ([]model.AdminNotific
 // MarkNotificationRead marks a notification as read
 func (s *appService) MarkNotificationRead(ctx context.Context, id int64) error {
 	return s.attendanceRepo.MarkNotificationRead(ctx, id)
+}
+
+// ClearAllNotifications deletes all notifications from database
+func (s *appService) ClearAllNotifications(ctx context.Context) error {
+	return s.attendanceRepo.ClearAllNotifications(ctx)
 }
 

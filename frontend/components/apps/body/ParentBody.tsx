@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput } from "../types";
+import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import {
   isImageAvatar,
@@ -18,8 +18,11 @@ interface ParentBodyProps {
   schedules?: ScheduleSession[];
   coaches?: Coach[];
   attendances?: AttendanceRecord[];
+  notifications?: AdminNotification[];
   onUploadReceipt: (invoiceId: string) => void;
   onCheckInAttendance?: (input: CheckInInput) => Promise<boolean | void>;
+  onMarkNotificationRead?: (id: number | string) => Promise<void>;
+  onClearAllNotifications?: () => Promise<void>;
   showInstallBtn?: boolean;
   onInstallClick?: () => void;
   onLogout?: () => void;
@@ -35,8 +38,11 @@ export default function ParentBody({
   schedules = [],
   coaches = [],
   attendances = [],
+  notifications = [],
   onUploadReceipt,
   onCheckInAttendance,
+  onMarkNotificationRead,
+  onClearAllNotifications,
   showInstallBtn,
   onInstallClick,
   onLogout,
@@ -502,17 +508,20 @@ export default function ParentBody({
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (FULL WIDTH)
           ========================================== */}
-      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
-        {/* Subtle Concentric Decorative Rings */}
-        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
-        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
-        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 rounded-none">
+        {/* Subtle Decorative Background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Subtle Concentric Decorative Rings */}
+          <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
+          <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
+          <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25" />
 
-        {/* Soft Ambient Depth Glow at Bottom */}
-        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
+          {/* Soft Ambient Depth Glow at Bottom */}
+          <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl" />
+          <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
+        </div>
 
-        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-10">
+        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
           {/* User Profile Capsule */}
           <div className="flex items-center gap-3.5">
             <button
@@ -554,7 +563,7 @@ export default function ParentBody({
           </div>
 
           {/* Top Right Actions */}
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-2 relative z-50">
             {/* Notification Bell */}
             <div className="relative">
               <button
@@ -570,19 +579,44 @@ export default function ParentBody({
                 )}
               </button>
 
+              {/* Backdrop for closing notification dropdown on click outside */}
+              {showNotificationPopup && (
+                <div
+                  className="fixed inset-0 z-40 bg-black/5"
+                  onClick={() => setShowNotificationPopup(false)}
+                />
+              )}
+
               {/* Notification Dropdown */}
               {showNotificationPopup && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-3xl p-4 shadow-2xl border border-slate-100 text-slate-800 z-50 animate-fadeIn">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2.5">
-                    <span className="text-xs font-bold text-slate-900">Pemberitahuan</span>
-                    <span className="text-[10px] font-bold text-cyan-600">
-                      {notificationCount} Pengingat
-                    </span>
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-white/75 backdrop-blur-2xl rounded-3xl p-4 shadow-2xl border border-white/60 text-slate-800 z-50 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-slate-200/50 pb-2.5 mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">Pemberitahuan</span>
+                      {notificationCount > 0 && (
+                        <span className="text-[10px] font-bold text-cyan-600">
+                          {notificationCount} Pengingat
+                        </span>
+                      )}
+                    </div>
+                    {notificationCount > 0 && onClearAllNotifications && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await onClearAllNotifications();
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50/80 hover:bg-blue-100 text-blue-700 hover:text-blue-800 transition cursor-pointer active:scale-95 border border-blue-100/60 shadow-xs"
+                        title="Hapus Semua Pemberitahuan"
+                      >
+                        Clear All
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     {invoice && invoice.status === "Belum Dibayar" && (
-                      <div className="p-2.5 bg-rose-50/80 rounded-2xl border border-rose-100 text-left">
+                      <div className="p-2.5 bg-rose-50/80 backdrop-blur-md rounded-2xl border border-rose-200/60 text-left">
                         <p className="text-xs font-bold text-rose-800">
                           ⚠️ Tagihan SPP Belum Dibayar
                         </p>
@@ -593,7 +627,7 @@ export default function ParentBody({
                     )}
 
                     {invoice && invoice.status === "Menunggu Konfirmasi" && (
-                      <div className="p-2.5 bg-amber-50/80 rounded-2xl border border-amber-100 text-left">
+                      <div className="p-2.5 bg-amber-50/80 backdrop-blur-md rounded-2xl border border-amber-200/60 text-left">
                         <p className="text-xs font-bold text-amber-800">
                           ⏳ Bukti SPP Sedang Diverifikasi
                         </p>
@@ -604,7 +638,7 @@ export default function ParentBody({
                     )}
 
                     {todayStudentSchedules.length > 0 && (
-                      <div className="p-2.5 bg-blue-50/80 rounded-2xl border border-blue-100 text-left">
+                      <div className="p-2.5 bg-blue-50/80 backdrop-blur-md rounded-2xl border border-blue-200/60 text-left">
                         <p className="text-xs font-bold text-blue-800">
                           🏊‍♂️ Ada Jadwal Latihan Hari Ini!
                         </p>
@@ -614,7 +648,7 @@ export default function ParentBody({
                       </div>
                     )}
 
-                    <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 text-left">
+                    <div className="p-2.5 bg-slate-50/80 backdrop-blur-md rounded-2xl border border-slate-200/60 text-left">
                       <p className="text-xs font-bold text-slate-800">
                         📢 Info Akademik Renang
                       </p>
@@ -633,14 +667,14 @@ export default function ParentBody({
       {/* ==========================================
           CONTENT SECTION WRAPPER
           ========================================== */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 relative z-10">
         {/* ==========================================
             TAB 1: HOME (BERANDA / OVERVIEW)
             ========================================== */}
         {parentActiveTab === "home" && (
           <>
             {/* Calendar Card Overview */}
-            <div className="-mt-10 relative z-20">
+            <div className="-mt-10 relative z-10">
               <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -1117,7 +1151,7 @@ export default function ParentBody({
             TAB 2: JADWAL (JADWAL LES & KALENDER)
             ========================================== */}
         {parentActiveTab === "jadwal" && (
-          <div className="-mt-10 relative z-20 space-y-4 animate-fadeIn">
+          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn">
             {/* Calendar Card Full */}
             <div className="rounded-3xl bg-white p-5 md:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
@@ -1329,7 +1363,7 @@ export default function ParentBody({
             TAB 3: PROGRES REPORT (RAPOR RENANG)
             ========================================== */}
         {parentActiveTab === "progres" && (
-          <div className="-mt-10 relative z-20 space-y-3.5 animate-fadeIn">
+          <div className="-mt-10 relative z-10 space-y-3.5 animate-fadeIn">
             {/* 1. STUDENT IDENTITY CARD */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-4">
               <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-cyan-100 shadow-xs shrink-0 flex items-center justify-center bg-cyan-50 text-cyan-700 font-black text-xl">
@@ -1497,7 +1531,7 @@ export default function ParentBody({
             TAB 4: PROFILE (PROFIL SISWA & PENGATURAN)
             ========================================== */}
         {parentActiveTab === "profile" && (
-          <div className="-mt-10 relative z-20 space-y-4 animate-fadeIn">
+          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn">
             {/* User Profile Card */}
             <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-5 text-center">
               <div className="relative inline-block mx-auto">

@@ -20,6 +20,7 @@ type AttendanceRepository interface {
 	CreateNotification(ctx context.Context, notif *model.AdminNotification) error
 	GetNotifications(ctx context.Context, limit int) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
+	ClearAllNotifications(ctx context.Context) error
 }
 
 type attendanceRepository struct {
@@ -429,5 +430,12 @@ func (r *attendanceRepository) GetNotifications(ctx context.Context, limit int) 
 func (r *attendanceRepository) MarkNotificationRead(ctx context.Context, id int64) error {
 	query := `UPDATE notifications SET is_read = true WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// ClearAllNotifications deletes all notifications
+func (r *attendanceRepository) ClearAllNotifications(ctx context.Context) error {
+	query := `DELETE FROM notifications`
+	_, err := r.db.ExecContext(ctx, query)
 	return err
 }

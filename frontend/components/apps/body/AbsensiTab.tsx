@@ -13,6 +13,7 @@ import {
   checkAttendanceTimeStatus,
   POOL_VENUES,
 } from "../../../lib/api";
+import CoachCameraPresensi from "./CoachCameraPresensi";
 
 interface AbsensiTabProps {
   students: Student[];
@@ -50,6 +51,10 @@ export default function AbsensiTab({
   onSubmitAttendance,
   setActiveTab,
 }: AbsensiTabProps) {
+  // Pelatih default view is Camera Presensi; Admin default view is Manual Checklist
+  const [viewMode, setViewMode] = useState<"camera" | "manual">(
+    sessionRole === "pelatih" ? "camera" : "manual"
+  );
   const [subTab, setSubTab] = useState<"checkin" | "history">("checkin");
 
   // Schedule selection
@@ -362,6 +367,34 @@ export default function AbsensiTab({
     });
   }, [attendances, historySearch, historyRoleFilter, historyStatusFilter]);
 
+  // If Camera Presensi view is active (default for pelatih)
+  if (viewMode === "camera") {
+    return (
+      <div className="fixed inset-0 z-50 bg-black animate-fadeIn">
+        <CoachCameraPresensi
+          schedules={schedules}
+          coaches={coaches}
+          attendances={attendances}
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          onCheckInAttendance={onCheckInAttendance}
+          onClose={() => {
+            if (sessionRole === "pelatih" && setActiveTab) {
+              setActiveTab("dashboard");
+            } else {
+              setViewMode("manual");
+            }
+          }}
+          onSwitchToStudentChecklist={(schedId) => {
+            setSelectedScheduleId(schedId);
+            setViewMode("manual");
+            setSubTab("checkin");
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto font-sans pb-28">
       {/* ==========================================
@@ -382,7 +415,14 @@ export default function AbsensiTab({
           </div>
 
           {/* Sub Tab Switcher */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl shrink-0 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl shrink-0 self-start sm:self-auto flex-wrap">
+            <button
+              onClick={() => setViewMode("camera")}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs active:scale-95"
+            >
+              <span>📷</span>
+              <span>Buka Kamera Presensi</span>
+            </button>
             <button
               onClick={() => setSubTab("checkin")}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
@@ -1002,6 +1042,14 @@ export default function AbsensiTab({
                       <div className="p-2.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-[11px] text-amber-900 space-y-0.5">
                         <span className="font-bold">Alasan Keterlambatan: </span>
                         <span>{att.late_reason}</span>
+                      </div>
+                    )}
+
+                    {/* Notes / Perkembangan Siswa if available */}
+                    {att.notes && (
+                      <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-[11px] text-slate-700 space-y-0.5">
+                        <span className="font-bold text-slate-800">📝 Catatan / Evaluasi: </span>
+                        <span className="whitespace-pre-line">{att.notes}</span>
                       </div>
                     )}
                   </div>

@@ -122,25 +122,16 @@ export default function PullToRefresh({
     setIsDragging(false);
     setPullDistance(pullThreshold);
 
-    const startTime = Date.now();
     try {
       await onRefresh();
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 5000) {
-        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
-      }
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
         setIsRefreshing(false);
         setPullDistance(0);
-      }, 500);
+      }, 350);
     } catch (err) {
       console.error("Pull to refresh error:", err);
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 5000) {
-        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
-      }
       setIsRefreshing(false);
       setPullDistance(0);
     }

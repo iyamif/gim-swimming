@@ -22,6 +22,7 @@ import {
   checkInAttendance,
   fetchNotifications,
   markNotificationRead,
+  clearAllNotifications,
 } from "../../lib/api";
 import {
   Student,
@@ -33,7 +34,6 @@ import {
   AdminNotification,
   CheckInInput,
 } from "../../components/apps/types";
-import ToastNotification from "../../components/apps/ToastNotification";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
 import { ParentHeader, AdminHeader } from "../../components/apps/AppsHeader";
 import { DesktopSidebar, MobileBottomNav } from "../../components/apps/NavigationBar";
@@ -50,10 +50,6 @@ export default function AppsPage() {
   // Navigation tab state (for Admin & Pelatih only)
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // Floating Toast Notifications state
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastType, setToastType] = useState<"success" | "error">("success");
-
   // REAL DATABASE STATES (Loaded from PostgreSQL Backend)
   const [students, setStudents] = useState<Student[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -69,13 +65,6 @@ export default function AppsPage() {
   const [showInstallBtn, setShowInstallBtn] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
-
-  // Helper to show dynamic toasts
-  const triggerToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
-    setTimeout(() => setToastMessage(""), 3500);
-  };
 
   const handleLogout = () => {
     localStorage.removeItem("gim_swimming_user");
@@ -112,7 +101,6 @@ export default function AppsPage() {
       setNotifications(fetchedNotifications);
     } catch (err) {
       console.error("Error fetching database data:", err);
-      triggerToast("Gagal memuat data dari database", "error");
     } finally {
       setLoadingData(false);
     }
@@ -120,7 +108,6 @@ export default function AppsPage() {
 
   // Pull-to-refresh handler: reloads all database data and profile avatar + checks SW updates
   const handlePullRefresh = async () => {
-    const startTime = Date.now();
     try {
       setIsRefreshing(true);
 
@@ -135,18 +122,8 @@ export default function AppsPage() {
         loadAllData(),
         sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
       ]);
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 5000) {
-        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
-      }
-      triggerToast("Data terbaru berhasil dimuat dari database! ✨", "success");
     } catch (err) {
       console.error("Refresh error:", err);
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 5000) {
-        await new Promise((resolve) => setTimeout(resolve, 5000 - elapsed));
-      }
-      triggerToast("Gagal memuat ulang data", "error");
     } finally {
       setIsRefreshing(false);
     }
@@ -349,6 +326,7 @@ export default function AppsPage() {
       daftar_hadir: ["admin", "pelatih"],
       pelatih: ["admin", "pelatih"],
       absensi: ["admin", "pelatih"],
+      kehadiran: ["admin", "pelatih"],
       create: ["admin"],
       profile: ["admin", "pelatih"],
     };
@@ -374,12 +352,9 @@ export default function AppsPage() {
       const created = await createSchedule(data);
       if (created) {
         setSchedules((prev) => [created, ...prev]);
-        triggerToast(
-          `Jadwal "${created.title}" tanggal ${created.date} (${created.timeStart}-${created.timeEnd} WIB) berhasil disimpan di database!`
-        );
       }
     } catch (err) {
-      triggerToast("Gagal menyimpan jadwal ke database", "error");
+      console.error("Failed to add schedule:", err);
     }
   };
 
@@ -391,7 +366,6 @@ export default function AppsPage() {
         setSchedules((prev) =>
           prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
         );
-        triggerToast(`Jadwal "${updated.title}" berhasil diperbarui!`);
       }
     } catch (err: any) {
       console.warn("Update schedule API warning:", err);
@@ -401,15 +375,6 @@ export default function AppsPage() {
           s.id === id ? ({ ...s, ...data } as ScheduleSession) : s
         )
       );
-
-      if (String(err?.message || "").includes("404")) {
-        triggerToast(
-          `Jadwal berhasil diubah di tampilan! (Harap restart server backend agar tersimpan permanen di database)`,
-          "error"
-        );
-      } else {
-        triggerToast("Gagal memperbarui jadwal ke database", "error");
-      }
     }
   };
 
@@ -418,9 +383,8 @@ export default function AppsPage() {
     try {
       await deleteSchedule(id);
       setSchedules((prev) => prev.filter((s) => s.id !== id));
-      triggerToast("Jadwal latihan berhasil dihapus dari database.");
     } catch (err) {
-      triggerToast("Gagal menghapus jadwal", "error");
+      console.error("Failed to delete schedule:", err);
     }
   };
 
@@ -433,7 +397,6 @@ export default function AppsPage() {
     class: string;
   }) => {
     if (!data.name || !data.parent || !data.phone) {
-      triggerToast("Silakan isi semua bidang wajib", "error");
       return;
     }
 
@@ -447,10 +410,9 @@ export default function AppsPage() {
         ]);
         setStudents(updatedStudents);
         setInvoices(updatedInvoices);
-        triggerToast(`Siswa "${created.name}" berhasil didaftarkan ke database!`);
       }
     } catch (err) {
-      triggerToast("Gagal mendaftarkan siswa ke database", "error");
+      console.error("Failed to add student:", err);
     }
   };
 
@@ -463,7 +425,6 @@ export default function AppsPage() {
     class: string;
   }) => {
     if (!data.name || !data.phone || !data.email) {
-      triggerToast("Silakan isi semua bidang wajib", "error");
       return;
     }
 
@@ -472,10 +433,9 @@ export default function AppsPage() {
       if (created) {
         const updatedCoaches = await fetchCoaches();
         setCoaches(updatedCoaches);
-        triggerToast(`Pelatih "${created.name}" berhasil didaftarkan ke database!`);
       }
     } catch (err) {
-      triggerToast("Gagal mendaftarkan pelatih ke database", "error");
+      console.error("Failed to add coach:", err);
     }
   };
 
@@ -500,9 +460,8 @@ export default function AppsPage() {
       // Refresh students to reflect updated attendance rate and logs
       const updatedStudents = await fetchStudents();
       setStudents(updatedStudents);
-      triggerToast(`Absensi kelas "${className}" berhasil disimpan ke database!`);
     } catch (err) {
-      triggerToast("Gagal menyimpan absensi", "error");
+      console.error("Failed to submit bulk attendance:", err);
     }
   };
 
@@ -512,9 +471,8 @@ export default function AppsPage() {
       await uploadInvoiceReceipt(invoiceId, "bukti_tf_ortu_rian.jpg");
       const updatedInvoices = await fetchInvoices();
       setInvoices(updatedInvoices);
-      triggerToast("Bukti pembayaran SPP berhasil dikirim!");
     } catch (err) {
-      triggerToast("Gagal mengunggah bukti pembayaran", "error");
+      console.error("Failed to upload receipt:", err);
     }
   };
 
@@ -524,13 +482,8 @@ export default function AppsPage() {
       await verifyInvoicePayment(invoiceId, confirm);
       const updatedInvoices = await fetchInvoices();
       setInvoices(updatedInvoices);
-      triggerToast(
-        confirm
-          ? "Pembayaran terverifikasi! Status berubah menjadi Lunas di database."
-          : "Pembayaran ditolak."
-      );
     } catch (err) {
-      triggerToast("Gagal memperbarui status pembayaran", "error");
+      console.error("Failed to verify payment:", err);
     }
   };
 
@@ -539,32 +492,21 @@ export default function AppsPage() {
     try {
       const res = await checkInAttendance(payload);
       if (res) {
-        // Refresh attendances, notifications, and students (for meeting logs)
-        const [updatedAttendances, updatedNotifs, updatedStudents] = await Promise.all([
+        // Refresh attendances, notifications, students, and schedules (for session notes sync)
+        const [updatedAttendances, updatedNotifs, updatedStudents, updatedSchedules] = await Promise.all([
           fetchAttendances(),
           fetchNotifications(),
           fetchStudents(),
+          fetchSchedules(),
         ]);
         setAttendances(updatedAttendances);
         setNotifications(updatedNotifs);
         setStudents(updatedStudents);
-
-        if (res.status === "Terlambat") {
-          triggerToast(
-            `Presensi berhasil tercatat (Status: Terlambat). Alasan keterlambatan telah dikirim ke admin.`,
-            "success"
-          );
-        } else {
-          triggerToast(
-            `Presensi berhasil! Kehadiran ${payload.person_name} telah tercatat di sistem. ✨`,
-            "success"
-          );
-        }
+        setSchedules(updatedSchedules);
         return true;
       }
     } catch (err: any) {
       console.error("Check-in error:", err);
-      triggerToast(err.message || "Gagal melakukan presensi", "error");
       throw err;
     }
   };
@@ -578,6 +520,16 @@ export default function AppsPage() {
       );
     } catch (err) {
       console.error("Mark notification read error:", err);
+    }
+  };
+
+  // Handler: Clear all notifications
+  const handleClearAllNotifications = async () => {
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+    } catch (err) {
+      console.error("Clear notifications error:", err);
     }
   };
 
@@ -632,8 +584,6 @@ export default function AppsPage() {
 
     return (
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-10 flex flex-col">
-        <ToastNotification message={toastMessage} type={toastType} />
-
         {currentStudent ? (
           <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
             <ParentBody
@@ -645,8 +595,11 @@ export default function AppsPage() {
               schedules={schedules}
               coaches={coaches}
               attendances={attendances}
+              notifications={notifications}
               onUploadReceipt={handleParentUploadReceipt}
               onCheckInAttendance={handleCheckInAttendance}
+              onMarkNotificationRead={handleMarkNotificationRead}
+              onClearAllNotifications={handleClearAllNotifications}
               showInstallBtn={showInstallBtn}
               onInstallClick={handleInstallClick}
               onLogout={handleLogout}
@@ -654,7 +607,7 @@ export default function AppsPage() {
             />
           </PullToRefresh>
         ) : (
-          <div className="p-8 text-center text-slate-400">Memuat data siswa dari database...</div>
+          <div className="flex-1" />
         )}
 
         <IOSInstallModal
@@ -662,8 +615,8 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Floating Loading Screen Overlay during Refresh (tanpa background putih) */}
-        {isRefreshing && (
+        {/* Centered Floating Loading Screen Overlay during Initial Load or Refresh */}
+        {(isRefreshing || loadingData) && (
           <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
             <div className="flex flex-col items-center justify-center space-y-3 scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -697,8 +650,6 @@ export default function AppsPage() {
           : "bg-[#f8fafc]"
       } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
     >
-      <ToastNotification message={toastMessage} type={toastType} />
-
       <DesktopSidebar
         navItems={navItems}
         activeTab={activeTab}
@@ -767,6 +718,7 @@ export default function AppsPage() {
             onVerifyPayment={handleAdminVerifyPayment}
             onCheckInAttendance={handleCheckInAttendance}
             onMarkNotificationRead={handleMarkNotificationRead}
+            onClearAllNotifications={handleClearAllNotifications}
             onSubmitAttendance={handleAbsensiSubmit}
             onAddStudent={handleAddSiswaSubmit}
             onAddCoach={handleAddPelatihSubmit}
@@ -779,8 +731,8 @@ export default function AppsPage() {
         onClose={() => setShowIOSPrompt(false)}
       />
 
-      {/* Centered Floating Loading Screen Overlay during Refresh (tanpa background putih) */}
-      {isRefreshing && (
+      {/* Centered Floating Loading Screen Overlay during Initial Load or Refresh */}
+      {(isRefreshing || loadingData) && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
           <div className="flex flex-col items-center justify-center space-y-3 scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -547,6 +547,19 @@ export async function markNotificationRead(id: number | string): Promise<boolean
   }
 }
 
+export async function clearAllNotifications(): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/notifications`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("clearAllNotifications error:", err);
+    return false;
+  }
+}
+
 // ================= GEOLOCATION & TIME CONSTRAINTS HELPERS =================
 
 export interface PoolVenueInfo {
