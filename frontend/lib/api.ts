@@ -787,3 +787,97 @@ export function checkAttendanceTimeStatus(
   };
 }
 
+// ================= WEB PUSH & VAPID API HELPERS =================
+
+export async function fetchVapidPublicKey(): Promise<string> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/vapid-public-key`, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Gagal mengambil kunci VAPID");
+    const json = await res.json();
+    return json.public_key || "";
+  } catch (err) {
+    console.error("fetchVapidPublicKey error:", err);
+    return "";
+  }
+}
+
+export async function subscribePush(payload: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  role?: string;
+  username?: string;
+  student_name?: string;
+  user_id?: string;
+}): Promise<any> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/subscribe`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || "Gagal mendaftarkan push notification");
+    }
+    return json;
+  } catch (err) {
+    console.error("subscribePush error:", err);
+    throw err;
+  }
+}
+
+export async function unsubscribePush(endpoint: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/unsubscribe`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ endpoint }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("unsubscribePush error:", err);
+    return false;
+  }
+}
+
+export async function triggerTestPush(payload: {
+  role?: string;
+  username?: string;
+  studentName?: string;
+  userId?: string;
+  title?: string;
+  message?: string;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/test`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        role: payload.role || "",
+        username: payload.username || "",
+        student_name: payload.studentName || "",
+        user_id: payload.userId || "",
+        title: payload.title || "GIM Swimming Push Test 🔔",
+        message: payload.message || "Notifikasi Web Push + Icon Badge berhasil terhubung dengan lancar di perangkat Anda!",
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || "Gagal mengirim notifikasi tes");
+    }
+    return {
+      success: true,
+      message: json.message || "Notifikasi tes berhasil dikirim!",
+    };
+  } catch (err: any) {
+    console.error("triggerTestPush error:", err);
+    return {
+      success: false,
+      message: err.message || "Gagal mengirim notifikasi tes",
+    };
+  }
+}
+
+

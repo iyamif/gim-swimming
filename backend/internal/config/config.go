@@ -18,7 +18,10 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	DBSSLMode  string
-	JWTSecret  string
+	JWTSecret       string
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDSubject    string
 }
 
 // LoadConfig loads the configuration from environment variables with sensible defaults
@@ -30,15 +33,18 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		Port:       getEnv("PORT", "8080"),
-		DBURL:      getEnv("DATABASE_URL", ""),
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "postgres"),
-		DBName:     getEnv("DB_NAME", "gim_swimming"),
-		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
-		JWTSecret:  getEnv("JWT_SECRET", "gim_swimming_secret_key_123"),
+		Port:            getEnv("PORT", "8080"),
+		DBURL:           getEnv("DATABASE_URL", ""),
+		DBHost:          getEnv("DB_HOST", "localhost"),
+		DBPort:          getEnv("DB_PORT", "5432"),
+		DBUser:          getEnv("DB_USER", "postgres"),
+		DBPassword:      getEnv("DB_PASSWORD", "postgres"),
+		DBName:          getEnv("DB_NAME", "gim_swimming"),
+		DBSSLMode:       getEnv("DB_SSLMODE", "disable"),
+		JWTSecret:       getEnv("JWT_SECRET", "gim_swimming_secret_key_123"),
+		VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", "BP1E0qAKBOVQHlCwm5K8IF7kYkX1_IxtFrd_LzVzSsAjV6gPSooiYCV8xnaUu6k1rVd4jY_J6c3k0qUhcngrROU"),
+		VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", "cfiU4mGT5VAUuyjB5vTLW1KfjFfcAm235-5RCyNNWMk"),
+		VAPIDSubject:    getEnv("VAPID_SUBJECT", "mailto:admin@gimswimming.com"),
 	}
 }
 

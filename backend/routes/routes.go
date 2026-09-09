@@ -47,6 +47,7 @@ func SetupRoutes(
 	router *gin.Engine,
 	authHandler *handler.AuthHandler,
 	appHandler *handler.AppHandler,
+	pushHandler *handler.PushHandler,
 	authService service.AuthService,
 ) {
 	// Root and Health Check
@@ -97,6 +98,15 @@ func SetupRoutes(
 		v1.GET("/uploads/:filename", func(c *gin.Context) {
 			serveStaticImage(c, c.Param("filename"))
 		})
+
+		// Web Push & VAPID Endpoints
+		pushGroup := v1.Group("/push")
+		{
+			pushGroup.GET("/vapid-public-key", pushHandler.GetVAPIDPublicKey)
+			pushGroup.POST("/subscribe", pushHandler.Subscribe)
+			pushGroup.POST("/unsubscribe", pushHandler.Unsubscribe)
+			pushGroup.POST("/test", pushHandler.SendTestPush)
+		}
 
 		// Students & Attendance Endpoints
 		studentGroup := v1.Group("/students")

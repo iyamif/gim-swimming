@@ -52,6 +52,7 @@ type appService struct {
 	scheduleRepo   repository.ScheduleRepository
 	invoiceRepo    repository.InvoiceRepository
 	attendanceRepo repository.AttendanceRepository
+	pushService    PushService
 }
 
 // NewAppService creates a new AppService
@@ -62,6 +63,7 @@ func NewAppService(
 	scheduleRepo repository.ScheduleRepository,
 	invoiceRepo repository.InvoiceRepository,
 	attendanceRepo repository.AttendanceRepository,
+	pushService PushService,
 ) AppService {
 	return &appService{
 		userRepo:       userRepo,
@@ -70,6 +72,7 @@ func NewAppService(
 		scheduleRepo:   scheduleRepo,
 		invoiceRepo:    invoiceRepo,
 		attendanceRepo: attendanceRepo,
+		pushService:    pushService,
 	}
 }
 
@@ -448,6 +451,11 @@ func (s *appService) CreateSchedule(ctx context.Context, input *model.CreateSche
 		})
 	}
 
+	// 3. Dispatch Native Mobile Web Push + VAPID Notifications
+	if s.pushService != nil {
+		s.pushService.SendSchedulePushNotification(ctx, session)
+	}
+
 	return session, nil
 }
 
@@ -575,6 +583,11 @@ func (s *appService) UpdateSchedule(ctx context.Context, id string, input *model
 			IsRead:       false,
 			CreatedAt:    time.Now(),
 		})
+	}
+
+	// Dispatch Native Mobile Web Push for updated schedule
+	if s.pushService != nil {
+		s.pushService.SendSchedulePushNotification(ctx, existing)
 	}
 
 	return existing, nil
@@ -832,6 +845,11 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 		IsRead:       false,
 		CreatedAt:    now,
 	})
+
+	// Dispatch Native Mobile Web Push for attendance check-in
+	if s.pushService != nil {
+		s.pushService.SendAttendancePushNotification(ctx, att, schedule)
+	}
 
 	return att, nil
 }

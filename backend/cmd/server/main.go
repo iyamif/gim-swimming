@@ -48,6 +48,7 @@ func main() {
 	scheduleRepo := repository.NewScheduleRepository(pgDB)
 	invoiceRepo := repository.NewInvoiceRepository(pgDB)
 	attendanceRepo := repository.NewAttendanceRepository(pgDB)
+	pushRepo := repository.NewPushRepository(pgDB)
 
 	// Seed database with default data if tables are empty
 	if pgDB != nil {
@@ -56,18 +57,20 @@ func main() {
 
 	// Services
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
-	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo)
+	pushService := service.NewPushService(cfg, pushRepo)
+	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, pushService)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, userRepo)
 	appHandler := handler.NewAppHandler(appService)
+	pushHandler := handler.NewPushHandler(pushService)
 
 	// 4. Setup Gin engine
 	router := gin.Default()
 	router.Use(CORSMiddleware())
 
 	// 5. Setup routes
-	routes.SetupRoutes(router, authHandler, appHandler, authService)
+	routes.SetupRoutes(router, authHandler, appHandler, pushHandler, authService)
 
 	// 6. Start server
 	log.Printf("Starting GIM Swimming Server on port %s...", cfg.Port)

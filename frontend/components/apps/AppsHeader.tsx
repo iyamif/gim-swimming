@@ -284,6 +284,15 @@ export function AdminHeader({
                     })}
                   </div>
                 )}
+
+                {/* Web Push Status Footer in Popup */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    <span>Web Push VAPID</span>
+                  </span>
+                  <span className="text-blue-600 font-bold">App Badge Sync 📲</span>
+                </div>
               </div>
             </>
           )}

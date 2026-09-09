@@ -42,6 +42,12 @@ import {
   showWebNotification,
   requestNotificationPermission,
 } from "../../lib/notificationUtils";
+import {
+  subscribeToPushNotifications,
+  updateAppBadge,
+  clearAppBadge,
+  sendTestPushToDevice,
+} from "../../lib/pushNotifications";
 import { ParentHeader, AdminHeader } from "../../components/apps/AppsHeader";
 import { DesktopSidebar, MobileBottomNav } from "../../components/apps/NavigationBar";
 import ParentBody from "../../components/apps/body/ParentBody";
@@ -158,6 +164,88 @@ export default function AppsPage() {
       }
     }
   }, []);
+
+  // Proactively register Web Push subscription with VAPID on login/mount
+  useEffect(() => {
+    if (!sessionRole || !sessionUser) return;
+
+    let queryName = sessionUser;
+    if (sessionRole.toLowerCase().trim() === "orang tua") {
+      const normalizedUser = (sessionUser || "").toLowerCase();
+      const matched = students.find(
+        (s) =>
+          s.name.toLowerCase().includes(normalizedUser) ||
+          s.parent.toLowerCase().includes(normalizedUser) ||
+          (normalizedUser === "ortu" && s.name.toLowerCase() === "rian")
+      );
+      if (matched) {
+        queryName = matched.name;
+      }
+    }
+
+    // Auto-subscribe silently if permission is granted or default
+    subscribeToPushNotifications({
+      role: sessionRole,
+      username: sessionUser,
+      studentName: queryName,
+    }).catch((err) => {
+      console.debug("[WebPush] Auto-subscribe notification background status:", err);
+    });
+  }, [sessionRole, sessionUser, students]);
+
+  // Synchronize Native Mobile App Badge Count (e.g. icon badge on iOS/Android homescreen)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const unreadCount = notifications.filter((n) => !n.is_read).length;
+    updateAppBadge(unreadCount);
+  }, [notifications]);
+
+  // Real-time Service Worker Push Notification message listener
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PUSH_NOTIFICATION_RECEIVED") {
+        const payload = event.data.payload || {};
+        const title = payload.title || "GIM Swimming Club";
+        const body = payload.body || payload.message || "";
+        const data = payload.data || {};
+        const unreadCount = event.data.unread_count !== undefined ? Number(event.data.unread_count) : 1;
+
+        // Display in-app floating Toast banner
+        setToastNotification({
+          id: Date.now(),
+          title: title,
+          message: body,
+          type: data?.type || "schedule",
+          is_read: false,
+          created_at: new Date().toISOString(),
+        });
+
+        // Audio chime & haptic feedback
+        playNotificationChime();
+        triggerNotificationHaptic();
+
+        // Update homescreen app badge count immediately
+        updateAppBadge(unreadCount);
+
+        // Reload data from backend in background to keep UI fresh
+        loadAllData();
+      } else if (event.data?.type === "NOTIFICATION_CLICKED") {
+        const payload = event.data.payload || {};
+        if (payload.role === "orang tua" || sessionRole === "orang tua") {
+          window.dispatchEvent(new CustomEvent("parent_switch_tab", { detail: "jadwal" }));
+        } else if (payload.tab) {
+          setActiveTab(payload.tab);
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    };
+  }, [loadAllData, sessionRole]);
 
   // Background idle polling: checks for new notifications silently every 3.5s without manual refresh
   useEffect(() => {
@@ -710,9 +798,12 @@ export default function AppsPage() {
   const handleMarkNotificationRead = async (id: number | string) => {
     try {
       await markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
+      setNotifications((prev) => {
+        const next = prev.map((n) => (n.id === id ? { ...n, is_read: true } : n));
+        const unreadCount = next.filter((n) => !n.is_read).length;
+        updateAppBadge(unreadCount);
+        return next;
+      });
     } catch (err) {
       console.error("Mark notification read error:", err);
     }
@@ -754,6 +845,7 @@ export default function AppsPage() {
     try {
       await clearAllNotifications(sessionRole, sessionUser);
       setNotifications([]);
+      clearAppBadge();
     } catch (err) {
       console.error("Clear notifications error:", err);
     }

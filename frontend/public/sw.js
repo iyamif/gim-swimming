@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v3";
+const CACHE_VERSION = "gim-swimming-v4";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -122,53 +122,127 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-// Push notification event listener
+// Push notification event listener (Web Push + VAPID + Native App Badge API)
 self.addEventListener("push", (event) => {
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      const title = data.title || "GIM Swimming Club";
-      const options = {
-        body: data.message || data.body || "Pemberitahuan baru tersedia",
-        icon: "/icon.png",
-        badge: "/icon.png",
-        data: data,
-        vibrate: [100, 50, 100],
-      };
-      event.waitUntil(self.registration.showNotification(title, options));
-    } catch (e) {
-      event.waitUntil(
-        self.registration.showNotification("GIM Swimming Club", {
-          body: event.data.text(),
-          icon: "/icon.png",
-          badge: "/icon.png",
-        })
-      );
+  if (!event.data) return;
+
+  let title = "GIM Swimming Club";
+  let body = "Pemberitahuan baru tersedia";
+  let dataPayload = {};
+  let icon = "/icon.png";
+  let badge = "/icon.png";
+  let tag = "gim-notif-" + Date.now();
+  let unreadCount = 1;
+
+  try {
+    const parsed = event.data.json();
+    title = parsed.title || title;
+    body = parsed.body || parsed.message || body;
+    icon = parsed.icon || icon;
+    badge = parsed.badge || badge;
+    tag = parsed.tag || tag;
+    dataPayload = parsed.data || parsed;
+    if (parsed.unread_count !== undefined) {
+      unreadCount = Number(parsed.unread_count);
+    }
+  } catch (e) {
+    body = event.data.text() || body;
+  }
+
+  // 1. Update App Badge Count on mobile homescreen / PWA icon
+  if ("setAppBadge" in self.navigator) {
+    if (unreadCount > 0) {
+      self.navigator.setAppBadge(unreadCount).catch((err) => {
+        console.debug("[SW] setAppBadge warning:", err);
+      });
+    } else {
+      self.navigator.clearAppBadge().catch((err) => {
+        console.debug("[SW] clearAppBadge warning:", err);
+      });
     }
   }
+
+  // 2. Broadcast push message to open browser tabs / PWA windows for instant real-time sync
+  self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    clientList.forEach((client) => {
+      client.postMessage({
+        type: "PUSH_NOTIFICATION_RECEIVED",
+        payload: {
+          title,
+          body,
+          data: dataPayload,
+          unread_count: unreadCount,
+        },
+      });
+    });
+  });
+
+  // 3. Display native system notification popup
+  const options = {
+    body: body,
+    icon: icon,
+    badge: badge,
+    tag: tag,
+    data: dataPayload,
+    vibrate: [120, 60, 120, 60, 200],
+    renotify: true,
+    requireInteraction: false,
+    actions: [
+      { action: "open", title: "Buka Aplikasi" },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Notification click event listener
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+
+  const data = event.notification.data || {};
+  const targetUrl = data.url || "/apps";
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes("/apps") && "focus" in client) {
+          client.postMessage({
+            type: "NOTIFICATION_CLICKED",
+            payload: data,
+          });
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow("/apps");
+        return clients.openWindow(targetUrl);
       }
     })
   );
 });
 
-// Listen for message from client to skip waiting immediately
+// Listen for messages from frontend client
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  if (!event.data) return;
+
+  if (event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+
+  // Allow client to synchronize badge count directly through Service Worker
+  if (event.data.type === "SET_BADGE") {
+    const count = Number(event.data.count) || 0;
+    if ("setAppBadge" in self.navigator) {
+      if (count > 0) {
+        self.navigator.setAppBadge(count).catch(() => {});
+      } else {
+        self.navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  } else if (event.data.type === "CLEAR_BADGE") {
+    if ("clearAppBadge" in self.navigator) {
+      self.navigator.clearAppBadge().catch(() => {});
+    }
+  }
 });
+
 
