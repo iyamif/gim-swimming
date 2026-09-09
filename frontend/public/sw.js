@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v4";
+const CACHE_VERSION = "gim-swimming-v5";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -124,75 +124,82 @@ self.addEventListener("fetch", (event) => {
 
 // Push notification event listener (Web Push + VAPID + Native App Badge API)
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
+  const promiseChain = (async () => {
+    let title = "GIM Swimming Club";
+    let body = "Pemberitahuan baru tersedia";
+    let dataPayload = {};
+    let icon = "/icon.png";
+    let badge = "/icon.png";
+    let tag = "gim-notif-" + Date.now();
+    let unreadCount = 1;
 
-  let title = "GIM Swimming Club";
-  let body = "Pemberitahuan baru tersedia";
-  let dataPayload = {};
-  let icon = "/icon.png";
-  let badge = "/icon.png";
-  let tag = "gim-notif-" + Date.now();
-  let unreadCount = 1;
-
-  try {
-    const parsed = event.data.json();
-    title = parsed.title || title;
-    body = parsed.body || parsed.message || body;
-    icon = parsed.icon || icon;
-    badge = parsed.badge || badge;
-    tag = parsed.tag || tag;
-    dataPayload = parsed.data || parsed;
-    if (parsed.unread_count !== undefined) {
-      unreadCount = Number(parsed.unread_count);
+    if (event.data) {
+      try {
+        const parsed = event.data.json();
+        title = parsed.title || title;
+        body = parsed.body || parsed.message || body;
+        icon = parsed.icon || icon;
+        badge = parsed.badge || badge;
+        tag = parsed.tag || ("gim-notif-" + Date.now());
+        dataPayload = parsed.data || parsed;
+        if (parsed.unread_count !== undefined) {
+          unreadCount = Number(parsed.unread_count);
+        }
+      } catch (e) {
+        body = event.data.text() || body;
+      }
     }
-  } catch (e) {
-    body = event.data.text() || body;
-  }
 
-  // 1. Update App Badge Count on mobile homescreen / PWA icon
-  if ("setAppBadge" in self.navigator) {
-    if (unreadCount > 0) {
-      self.navigator.setAppBadge(unreadCount).catch((err) => {
-        console.debug("[SW] setAppBadge warning:", err);
-      });
-    } else {
-      self.navigator.clearAppBadge().catch((err) => {
-        console.debug("[SW] clearAppBadge warning:", err);
-      });
+    // 1. Update Native Mobile App Badge Count on homescreen icon
+    if ("setAppBadge" in self.navigator) {
+      try {
+        if (unreadCount > 0) {
+          await self.navigator.setAppBadge(unreadCount);
+        } else {
+          await self.navigator.clearAppBadge();
+        }
+      } catch (err) {
+        console.debug("[SW] setAppBadge error:", err);
+      }
     }
-  }
 
-  // 2. Broadcast push message to open browser tabs / PWA windows for instant real-time sync
-  self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-    clientList.forEach((client) => {
-      client.postMessage({
-        type: "PUSH_NOTIFICATION_RECEIVED",
-        payload: {
-          title,
-          body,
-          data: dataPayload,
-          unread_count: unreadCount,
-        },
-      });
-    });
-  });
+    // 2. Broadcast push message to any open browser tabs / PWA windows for instant real-time sync
+    try {
+      const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of clientList) {
+        client.postMessage({
+          type: "PUSH_NOTIFICATION_RECEIVED",
+          payload: {
+            title,
+            body,
+            data: dataPayload,
+            unread_count: unreadCount,
+          },
+        });
+      }
+    } catch (err) {
+      console.debug("[SW] postMessage error:", err);
+    }
 
-  // 3. Display native system notification popup
-  const options = {
-    body: body,
-    icon: icon,
-    badge: badge,
-    tag: tag,
-    data: dataPayload,
-    vibrate: [120, 60, 120, 60, 200],
-    renotify: true,
-    requireInteraction: false,
-    actions: [
-      { action: "open", title: "Buka Aplikasi" },
-    ],
-  };
+    // 3. Display native system notification popup (Keeps push alive in background/closed state)
+    const options = {
+      body: body,
+      icon: icon,
+      badge: badge,
+      tag: tag,
+      data: dataPayload,
+      vibrate: [150, 75, 150, 75, 200],
+      renotify: true,
+      requireInteraction: false,
+      actions: [
+        { action: "open", title: "Buka Aplikasi" },
+      ],
+    };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+    return self.registration.showNotification(title, options);
+  })();
+
+  event.waitUntil(promiseChain);
 });
 
 // Notification click event listener

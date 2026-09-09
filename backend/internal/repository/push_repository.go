@@ -93,23 +93,63 @@ func (r *pushRepository) FindAll(ctx context.Context) ([]model.PushSubscriptionR
 // FindForCoach finds subscriptions for a specific coach
 func (r *pushRepository) FindForCoach(ctx context.Context, coachName, coachID string) ([]model.PushSubscriptionRecord, error) {
 	normName := strings.ToLower(strings.TrimSpace(coachName))
+	cleanName := strings.TrimSpace(strings.ReplaceAll(normName, "coach ", ""))
+	cleanName = strings.TrimSpace(strings.ReplaceAll(cleanName, "pelatih ", ""))
 	trimmedID := strings.TrimSpace(coachID)
 
 	query := `
 		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at
 		FROM push_subscriptions
-		WHERE role = 'pelatih' AND (
-			($1 <> '' AND (LOWER(username) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(username) || '%' OR LOWER(student_name) LIKE '%' || $1 || '%'))
-			OR ($2 <> '' AND user_id = $2)
-		)
+		WHERE LOWER(role) IN ('pelatih', 'coach')
 	`
-	rows, err := r.db.QueryContext(ctx, query, normName, trimmedID)
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	return r.scanRows(rows)
+	allSubs, err := r.scanRows(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	nameWords := strings.Fields(cleanName)
+
+	var matched []model.PushSubscriptionRecord
+	for _, sub := range allSubs {
+		subNormUser := strings.ToLower(strings.TrimSpace(sub.Username))
+		subNormStudent := strings.ToLower(strings.TrimSpace(sub.StudentName))
+		subUserID := strings.TrimSpace(sub.UserID)
+
+		// 1. Direct ID match
+		if trimmedID != "" && subUserID == trimmedID {
+			matched = append(matched, sub)
+			continue
+		}
+
+		// 2. Direct name or clean name match
+		if cleanName != "" && (subNormUser == cleanName || subNormStudent == cleanName ||
+			strings.Contains(cleanName, subNormUser) || strings.Contains(subNormUser, cleanName) ||
+			strings.Contains(cleanName, subNormStudent) || strings.Contains(subNormStudent, cleanName)) {
+			matched = append(matched, sub)
+			continue
+		}
+
+		// 3. Word token match (e.g. "Coach Adi" matching "adi")
+		isTokenMatch := false
+		for _, w := range nameWords {
+			if len(w) >= 2 && (subNormUser == w || subNormStudent == w || strings.Contains(subNormUser, w) || strings.Contains(w, subNormUser)) {
+				isTokenMatch = true
+				break
+			}
+		}
+
+		if isTokenMatch {
+			matched = append(matched, sub)
+		}
+	}
+
+	return matched, nil
 }
 
 // FindForStudents finds subscriptions for specified students or their parents
