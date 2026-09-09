@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v9";
+const CACHE_VERSION = "gim-swimming-v10";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -124,7 +124,7 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Push notification event listener (Firebase Cloud Messaging + Web Push + VAPID + Native App Badge API)
+// Push notification event listener (Standard Web Push + VAPID + Native App Badge API)
 // Optimized for Mobile (Android Chrome, iOS Safari Standalone PWA, Desktop) in background / closed state
 self.addEventListener("push", (event) => {
   let title = "GIM Swimming Academy 🏊‍♂️";
@@ -161,12 +161,12 @@ self.addEventListener("push", (event) => {
     }
   }
 
-  // Ensure absolute icon/badge URLs for mobile compatibility
+  // Ensure absolute icon/badge URLs for mobile & standalone PWA compatibility
   const origin = self.location.origin || "";
   const iconUrl = icon.startsWith("http") ? icon : (origin + (icon.startsWith("/") ? icon : "/" + icon));
   const badgeUrl = badge.startsWith("http") ? badge : (origin + (badge.startsWith("/") ? badge : "/" + badge));
 
-  // 1. Base options universally supported on all modern mobile & desktop browsers
+  // Base notification options supported universally across Android, iOS Safari 16.4+, and Desktop
   const notificationOptions = {
     body: body,
     icon: iconUrl,
@@ -176,48 +176,28 @@ self.addEventListener("push", (event) => {
     renotify: true,
   };
 
-  // Safe showNotification with progressive fallback for iOS Safari and various mobile platforms
-  const notificationPromise = (async () => {
-    try {
-      // First attempt: clean notification options with vibration (if supported)
-      const optionsWithVibrate = {
-        ...notificationOptions,
-        vibrate: [200, 100, 200, 100, 200],
-      };
-      return await self.registration.showNotification(title, optionsWithVibrate);
-    } catch (err1) {
-      console.warn("[SW] Primary showNotification failed, attempting base options:", err1);
-      try {
-        // Second attempt: basic options without vibration
-        return await self.registration.showNotification(title, notificationOptions);
-      } catch (err2) {
-        console.warn("[SW] Secondary showNotification failed, attempting minimal options:", err2);
-        try {
-          // Third fallback: strictly title and body
-          return await self.registration.showNotification(title, { body: body, icon: iconUrl });
-        } catch (err3) {
-          console.error("[SW] Fatal showNotification error:", err3);
-        }
-      }
-    }
-  })();
+  // 1. Primary: Display system notification directly to device notification center / lock screen
+  const showNotifPromise = self.registration.showNotification(title, notificationOptions)
+    .catch((err) => {
+      console.warn("[SW] Primary showNotification failed, attempting minimal fallback:", err);
+      return self.registration.showNotification(title, {
+        body: body,
+        icon: iconUrl,
+      });
+    });
 
   // 2. Concurrently update App Badge Count on device homescreen icon
   const badgePromise = (async () => {
-    if ("setAppBadge" in self.navigator) {
+    if ("setAppBadge" in self.navigator && unreadCount > 0) {
       try {
-        if (unreadCount > 0) {
-          await self.navigator.setAppBadge(unreadCount);
-        } else {
-          await self.navigator.clearAppBadge();
-        }
+        await self.navigator.setAppBadge(unreadCount);
       } catch (err) {
         console.debug("[SW] setAppBadge background warning:", err);
       }
     }
   })();
 
-  // 3. Concurrently notify any active windows / foreground tabs
+  // 3. Concurrently notify active foreground tabs if any are open
   const messagePromise = (async () => {
     try {
       const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
@@ -237,8 +217,8 @@ self.addEventListener("push", (event) => {
     }
   })();
 
-  // Keep Service Worker alive until all background operations complete
-  event.waitUntil(Promise.allSettled([notificationPromise, badgePromise, messagePromise]));
+  // Keep Service Worker alive until system notification is displayed
+  event.waitUntil(Promise.allSettled([showNotifPromise, badgePromise, messagePromise]));
 });
 
 // Notification click event listener

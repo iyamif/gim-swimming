@@ -5,6 +5,7 @@
   "start_url": "/apps",
   "scope": "/",
   "description": "GIM Swimming Academy Portal",
+  "gcm_sender_id": "103953800507",
   "display": "standalone",
   "background_color": "#1d4ed8",
   "theme_color": "#1d4ed8",

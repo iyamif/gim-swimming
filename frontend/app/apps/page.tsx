@@ -183,25 +183,25 @@ export default function AppsPage() {
       }
     }
 
-    const subKey = `gim_push_synced_${sessionRole}_${sessionUser}_${queryName}`;
-    if (sessionStorage.getItem(subKey) === "true") {
-      return;
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      const subKey = `gim_push_synced_${sessionRole}_${sessionUser}_${queryName}`;
+      if (sessionStorage.getItem(subKey) !== "true") {
+        subscribeToPushNotifications({
+          role: sessionRole,
+          username: sessionUser,
+          studentName: queryName,
+          userPrompt: false,
+        })
+          .then((res) => {
+            if (res.success) {
+              sessionStorage.setItem(subKey, "true");
+            }
+          })
+          .catch((err) => {
+            console.debug("[WebPush] Auto-subscribe sync note:", err);
+          });
+      }
     }
-
-    // Auto-subscribe once per session
-    subscribeToPushNotifications({
-      role: sessionRole,
-      username: sessionUser,
-      studentName: queryName,
-    })
-      .then((res) => {
-        if (res.success) {
-          sessionStorage.setItem(subKey, "true");
-        }
-      })
-      .catch((err) => {
-        console.debug("[WebPush] Auto-subscribe notification background status:", err);
-      });
   }, [sessionRole, sessionUser, students.length]);
 
   // Synchronize Native Mobile App Badge Count (e.g. icon badge on iOS/Android homescreen)

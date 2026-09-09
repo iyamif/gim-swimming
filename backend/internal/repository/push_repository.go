@@ -13,6 +13,8 @@ import (
 type PushRepository interface {
 	Upsert(ctx context.Context, sub *model.PushSubscriptionRecord) error
 	DeleteByEndpoint(ctx context.Context, endpoint string) error
+	DeleteByID(ctx context.Context, id int64) error
+	ClearFCMToken(ctx context.Context, id int64) error
 	FindAll(ctx context.Context) ([]model.PushSubscriptionRecord, error)
 	FindForCoach(ctx context.Context, coachName, coachID string) ([]model.PushSubscriptionRecord, error)
 	FindForStudents(ctx context.Context, studentNames, studentIDs []string) ([]model.PushSubscriptionRecord, error)
@@ -73,6 +75,20 @@ func (r *pushRepository) Upsert(ctx context.Context, sub *model.PushSubscription
 func (r *pushRepository) DeleteByEndpoint(ctx context.Context, endpoint string) error {
 	query := `DELETE FROM push_subscriptions WHERE endpoint = $1`
 	_, err := r.db.ExecContext(ctx, query, endpoint)
+	return err
+}
+
+// DeleteByID removes a push subscription record by its primary key
+func (r *pushRepository) DeleteByID(ctx context.Context, id int64) error {
+	query := `DELETE FROM push_subscriptions WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// ClearFCMToken clears an invalid or expired FCM token from a push subscription record
+func (r *pushRepository) ClearFCMToken(ctx context.Context, id int64) error {
+	query := `UPDATE push_subscriptions SET fcm_token = '', updated_at = $1 WHERE id = $2`
+	_, err := r.db.ExecContext(ctx, query, time.Now(), id)
 	return err
 }
 

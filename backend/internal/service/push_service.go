@@ -148,9 +148,9 @@ func (s *pushService) Unsubscribe(ctx context.Context, endpoint string) error {
 
 // sendSinglePush sends notification payload using FCM (if token present) or Web Push
 func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscriptionRecord, payload *model.WebPushPayload) error {
-	// 1. Try Firebase Cloud Messaging (FCM) first if FCM Token and Client are available
+	// 1. Try Firebase Cloud Messaging (FCM) first if a valid FCM Token and Client are available
 	cleanFCMToken := strings.TrimSpace(sub.FCMToken)
-	if cleanFCMToken != "" && s.fcmClient != nil {
+	if cleanFCMToken != "" && s.fcmClient != nil && !strings.HasPrefix(cleanFCMToken, "http") && len(cleanFCMToken) > 20 {
 		dataMap := make(map[string]string)
 		if payload.Data != nil {
 			for k, v := range payload.Data {
@@ -207,7 +207,6 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 			}
 		}
 
-		// Only include FCMOptions.Link if it is a valid HTTPS URL (Firebase rejects relative paths or non-https)
 		if strings.HasPrefix(linkURL, "https://") {
 			webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
 				Link: linkURL,
@@ -226,7 +225,14 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 			log.Printf("[FCM] Message sent successfully to user=%s (resp=%s)", sub.Username, fcmResp)
 			return nil
 		}
+
 		log.Printf("[FCM] Send error for token (user=%s): %v. Falling back to WebPush...", sub.Username, err)
+
+		// Auto-cleanup dead, unregistered, or invalid FCM token from database so future sends are fast & clean
+		if messaging.IsRegistrationTokenNotRegistered(err) || messaging.IsUnregistered(err) || messaging.IsInvalidArgument(err) || strings.Contains(err.Error(), "NotRegistered") || strings.Contains(err.Error(), "InvalidArgument") {
+			log.Printf("[FCM] Removing stale/invalid FCM token from DB for user=%s (id=%d)", sub.Username, sub.ID)
+			_ = s.pushRepo.ClearFCMToken(ctx, sub.ID)
+		}
 	}
 
 	// 2. Standard Web Push (RFC 8291/8292) using VAPID
@@ -267,7 +273,7 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 
 	// If subscription has expired or is unsubscribed on push server, remove from DB
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
-		log.Printf("[WebPush] Subscription expired or gone (HTTP %d). Removing endpoint: %s", resp.StatusCode, sub.Endpoint)
+		log.Printf("[WebPush] Subscription expired or gone (HTTP %d). Removing dead endpoint: %s (user=%s)", resp.StatusCode, sub.Endpoint, sub.Username)
 		_ = s.pushRepo.DeleteByEndpoint(ctx, sub.Endpoint)
 		return fmt.Errorf("subscription expired (%d)", resp.StatusCode)
 	}
@@ -276,6 +282,7 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 		return fmt.Errorf("webpush server returned status code: %d", resp.StatusCode)
 	}
 
+	log.Printf("[WebPush] Push delivered successfully to user=%s (endpoint=%s)", sub.Username, sub.Endpoint[:min(35, len(sub.Endpoint))])
 	return nil
 }
 

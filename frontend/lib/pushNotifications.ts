@@ -127,7 +127,7 @@ export async function subscribeToPushNotifications(
     let subscription = await registration.pushManager.getSubscription();
     if (subscription) {
       const subJson = subscription.toJSON();
-      // If user prompted or keys are missing/mismatched, cleanly re-subscribe
+      // If keys are missing or user explicitly prompted, cleanly re-subscribe
       if (!subJson.keys?.p256dh || !subJson.keys?.auth || options.userPrompt) {
         await subscription.unsubscribe().catch(() => {});
         subscription = null;
@@ -153,21 +153,16 @@ export async function subscribeToPushNotifications(
       }
     }
 
-    const subJson = subscription ? subscription.toJSON() : ({} as any);
-
-    // 5. Attempt Firebase Cloud Messaging (FCM) token generation
-    let fcmToken = "";
-    try {
-      const token = await requestFCMToken({ userPrompt: options.userPrompt });
-      if (token) {
-        fcmToken = token;
-        console.log("[FCM] Device registered with FCM token successfully");
-      }
-    } catch (fcmErr) {
-      console.debug("[FCM] Optional FCM token request note:", fcmErr);
+    if (!subscription) {
+      return { success: false, error: "Gagal membuat push subscription di browser." };
     }
 
-    // 6. Send subscription keys and FCM token to Backend database
+    const subJson = subscription.toJSON();
+    if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+      return { success: false, error: "Push subscription keys tidak lengkap di browser." };
+    }
+
+    // 5. Send verified subscription keys to Backend database
     const resolvedRole = options.role || localStorage.getItem("gim_swimming_role") || "";
     const resolvedUsername = options.username || localStorage.getItem("gim_swimming_user") || "";
     const resolvedStudent = options.studentName || resolvedUsername;
@@ -182,14 +177,11 @@ export async function subscribeToPushNotifications(
       username: resolvedUsername,
       student_name: resolvedStudent,
       user_id: options.userId || "",
-      fcm_token: fcmToken,
+      fcm_token: "",
     });
 
     localStorage.setItem("gim_push_enabled", "true");
     localStorage.setItem("gim_push_endpoint", subJson.endpoint);
-    if (fcmToken) {
-      localStorage.setItem("gim_fcm_token", fcmToken);
-    }
 
     return { success: true, subscription };
   } catch (err: any) {
