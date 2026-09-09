@@ -4,7 +4,6 @@
  */
 
 import { fetchVapidPublicKey, subscribePush, unsubscribePush, triggerTestPush } from "./api";
-import { requestFCMToken } from "./firebase";
 
 /**
  * Converts a URL-safe Base64 string to a Uint8Array for PushManager subscription

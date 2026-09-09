@@ -207,6 +207,9 @@ func runMigrations() error {
 
 	-- Delete legacy schedule notifications for admin so admin only receives check-in/absensi & system alerts
 	DELETE FROM notifications WHERE type = 'schedule_admin' OR (target_role = 'admin' AND type LIKE 'schedule_%');
+
+	-- Clean up invalid or corrupted push subscriptions
+	DELETE FROM push_subscriptions WHERE endpoint = '' OR p256dh = '' OR auth = '';
 	`
 
 	_, err := DB.Exec(query)

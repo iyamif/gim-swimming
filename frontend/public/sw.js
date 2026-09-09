@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v10";
+const CACHE_VERSION = "gim-swimming-v12";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
