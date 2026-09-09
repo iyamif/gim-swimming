@@ -115,8 +115,12 @@ export async function subscribeToPushNotifications(
 
     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
-    // 3. Ensure Service Worker is ready
-    const registration = await navigator.serviceWorker.ready;
+    // 3. Ensure Service Worker is registered and ready
+    let registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) {
+      registration = await navigator.serviceWorker.register("/sw.js");
+    }
+    await navigator.serviceWorker.ready;
 
     // 4. Retrieve existing or create new PushSubscription with key validation
     let subscription = await registration.pushManager.getSubscription();

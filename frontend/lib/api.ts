@@ -10,22 +10,9 @@ import {
 // Central API configuration for frontend-backend communication
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
-    const configuredUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    try {
-      const url = new URL(configuredUrl);
-      // If configured as localhost/127.0.0.1 but accessed from another device (e.g. mobile on LAN):
-      if (
-        (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-        window.location.hostname !== "localhost" &&
-        window.location.hostname !== "127.0.0.1" &&
-        window.location.hostname !== ""
-      ) {
-        return `${url.protocol}//${window.location.hostname}:${url.port || "8080"}`;
-      }
-      return configuredUrl;
-    } catch {
-      return configuredUrl;
-    }
+    // In browser, use same-origin relative path "" so requests go through Next.js reverse proxy (/api/v1/...)
+    // This completely eliminates CORS errors, W3C origin wildcard issues, and mixed-content blocking
+    return "";
   }
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 }
