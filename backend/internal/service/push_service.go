@@ -271,15 +271,24 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 	}
 	defer resp.Body.Close()
 
-	// If subscription has expired or is unsubscribed on push server, remove from DB
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
-		log.Printf("[WebPush] Subscription expired or gone (HTTP %d). Removing dead endpoint: %s (user=%s)", resp.StatusCode, sub.Endpoint, sub.Username)
+	// Read error response body for accurate diagnostic logging
+	var respBody string
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		buf := make([]byte, 512)
+		if n, _ := resp.Body.Read(buf); n > 0 {
+			respBody = string(buf[:n])
+		}
+	}
+
+	// If subscription has expired, gone (404/410), or forbidden (403 - e.g. VapidPkHashMismatch on Apple), remove from DB
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusForbidden {
+		log.Printf("[WebPush] Stale/invalid subscription removed (HTTP %d: %s). Endpoint: %s (user=%s)", resp.StatusCode, respBody, sub.Endpoint, sub.Username)
 		_ = s.pushRepo.DeleteByEndpoint(ctx, sub.Endpoint)
-		return fmt.Errorf("subscription expired (%d)", resp.StatusCode)
+		return fmt.Errorf("subscription expired or key mismatched (HTTP %d: %s)", resp.StatusCode, respBody)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webpush server returned status code: %d", resp.StatusCode)
+		return fmt.Errorf("webpush server returned status code: %d (body: %s)", resp.StatusCode, respBody)
 	}
 
 	log.Printf("[WebPush] Push delivered successfully to user=%s (endpoint=%s)", sub.Username, sub.Endpoint[:min(35, len(sub.Endpoint))])
