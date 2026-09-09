@@ -50,7 +50,7 @@ func LoadConfig() *Config {
 		AppURL:                  getEnv("APP_URL", getEnv("FRONTEND_URL", "")),
 		VAPIDPublicKey:          getEnv("VAPID_PUBLIC_KEY", "BP1E0qAKBOVQHlCwm5K8IF7kYkX1_IxtFrd_LzVzSsAjV6gPSooiYCV8xnaUu6k1rVd4jY_J6c3k0qUhcngrROU"),
 		VAPIDPrivateKey:         getEnv("VAPID_PRIVATE_KEY", "cfiU4mGT5VAUuyjB5vTLW1KfjFfcAm235-5RCyNNWMk"),
-		VAPIDSubject:            getEnv("VAPID_SUBJECT", "mailto:admin@gimswimming.com"),
+		VAPIDSubject:            getEnv("VAPID_SUBJECT", "admin@gimswimming.com"),
 		FirebaseProjectID:       getEnv("FIREBASE_PROJECT_ID", ""),
 		FirebaseCredentialsJSON: getEnvRaw("FIREBASE_CREDENTIALS_JSON", ""),
 		FirebaseCredentialsFile: getEnv("FIREBASE_CREDENTIALS_FILE", "firebase-service-account.json"),

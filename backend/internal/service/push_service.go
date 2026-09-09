@@ -45,11 +45,14 @@ type pushService struct {
 func NewPushService(cfg *config.Config, pushRepo repository.PushRepository, attRepo repository.AttendanceRepository) PushService {
 	pubKey := cfg.VAPIDPublicKey
 	privKey := cfg.VAPIDPrivateKey
-	subject := cfg.VAPIDSubject
+	subject := strings.TrimSpace(cfg.VAPIDSubject)
 
 	if subject == "" {
-		subject = "mailto:admin@gimswimming.com"
+		subject = "admin@gimswimming.com"
 	}
+	// Strip "mailto:" prefix if present because webpush-go prepends "mailto:" automatically.
+	// This prevents "mailto:mailto:..." which causes Apple APNs (web.push.apple.com) to reject with HTTP 403 {"reason":"BadJwtToken"}.
+	subject = strings.TrimPrefix(subject, "mailto:")
 
 	// Auto-generate keys if not provided in environment
 	if pubKey == "" || privKey == "" {
