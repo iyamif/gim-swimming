@@ -849,8 +849,23 @@ export default function AppsPage() {
   // Handler: Clear all notifications
   const handleClearAllNotifications = async () => {
     try {
-      await clearAllNotifications(sessionRole, sessionUser);
+      let queryName = sessionUser;
+      if (sessionRole.toLowerCase().trim() === "orang tua") {
+        const normalizedUser = (sessionUser || "").toLowerCase();
+        const matched = students.find(
+          (s) =>
+            s.name.toLowerCase().includes(normalizedUser) ||
+            s.parent.toLowerCase().includes(normalizedUser) ||
+            (normalizedUser === "ortu" && s.name.toLowerCase() === "rian")
+        );
+        if (matched) {
+          queryName = matched.name;
+        }
+      }
+
+      await clearAllNotifications(sessionRole, queryName);
       setNotifications([]);
+      setToastNotification(null);
       clearAppBadge();
     } catch (err) {
       console.error("Clear notifications error:", err);

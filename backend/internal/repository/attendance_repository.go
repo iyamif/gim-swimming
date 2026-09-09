@@ -495,7 +495,7 @@ func (r *attendanceRepository) ClearAllNotifications(ctx context.Context, role, 
 	trimmedUserId := strings.TrimSpace(userId)
 
 	if normalizedRole == "admin" || (normalizedRole == "" && normalizedName == "" && trimmedUserId == "") {
-		query := `DELETE FROM notifications WHERE target_role = 'admin' OR target_role = 'all' OR (target_role = '' AND type NOT IN ('schedule_coach', 'schedule_student'))`
+		query := `DELETE FROM notifications WHERE target_role = 'admin' OR target_role = 'all' OR target_role = '' OR target_role IS NULL`
 		_, err := r.db.ExecContext(ctx, query)
 		return err
 	}
@@ -503,11 +503,15 @@ func (r *attendanceRepository) ClearAllNotifications(ctx context.Context, role, 
 	if normalizedRole == "pelatih" {
 		query := `
 			DELETE FROM notifications
-			WHERE target_role = 'pelatih' AND (
-				target_name = '' 
-				OR ($1 <> '' AND (LOWER(target_name) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(target_name) || '%'))
-				OR ($2 <> '' AND target_user_id = $2)
+			WHERE (
+				target_role = 'pelatih' AND (
+					target_name = '' 
+					OR ($1 <> '' AND (LOWER(target_name) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(target_name) || '%'))
+					OR ($2 <> '' AND target_user_id = $2)
+				)
 			)
+			OR target_role = 'all'
+			OR (target_role = '' AND type IN ('attendance_coach', 'schedule_coach', 'system'))
 		`
 		_, err := r.db.ExecContext(ctx, query, normalizedName, trimmedUserId)
 		return err
@@ -515,11 +519,15 @@ func (r *attendanceRepository) ClearAllNotifications(ctx context.Context, role, 
 
 	query := `
 		DELETE FROM notifications
-		WHERE target_role IN ('orang tua', 'student') AND (
-			target_name = '' 
-			OR ($1 <> '' AND (LOWER(target_name) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(target_name) || '%'))
-			OR ($2 <> '' AND target_user_id = $2)
+		WHERE (
+			target_role IN ('orang tua', 'student') AND (
+				target_name = '' 
+				OR ($1 <> '' AND (LOWER(target_name) LIKE '%' || $1 || '%' OR $1 LIKE '%' || LOWER(target_name) || '%' OR (LOWER(target_name) = 'rian' AND $1 = 'ortu')))
+				OR ($2 <> '' AND target_user_id = $2)
+			)
 		)
+		OR target_role = 'all'
+		OR (target_role = '' AND type IN ('attendance_student', 'schedule_student', 'system'))
 	`
 	_, err := r.db.ExecContext(ctx, query, normalizedName, trimmedUserId)
 	return err

@@ -122,11 +122,12 @@ export async function subscribeToPushNotifications(
     }
     await navigator.serviceWorker.ready;
 
-    // 4. Retrieve existing or create new PushSubscription with key validation
+    // 4. Retrieve existing or cleanly renew PushSubscription with server VAPID key
     let subscription = await registration.pushManager.getSubscription();
     if (subscription) {
       const subJson = subscription.toJSON();
-      if (!subJson.keys?.p256dh || !subJson.keys?.auth) {
+      // If user prompted or keys are missing/mismatched, cleanly re-subscribe
+      if (!subJson.keys?.p256dh || !subJson.keys?.auth || options.userPrompt) {
         await subscription.unsubscribe().catch(() => {});
         subscription = null;
       }
@@ -153,19 +154,23 @@ export async function subscribeToPushNotifications(
 
     const subJson = subscription.toJSON();
     if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
-      return { success: false, error: "Push Subscription data tidak lengkap." };
+      return { success: false, error: "Push Subscription data tidak lengkap dari browser." };
     }
 
     // 5. Send subscription keys to Backend database
+    const resolvedRole = options.role || localStorage.getItem("gim_swimming_role") || "";
+    const resolvedUsername = options.username || localStorage.getItem("gim_swimming_user") || "";
+    const resolvedStudent = options.studentName || resolvedUsername;
+
     await subscribePush({
       endpoint: subJson.endpoint,
       keys: {
         p256dh: subJson.keys.p256dh,
         auth: subJson.keys.auth,
       },
-      role: options.role || localStorage.getItem("gim_swimming_role") || "",
-      username: options.username || localStorage.getItem("gim_swimming_user") || "",
-      student_name: options.studentName || "",
+      role: resolvedRole,
+      username: resolvedUsername,
+      student_name: resolvedStudent,
       user_id: options.userId || "",
     });
 

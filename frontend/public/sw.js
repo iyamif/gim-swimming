@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v7";
+const CACHE_VERSION = "gim-swimming-v8";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -125,7 +125,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 // Push notification event listener (Web Push + VAPID + Native App Badge API)
-// Optimized for Mobile (Android Chrome, iOS Safari PWA, Desktop) in background / closed state
+// Optimized for Mobile (Android Chrome, iOS Safari Standalone PWA, Desktop) in background / closed state
 self.addEventListener("push", (event) => {
   let title = "GIM Swimming Academy 🏊‍♂️";
   let body = "Ada pemberitahuan terbaru di GIM Swimming.";
@@ -159,23 +159,41 @@ self.addEventListener("push", (event) => {
   const iconUrl = icon.startsWith("http") ? icon : (origin + (icon.startsWith("/") ? icon : "/" + icon));
   const badgeUrl = badge.startsWith("http") ? badge : (origin + (badge.startsWith("/") ? badge : "/" + badge));
 
-  // 1. Immediately trigger native system notification (Critical for closed PWA on mobile)
+  // 1. Base options universally supported on all modern mobile & desktop browsers
   const notificationOptions = {
     body: body,
     icon: iconUrl,
     badge: badgeUrl,
     tag: tag,
     data: dataPayload,
-    vibrate: [200, 100, 200, 100, 200],
     renotify: true,
-    requireInteraction: false,
-    silent: false,
-    actions: [
-      { action: "open", title: "Buka Aplikasi" },
-    ],
   };
 
-  const notificationPromise = self.registration.showNotification(title, notificationOptions);
+  // Safe showNotification with progressive fallback for iOS Safari and various mobile platforms
+  const notificationPromise = (async () => {
+    try {
+      // First attempt: clean notification options with vibration (if supported)
+      const optionsWithVibrate = {
+        ...notificationOptions,
+        vibrate: [200, 100, 200, 100, 200],
+      };
+      return await self.registration.showNotification(title, optionsWithVibrate);
+    } catch (err1) {
+      console.warn("[SW] Primary showNotification failed, attempting base options:", err1);
+      try {
+        // Second attempt: basic options without vibration
+        return await self.registration.showNotification(title, notificationOptions);
+      } catch (err2) {
+        console.warn("[SW] Secondary showNotification failed, attempting minimal options:", err2);
+        try {
+          // Third fallback: strictly title and body
+          return await self.registration.showNotification(title, { body: body, icon: iconUrl });
+        } catch (err3) {
+          console.error("[SW] Fatal showNotification error:", err3);
+        }
+      }
+    }
+  })();
 
   // 2. Concurrently update App Badge Count on device homescreen icon
   const badgePromise = (async () => {
@@ -212,7 +230,7 @@ self.addEventListener("push", (event) => {
     }
   })();
 
-  // Keep Service Worker alive until all operations finish safely
+  // Keep Service Worker alive until all background operations complete
   event.waitUntil(Promise.allSettled([notificationPromise, badgePromise, messagePromise]));
 });
 
