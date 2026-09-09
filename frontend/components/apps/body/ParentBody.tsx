@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
+import PushPermissionBanner from "../PushPermissionBanner";
+import PushNotificationCard from "../PushNotificationCard";
 import {
   isImageAvatar,
   getAvatarImageUrl,
@@ -746,6 +748,13 @@ export default function ParentBody({
             ========================================== */}
         {parentActiveTab === "home" && (
           <>
+            {/* Push Notification 1-Click Banner */}
+            <PushPermissionBanner
+              sessionUser={effectiveUsername}
+              sessionRole={sessionRole}
+              studentName={student.name}
+            />
+
             {/* Calendar Card Overview */}
             <div className="-mt-10 relative z-10">
               <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-3">
@@ -1787,6 +1796,13 @@ export default function ParentBody({
                 </div>
               </div>
             </div>
+
+            {/* Push Notification & App Badge Card */}
+            <PushNotificationCard
+              sessionUser={effectiveUsername}
+              sessionRole={sessionRole}
+              studentName={student.name}
+            />
 
             {/* Help & Logout Actions */}
             <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3">

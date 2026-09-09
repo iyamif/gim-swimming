@@ -118,13 +118,33 @@ export async function subscribeToPushNotifications(
     // 3. Ensure Service Worker is ready
     const registration = await navigator.serviceWorker.ready;
 
-    // 4. Retrieve existing or create new PushSubscription
+    // 4. Retrieve existing or create new PushSubscription with key validation
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      const subJson = subscription.toJSON();
+      if (!subJson.keys?.p256dh || !subJson.keys?.auth) {
+        await subscription.unsubscribe().catch(() => {});
+        subscription = null;
+      }
+    }
+
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: applicationServerKey as unknown as BufferSource,
-      });
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey as unknown as BufferSource,
+        });
+      } catch (subErr) {
+        console.warn("[WebPush] Initial subscribe failed, attempting clean renewal:", subErr);
+        const oldSub = await registration.pushManager.getSubscription();
+        if (oldSub) {
+          await oldSub.unsubscribe().catch(() => {});
+        }
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey as unknown as BufferSource,
+        });
+      }
     }
 
     const subJson = subscription.toJSON();

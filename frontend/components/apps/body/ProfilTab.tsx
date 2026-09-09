@@ -8,6 +8,7 @@ import {
   isImageAvatar,
   getAvatarImageUrl,
 } from "../../../lib/api";
+import PushNotificationCard from "../PushNotificationCard";
 
 interface ProfilTabProps {
   sessionUser: string;
@@ -445,6 +446,14 @@ export default function ProfilTab({
             </div>
           </div>
         </div>
+
+        {/* ==========================================
+            CARD 2.5: PUSH NOTIFICATION & APP BADGE STATUS
+            ========================================== */}
+        <PushNotificationCard
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+        />
 
         {/* ==========================================
             CARD 3: PENGATURAN, BANTUAN & LOGOUT

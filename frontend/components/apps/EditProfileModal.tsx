@@ -7,11 +7,7 @@ import {
   isImageAvatar,
   getAvatarImageUrl,
 } from "../../lib/api";
-import {
-  subscribeToPushNotifications,
-  sendTestPushToDevice,
-  isPushNotificationSupported,
-} from "../../lib/pushNotifications";
+import PushNotificationCard from "./PushNotificationCard";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -110,23 +106,6 @@ export default function EditProfileModal({
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Push Notification state
-  const [pushStatus, setPushStatus] = useState<"enabled" | "disabled" | "unsupported">("disabled");
-  const [isPushTesting, setIsPushTesting] = useState(false);
-  const [testPushMessage, setTestPushMessage] = useState("");
-
-  const checkPushStatus = () => {
-    if (typeof window === "undefined" || !isPushNotificationSupported()) {
-      setPushStatus("unsupported");
-      return;
-    }
-    if (Notification.permission === "granted") {
-      setPushStatus("enabled");
-    } else {
-      setPushStatus("disabled");
-    }
-  };
-
   useEffect(() => {
     if (isOpen && sessionUser) {
       const saved = localStorage.getItem(`gim_avatar_${sessionUser}`) || "";
@@ -138,8 +117,6 @@ export default function EditProfileModal({
       setSaveSuccess(false);
       setIsSaving(false);
       setShowPhotoEditor(false);
-      setTestPushMessage("");
-      checkPushStatus();
     }
   }, [isOpen, sessionUser]);
 
@@ -467,106 +444,10 @@ export default function EditProfileModal({
         {/* ==========================================
             3. NOTIFIKASI HP & APP BADGE (WEB PUSH + VAPID)
             ========================================== */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-indigo-50/80 via-blue-50/50 to-white border border-indigo-100 shadow-sm space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
-              <span>🔔</span> Notifikasi HP &amp; Icon Badge
-            </h4>
-            <span
-              className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
-                pushStatus === "enabled"
-                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                  : pushStatus === "unsupported"
-                  ? "bg-slate-100 text-slate-600 border-slate-300"
-                  : "bg-amber-100 text-amber-800 border-amber-300"
-              }`}
-            >
-              {pushStatus === "enabled"
-                ? "🟢 Aktif (Connected)"
-                : pushStatus === "unsupported"
-                ? "⚪ Tidak Didukung"
-                : "🟡 Belum Diaktifkan"}
-            </span>
-          </div>
-
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            Menerima notifikasi jadwal baru dan update absensi secara langsung di layar HP (Homescreen) lengkap dengan hitungan badge count native mobile.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-2 pt-1">
-            {pushStatus !== "enabled" && pushStatus !== "unsupported" && (
-              <button
-                type="button"
-                onClick={async () => {
-                  setTestPushMessage("");
-                  const res = await subscribeToPushNotifications({
-                    role: sessionRole,
-                    username: sessionUser,
-                    userPrompt: true,
-                  });
-                  if (res.success) {
-                    setPushStatus("enabled");
-                    setTestPushMessage("✅ Notifikasi HP berhasil diaktifkan!");
-                  } else {
-                    setTestPushMessage(`⚠️ ${res.error || "Gagal mengaktifkan notifikasi."}`);
-                  }
-                }}
-                className="flex-1 py-2.5 px-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>🔔</span> Aktifkan Notifikasi HP
-              </button>
-            )}
-
-            <button
-              type="button"
-              disabled={isPushTesting}
-              onClick={async () => {
-                try {
-                  setIsPushTesting(true);
-                  setTestPushMessage("");
-                  // If permission not yet granted, request first
-                  if (typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted") {
-                    await subscribeToPushNotifications({
-                      role: sessionRole,
-                      username: sessionUser,
-                      userPrompt: true,
-                    });
-                    checkPushStatus();
-                  }
-
-                  const res = await sendTestPushToDevice({
-                    role: sessionRole,
-                    username: sessionUser,
-                  });
-                  if (res.success) {
-                    setTestPushMessage("🚀 " + res.message);
-                  } else {
-                    setTestPushMessage("⚠️ " + res.message);
-                  }
-                } catch (err: any) {
-                  setTestPushMessage("⚠️ " + (err.message || "Gagal mengirim tes"));
-                } finally {
-                  setIsPushTesting(false);
-                }
-              }}
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-xs transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1.5"
-            >
-              <span>📲</span> {isPushTesting ? "Mengirim..." : "Kirim Notifikasi Tes ke HP"}
-            </button>
-          </div>
-
-          {testPushMessage && (
-            <div
-              className={`p-2.5 rounded-xl text-xs font-semibold animate-fadeIn ${
-                testPushMessage.startsWith("✅") || testPushMessage.startsWith("🚀")
-                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                  : "bg-amber-50 text-amber-800 border border-amber-200"
-              }`}
-            >
-              {testPushMessage}
-            </div>
-          )}
-        </div>
+        <PushNotificationCard
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+        />
 
         {/* ==========================================
             4. PENGATURAN, BANTUAN & LOGOUT

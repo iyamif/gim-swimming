@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import BroadcastAnnouncementModal from "../BroadcastAnnouncementModal";
+import PushPermissionBanner from "../PushPermissionBanner";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface DashboardOverviewTabProps {
@@ -582,6 +583,12 @@ export default function DashboardOverviewTab({
           CONTENT SECTION WRAPPER
           ========================================== */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 relative z-10">
+        {/* Push Notification 1-Click Permission Prompt Banner */}
+        <PushPermissionBanner
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+        />
+
         {/* ==========================================
             2. CALENDAR CARD (WEEKLY STRIP / MONTH VIEW)
             ========================================== */}

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v5";
+const CACHE_VERSION = "gim-swimming-v6";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -123,34 +123,60 @@ self.addEventListener("fetch", (event) => {
 });
 
 // Push notification event listener (Web Push + VAPID + Native App Badge API)
+// Optimized for Mobile (Android Chrome, iOS Safari PWA, Desktop) in background / closed state
 self.addEventListener("push", (event) => {
-  const promiseChain = (async () => {
-    let title = "GIM Swimming Club";
-    let body = "Pemberitahuan baru tersedia";
-    let dataPayload = {};
-    let icon = "/icon.png";
-    let badge = "/icon.png";
-    let tag = "gim-notif-" + Date.now();
-    let unreadCount = 1;
+  let title = "GIM Swimming Academy 🏊‍♂️";
+  let body = "Ada pemberitahuan terbaru di GIM Swimming.";
+  let dataPayload = { url: "/apps" };
+  let icon = "/icon.png";
+  let badge = "/icon.png";
+  let tag = "gim-notif-" + Date.now();
+  let unreadCount = 1;
 
-    if (event.data) {
-      try {
-        const parsed = event.data.json();
-        title = parsed.title || title;
-        body = parsed.body || parsed.message || body;
-        icon = parsed.icon || icon;
-        badge = parsed.badge || badge;
-        tag = parsed.tag || ("gim-notif-" + Date.now());
-        dataPayload = parsed.data || parsed;
-        if (parsed.unread_count !== undefined) {
-          unreadCount = Number(parsed.unread_count);
-        }
-      } catch (e) {
-        body = event.data.text() || body;
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      title = parsed.title || title;
+      body = parsed.body || parsed.message || body;
+      icon = parsed.icon || icon;
+      badge = parsed.badge || badge;
+      tag = parsed.tag || ("gim-notif-" + Date.now());
+      dataPayload = parsed.data || parsed;
+      if (parsed.unread_count !== undefined) {
+        unreadCount = Number(parsed.unread_count);
       }
+    } catch (e) {
+      try {
+        body = event.data.text() || body;
+      } catch (err) {}
     }
+  }
 
-    // 1. Update Native Mobile App Badge Count on homescreen icon
+  // Ensure absolute icon/badge URLs for mobile compatibility
+  const origin = self.location.origin || "";
+  const iconUrl = icon.startsWith("http") ? icon : (origin + (icon.startsWith("/") ? icon : "/" + icon));
+  const badgeUrl = badge.startsWith("http") ? badge : (origin + (badge.startsWith("/") ? badge : "/" + badge));
+
+  // 1. Immediately trigger native system notification (Critical for closed PWA on mobile)
+  const notificationOptions = {
+    body: body,
+    icon: iconUrl,
+    badge: badgeUrl,
+    tag: tag,
+    data: dataPayload,
+    vibrate: [200, 100, 200, 100, 200],
+    renotify: true,
+    requireInteraction: false,
+    silent: false,
+    actions: [
+      { action: "open", title: "Buka Aplikasi" },
+    ],
+  };
+
+  const notificationPromise = self.registration.showNotification(title, notificationOptions);
+
+  // 2. Concurrently update App Badge Count on device homescreen icon
+  const badgePromise = (async () => {
     if ("setAppBadge" in self.navigator) {
       try {
         if (unreadCount > 0) {
@@ -159,11 +185,13 @@ self.addEventListener("push", (event) => {
           await self.navigator.clearAppBadge();
         }
       } catch (err) {
-        console.debug("[SW] setAppBadge error:", err);
+        console.debug("[SW] setAppBadge background warning:", err);
       }
     }
+  })();
 
-    // 2. Broadcast push message to any open browser tabs / PWA windows for instant real-time sync
+  // 3. Concurrently notify any active windows / foreground tabs
+  const messagePromise = (async () => {
     try {
       const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clientList) {
@@ -178,28 +206,12 @@ self.addEventListener("push", (event) => {
         });
       }
     } catch (err) {
-      console.debug("[SW] postMessage error:", err);
+      console.debug("[SW] postMessage background warning:", err);
     }
-
-    // 3. Display native system notification popup (Keeps push alive in background/closed state)
-    const options = {
-      body: body,
-      icon: icon,
-      badge: badge,
-      tag: tag,
-      data: dataPayload,
-      vibrate: [150, 75, 150, 75, 200],
-      renotify: true,
-      requireInteraction: false,
-      actions: [
-        { action: "open", title: "Buka Aplikasi" },
-      ],
-    };
-
-    return self.registration.showNotification(title, options);
   })();
 
-  event.waitUntil(promiseChain);
+  // Keep Service Worker alive until all operations finish safely
+  event.waitUntil(Promise.allSettled([notificationPromise, badgePromise, messagePromise]));
 });
 
 // Notification click event listener
@@ -251,5 +263,6 @@ self.addEventListener("message", (event) => {
     }
   }
 });
+
 
 
