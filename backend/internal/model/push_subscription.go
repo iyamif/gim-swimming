@@ -12,6 +12,7 @@ type PushSubscriptionRecord struct {
 	Endpoint    string    `json:"endpoint"`
 	P256dh      string    `json:"p256dh"`
 	Auth        string    `json:"auth"`
+	FCMToken    string    `json:"fcm_token"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -30,6 +31,7 @@ type PushSubscriptionInput struct {
 	Username    string               `json:"username"`
 	StudentName string               `json:"student_name"`
 	UserID      string               `json:"user_id"`
+	FCMToken    string               `json:"fcm_token"`
 }
 
 // PushUnsubscribeInput represents the payload sent to remove a subscription

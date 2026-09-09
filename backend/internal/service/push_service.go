@@ -6,16 +6,21 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/messaging"
 	"github.com/SherClockHolmes/webpush-go"
 	"github.com/iyamif/gim-swimming/internal/config"
 	"github.com/iyamif/gim-swimming/internal/model"
 	"github.com/iyamif/gim-swimming/internal/repository"
+	"google.golang.org/api/option"
 )
 
-// PushService manages Web Push subscriptions and notification dispatches
+// PushService manages Web Push and FCM subscriptions and notification dispatches
 type PushService interface {
 	GetVAPIDPublicKey() string
 	Subscribe(ctx context.Context, input *model.PushSubscriptionInput) (*model.PushSubscriptionRecord, error)
@@ -33,9 +38,10 @@ type pushService struct {
 	vapidPublicKey  string
 	vapidPrivateKey string
 	vapidSubject    string
+	fcmClient       *messaging.Client
 }
 
-// NewPushService initializes PushService with VAPID credentials
+// NewPushService initializes PushService with VAPID and Firebase Cloud Messaging credentials
 func NewPushService(cfg *config.Config, pushRepo repository.PushRepository, attRepo repository.AttendanceRepository) PushService {
 	pubKey := cfg.VAPIDPublicKey
 	privKey := cfg.VAPIDPrivateKey
@@ -58,6 +64,37 @@ func NewPushService(cfg *config.Config, pushRepo repository.PushRepository, attR
 		}
 	}
 
+	// Initialize Firebase Admin SDK for FCM if credentials are provided
+	var fcmClient *messaging.Client
+	ctx := context.Background()
+
+	var fbOpts []option.ClientOption
+	if cfg.FirebaseCredentialsJSON != "" {
+		fbOpts = append(fbOpts, option.WithCredentialsJSON([]byte(cfg.FirebaseCredentialsJSON)))
+	} else if cfg.FirebaseCredentialsFile != "" {
+		if _, err := os.Stat(cfg.FirebaseCredentialsFile); err == nil {
+			fbOpts = append(fbOpts, option.WithCredentialsFile(cfg.FirebaseCredentialsFile))
+		}
+	}
+
+	fbConfig := &firebase.Config{}
+	if cfg.FirebaseProjectID != "" {
+		fbConfig.ProjectID = cfg.FirebaseProjectID
+	}
+
+	fbApp, err := firebase.NewApp(ctx, fbConfig, fbOpts...)
+	if err == nil {
+		client, err := fbApp.Messaging(ctx)
+		if err == nil {
+			fcmClient = client
+			log.Println("[FCM] Firebase Cloud Messaging initialized successfully.")
+		} else {
+			log.Printf("[FCM] Note: Firebase Messaging client not initialized (%v). Standard WebPush active.", err)
+		}
+	} else {
+		log.Printf("[FCM] Note: Firebase App not initialized (%v). Standard WebPush active.", err)
+	}
+
 	return &pushService{
 		cfg:             cfg,
 		pushRepo:        pushRepo,
@@ -65,6 +102,7 @@ func NewPushService(cfg *config.Config, pushRepo repository.PushRepository, attR
 		vapidPublicKey:  pubKey,
 		vapidPrivateKey: privKey,
 		vapidSubject:    subject,
+		fcmClient:       fcmClient,
 	}
 }
 
@@ -75,8 +113,8 @@ func (s *pushService) GetVAPIDPublicKey() string {
 
 // Subscribe saves or updates a browser push subscription
 func (s *pushService) Subscribe(ctx context.Context, input *model.PushSubscriptionInput) (*model.PushSubscriptionRecord, error) {
-	if input.Endpoint == "" || input.Keys.P256dh == "" || input.Keys.Auth == "" {
-		return nil, fmt.Errorf("endpoint and cryptographic keys (p256dh, auth) are required")
+	if input.Endpoint == "" && input.FCMToken == "" {
+		return nil, fmt.Errorf("endpoint or fcm_token is required")
 	}
 
 	record := &model.PushSubscriptionRecord{
@@ -87,14 +125,15 @@ func (s *pushService) Subscribe(ctx context.Context, input *model.PushSubscripti
 		Endpoint:    input.Endpoint,
 		P256dh:      input.Keys.P256dh,
 		Auth:        input.Keys.Auth,
+		FCMToken:    input.FCMToken,
 	}
 
 	if err := s.pushRepo.Upsert(ctx, record); err != nil {
 		return nil, fmt.Errorf("failed to save push subscription: %w", err)
 	}
 
-	log.Printf("[WebPush] Subscribed device for user=%s, role=%s, student=%s (id=%d)",
-		record.Username, record.Role, record.StudentName, record.ID)
+	log.Printf("[Push] Subscribed device for user=%s, role=%s, student=%s (fcm=%t, id=%d)",
+		record.Username, record.Role, record.StudentName, record.FCMToken != "", record.ID)
 
 	return record, nil
 }
@@ -107,8 +146,57 @@ func (s *pushService) Unsubscribe(ctx context.Context, endpoint string) error {
 	return s.pushRepo.DeleteByEndpoint(ctx, endpoint)
 }
 
-// sendSinglePush sends Web Push payload to one specific subscription record
+// sendSinglePush sends notification payload using FCM (if token present) or Web Push
 func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscriptionRecord, payload *model.WebPushPayload) error {
+	// 1. Try Firebase Cloud Messaging (FCM) first if FCM Token and Client are available
+	if sub.FCMToken != "" && s.fcmClient != nil {
+		dataMap := make(map[string]string)
+		if payload.Data != nil {
+			for k, v := range payload.Data {
+				dataMap[k] = fmt.Sprintf("%v", v)
+			}
+		}
+		dataMap["title"] = payload.Title
+		dataMap["body"] = payload.Body
+		dataMap["unread_count"] = strconv.Itoa(payload.UnreadCount)
+		dataMap["tag"] = payload.Tag
+
+		msg := &messaging.Message{
+			Token: sub.FCMToken,
+			Notification: &messaging.Notification{
+				Title:    payload.Title,
+				Body:     payload.Body,
+				ImageURL: payload.Icon,
+			},
+			Data: dataMap,
+			Webpush: &messaging.WebpushConfig{
+				Headers: map[string]string{
+					"Urgency": "high",
+					"TTL":     "86400",
+				},
+				Notification: &messaging.WebpushNotification{
+					Title: payload.Title,
+					Body:  payload.Body,
+					Icon:  payload.Icon,
+					Badge: payload.Badge,
+					Tag:   payload.Tag,
+				},
+			},
+		}
+
+		fcmResp, err := s.fcmClient.Send(ctx, msg)
+		if err == nil {
+			log.Printf("[FCM] Message sent successfully to user=%s (resp=%s)", sub.Username, fcmResp)
+			return nil
+		}
+		log.Printf("[FCM] Send error for token: %v. Falling back to WebPush...", err)
+	}
+
+	// 2. Standard Web Push (RFC 8291/8292) using VAPID
+	if sub.Endpoint == "" || sub.P256dh == "" || sub.Auth == "" {
+		return fmt.Errorf("push endpoint or cryptographic keys missing")
+	}
+
 	if s.vapidPublicKey == "" || s.vapidPrivateKey == "" {
 		return fmt.Errorf("VAPID keys not configured")
 	}

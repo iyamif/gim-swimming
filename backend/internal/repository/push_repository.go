@@ -33,8 +33,8 @@ func NewPushRepository(db *sql.DB) PushRepository {
 // Upsert inserts or updates a browser push subscription by endpoint
 func (r *pushRepository) Upsert(ctx context.Context, sub *model.PushSubscriptionRecord) error {
 	query := `
-		INSERT INTO push_subscriptions (user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO push_subscriptions (user_id, role, username, student_name, endpoint, p256dh, auth, fcm_token, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (endpoint) DO UPDATE SET
 			user_id = EXCLUDED.user_id,
 			role = EXCLUDED.role,
@@ -42,6 +42,7 @@ func (r *pushRepository) Upsert(ctx context.Context, sub *model.PushSubscription
 			student_name = EXCLUDED.student_name,
 			p256dh = EXCLUDED.p256dh,
 			auth = EXCLUDED.auth,
+			fcm_token = CASE WHEN EXCLUDED.fcm_token <> '' THEN EXCLUDED.fcm_token ELSE push_subscriptions.fcm_token END,
 			updated_at = EXCLUDED.updated_at
 		RETURNING id, created_at, updated_at
 	`
@@ -62,6 +63,7 @@ func (r *pushRepository) Upsert(ctx context.Context, sub *model.PushSubscription
 		sub.Endpoint,
 		sub.P256dh,
 		sub.Auth,
+		sub.FCMToken,
 		sub.CreatedAt,
 		sub.UpdatedAt,
 	).Scan(&sub.ID, &sub.CreatedAt, &sub.UpdatedAt)
@@ -77,7 +79,7 @@ func (r *pushRepository) DeleteByEndpoint(ctx context.Context, endpoint string) 
 // FindAll returns all push subscriptions
 func (r *pushRepository) FindAll(ctx context.Context) ([]model.PushSubscriptionRecord, error) {
 	query := `
-		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at
+		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, COALESCE(fcm_token, ''), created_at, updated_at
 		FROM push_subscriptions
 		ORDER BY updated_at DESC
 	`
@@ -98,7 +100,7 @@ func (r *pushRepository) FindForCoach(ctx context.Context, coachName, coachID st
 	trimmedID := strings.TrimSpace(coachID)
 
 	query := `
-		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at
+		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, COALESCE(fcm_token, ''), created_at, updated_at
 		FROM push_subscriptions
 		WHERE LOWER(role) IN ('pelatih', 'coach')
 	`
@@ -159,7 +161,7 @@ func (r *pushRepository) FindForStudents(ctx context.Context, studentNames, stud
 	}
 
 	query := `
-		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at
+		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, COALESCE(fcm_token, ''), created_at, updated_at
 		FROM push_subscriptions
 		WHERE role IN ('orang tua', 'student')
 	`
@@ -216,7 +218,7 @@ func (r *pushRepository) FindForStudents(ctx context.Context, studentNames, stud
 // FindForAdmin finds subscriptions for all admins
 func (r *pushRepository) FindForAdmin(ctx context.Context) ([]model.PushSubscriptionRecord, error) {
 	query := `
-		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at
+		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, COALESCE(fcm_token, ''), created_at, updated_at
 		FROM push_subscriptions
 		WHERE role = 'admin'
 	`
@@ -237,7 +239,7 @@ func (r *pushRepository) FindForUser(ctx context.Context, role, username, studen
 	trimmedUserID := strings.TrimSpace(userID)
 
 	query := `
-		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, created_at, updated_at
+		SELECT id, user_id, role, username, student_name, endpoint, p256dh, auth, COALESCE(fcm_token, ''), created_at, updated_at
 		FROM push_subscriptions
 		WHERE (
 			($1 <> '' AND LOWER(role) = $1)
@@ -317,7 +319,7 @@ func (r *pushRepository) scanRows(rows *sql.Rows) ([]model.PushSubscriptionRecor
 	var results []model.PushSubscriptionRecord
 	for rows.Next() {
 		var s model.PushSubscriptionRecord
-		var userID, role, username, studentName sql.NullString
+		var userID, role, username, studentName, fcmToken sql.NullString
 
 		if err := rows.Scan(
 			&s.ID,
@@ -328,6 +330,7 @@ func (r *pushRepository) scanRows(rows *sql.Rows) ([]model.PushSubscriptionRecor
 			&s.Endpoint,
 			&s.P256dh,
 			&s.Auth,
+			&fcmToken,
 			&s.CreatedAt,
 			&s.UpdatedAt,
 		); err != nil {
@@ -345,6 +348,9 @@ func (r *pushRepository) scanRows(rows *sql.Rows) ([]model.PushSubscriptionRecor
 		}
 		if studentName.Valid {
 			s.StudentName = studentName.String
+		}
+		if fcmToken.Valid {
+			s.FCMToken = fcmToken.String
 		}
 
 		results = append(results, s)

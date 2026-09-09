@@ -850,6 +850,7 @@ export async function subscribePush(payload: {
   username?: string;
   student_name?: string;
   user_id?: string;
+  fcm_token?: string;
 }): Promise<any> {
   try {
     const res = await apiFetch("/api/v1/push/subscribe", {

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v8";
+const CACHE_VERSION = "gim-swimming-v9";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -124,7 +124,7 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Push notification event listener (Web Push + VAPID + Native App Badge API)
+// Push notification event listener (Firebase Cloud Messaging + Web Push + VAPID + Native App Badge API)
 // Optimized for Mobile (Android Chrome, iOS Safari Standalone PWA, Desktop) in background / closed state
 self.addEventListener("push", (event) => {
   let title = "GIM Swimming Academy 🏊‍♂️";
@@ -138,13 +138,20 @@ self.addEventListener("push", (event) => {
   if (event.data) {
     try {
       const parsed = event.data.json();
-      title = parsed.title || title;
-      body = parsed.body || parsed.message || body;
-      icon = parsed.icon || icon;
-      badge = parsed.badge || badge;
-      tag = parsed.tag || ("gim-notif-" + Date.now());
-      dataPayload = parsed.data || parsed;
-      if (parsed.unread_count !== undefined) {
+      // Support standard WebPush & FCM structure (parsed.notification / parsed.data)
+      const notifObj = parsed.notification || {};
+      const dataObj = parsed.data || {};
+
+      title = notifObj.title || dataObj.title || parsed.title || title;
+      body = notifObj.body || dataObj.body || dataObj.message || parsed.body || parsed.message || body;
+      icon = notifObj.icon || dataObj.icon || parsed.icon || icon;
+      badge = notifObj.badge || dataObj.badge || parsed.badge || badge;
+      tag = dataObj.tag || parsed.tag || ("gim-notif-" + Date.now());
+      dataPayload = dataObj.url ? dataObj : (parsed.data || parsed);
+
+      if (dataObj.unread_count !== undefined) {
+        unreadCount = Number(dataObj.unread_count);
+      } else if (parsed.unread_count !== undefined) {
         unreadCount = Number(parsed.unread_count);
       }
     } catch (e) {

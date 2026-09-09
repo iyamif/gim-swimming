@@ -4,6 +4,7 @@
  */
 
 import { fetchVapidPublicKey, subscribePush, unsubscribePush, triggerTestPush } from "./api";
+import { requestFCMToken } from "./firebase";
 
 /**
  * Converts a URL-safe Base64 string to a Uint8Array for PushManager subscription
@@ -152,12 +153,21 @@ export async function subscribeToPushNotifications(
       }
     }
 
-    const subJson = subscription.toJSON();
-    if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
-      return { success: false, error: "Push Subscription data tidak lengkap dari browser." };
+    const subJson = subscription ? subscription.toJSON() : ({} as any);
+
+    // 5. Attempt Firebase Cloud Messaging (FCM) token generation
+    let fcmToken = "";
+    try {
+      const token = await requestFCMToken({ userPrompt: options.userPrompt });
+      if (token) {
+        fcmToken = token;
+        console.log("[FCM] Device registered with FCM token successfully");
+      }
+    } catch (fcmErr) {
+      console.debug("[FCM] Optional FCM token request note:", fcmErr);
     }
 
-    // 5. Send subscription keys to Backend database
+    // 6. Send subscription keys and FCM token to Backend database
     const resolvedRole = options.role || localStorage.getItem("gim_swimming_role") || "";
     const resolvedUsername = options.username || localStorage.getItem("gim_swimming_user") || "";
     const resolvedStudent = options.studentName || resolvedUsername;
@@ -172,10 +182,14 @@ export async function subscribeToPushNotifications(
       username: resolvedUsername,
       student_name: resolvedStudent,
       user_id: options.userId || "",
+      fcm_token: fcmToken,
     });
 
     localStorage.setItem("gim_push_enabled", "true");
     localStorage.setItem("gim_push_endpoint", subJson.endpoint);
+    if (fcmToken) {
+      localStorage.setItem("gim_fcm_token", fcmToken);
+    }
 
     return { success: true, subscription };
   } catch (err: any) {

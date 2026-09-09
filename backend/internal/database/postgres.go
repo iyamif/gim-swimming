@@ -184,6 +184,7 @@ func runMigrations() error {
 		endpoint TEXT UNIQUE NOT NULL,
 		p256dh TEXT NOT NULL,
 		auth TEXT NOT NULL,
+		fcm_token TEXT DEFAULT '',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
@@ -197,6 +198,7 @@ func runMigrations() error {
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_user_id VARCHAR(50) DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_name VARCHAR(255) DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS schedule_id VARCHAR(50) DEFAULT '';
+	ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS fcm_token TEXT DEFAULT '';
 
 	-- Migrate legacy 'Beginner' classes to 'Prestasi'
 	UPDATE students SET class = 'Prestasi' WHERE class ILIKE 'beginner%';

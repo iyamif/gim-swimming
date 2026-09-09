@@ -34,3 +34,8 @@
 **/.vscode/
 *.swp
 *.swo
+
+# Credentials & Binaries
+*firebase-service-account*.json
+**/backend/server
+server
