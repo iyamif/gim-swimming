@@ -9,15 +9,68 @@ import {
 
 // Central API configuration for frontend-backend communication
 export function getApiBaseUrl(): string {
+  const envUrl = (process.env.NEXT_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
+
   if (typeof window !== "undefined") {
-    // In browser, use same-origin relative path "" so requests go through Next.js reverse proxy (/api/v1/...)
-    // This completely eliminates CORS errors, W3C origin wildcard issues, and mixed-content blocking
+    // If NEXT_PUBLIC_API_URL is configured with an external HTTPS URL (e.g. Render backend https://...onrender.com)
+    // and not running on localhost, use the configured backend URL directly
+    if (envUrl && (envUrl.startsWith("http://") || envUrl.startsWith("https://")) && !envUrl.includes("localhost")) {
+      return envUrl;
+    }
+    // Otherwise in browser, use relative path "" so requests route through Next.js proxy / same origin
     return "";
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+  // Server-side (SSR / Node.js)
+  return envUrl || "http://localhost:8080";
 }
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+// Robust fetch helper that handles relative proxy and direct backend fallback
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const baseUrl = getApiBaseUrl();
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const primaryUrl = `${baseUrl}${cleanPath}`;
+
+  try {
+    const res = await fetch(primaryUrl, options);
+    // If relative fetch fails with 404/502 on static host or bad proxy, and external URL is known, fallback
+    const envUrl = (process.env.NEXT_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
+    if (!res.ok && baseUrl === "" && envUrl && (envUrl.startsWith("http://") || envUrl.startsWith("https://"))) {
+      const fallbackUrl = `${envUrl}${cleanPath}`;
+      console.warn(`[API] Primary fetch returned ${res.status}, trying fallback URL: ${fallbackUrl}`);
+      try {
+        const fallbackRes = await fetch(fallbackUrl, options);
+        return fallbackRes;
+      } catch (_) {
+        return res;
+      }
+    }
+    return res;
+  } catch (err: any) {
+    const envUrl = (process.env.NEXT_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
+    if (baseUrl === "" && envUrl && (envUrl.startsWith("http://") || envUrl.startsWith("https://"))) {
+      const fallbackUrl = `${envUrl}${cleanPath}`;
+      console.warn(`[API] Primary fetch error (${err.message}), trying direct fallback URL: ${fallbackUrl}`);
+      return await fetch(fallbackUrl, options);
+    }
+    throw err;
+  }
+}
+
+// Safe JSON parser that avoids SyntaxError on HTML error pages (e.g., 502/504 gateway timeouts)
+export async function parseResponseJson(res: Response): Promise<any> {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (_) {
+    if (!res.ok) {
+      throw new Error(`Server error (${res.status} ${res.statusText || "Gagal menghubungi server"}). Pastikan backend sedang aktif.`);
+    }
+    return {};
+  }
+}
 
 // Helper for auth headers
 function getHeaders(): HeadersInit {
@@ -778,11 +831,11 @@ export function checkAttendanceTimeStatus(
 
 export async function fetchVapidPublicKey(): Promise<string> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/vapid-public-key`, {
+    const res = await apiFetch("/api/v1/push/vapid-public-key", {
       cache: "no-store",
     });
-    if (!res.ok) throw new Error("Gagal mengambil kunci VAPID");
-    const json = await res.json();
+    if (!res.ok) throw new Error(`Gagal mengambil kunci VAPID (${res.status})`);
+    const json = await parseResponseJson(res);
     return json.public_key || "";
   } catch (err) {
     console.error("fetchVapidPublicKey error:", err);
@@ -799,14 +852,14 @@ export async function subscribePush(payload: {
   user_id?: string;
 }): Promise<any> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/subscribe`, {
+    const res = await apiFetch("/api/v1/push/subscribe", {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
     });
-    const json = await res.json();
+    const json = await parseResponseJson(res);
     if (!res.ok) {
-      throw new Error(json.error || "Gagal mendaftarkan push notification");
+      throw new Error(json.error || `Gagal mendaftarkan push notification (${res.status})`);
     }
     return json;
   } catch (err) {
@@ -817,7 +870,7 @@ export async function subscribePush(payload: {
 
 export async function unsubscribePush(endpoint: string): Promise<boolean> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/unsubscribe`, {
+    const res = await apiFetch("/api/v1/push/unsubscribe", {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ endpoint }),
@@ -838,7 +891,7 @@ export async function triggerTestPush(payload: {
   message?: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/test`, {
+    const res = await apiFetch("/api/v1/push/test", {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({
@@ -850,9 +903,9 @@ export async function triggerTestPush(payload: {
         message: payload.message || "Notifikasi Web Push + Icon Badge berhasil terhubung dengan lancar di perangkat Anda!",
       }),
     });
-    const json = await res.json();
+    const json = await parseResponseJson(res);
     if (!res.ok) {
-      throw new Error(json.error || "Gagal mengirim notifikasi tes");
+      throw new Error(json.error || `Gagal mengirim notifikasi tes (${res.status})`);
     }
     return {
       success: true,

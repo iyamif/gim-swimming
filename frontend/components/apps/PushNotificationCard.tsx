@@ -106,6 +106,15 @@ export default function PushNotificationCard({
         setCountdown(0);
 
         try {
+          // 1. Ensure current device subscription is actively synced with backend database
+          await subscribeToPushNotifications({
+            role: sessionRole,
+            username: sessionUser,
+            studentName: studentName || sessionUser,
+            userPrompt: false,
+          }).catch(() => {});
+
+          // 2. Dispatch test push notification
           const res = await sendTestPushToDevice({
             role: sessionRole,
             username: sessionUser,
@@ -118,15 +127,23 @@ export default function PushNotificationCard({
               text: "🚀 Notifikasi tes berhasil dikirim dari server! Jika aplikasi ditutup, notifikasi akan langsung muncul di bar notifikasi & lockscreen HP Anda.",
             });
           } else {
+            let errorText = res.message || "Gagal mengirim tes push.";
+            if (errorText.toLowerCase().includes("load failed") || errorText.toLowerCase().includes("failed to fetch")) {
+              errorText = "Gagal menghubungi backend server. Jika menggunakan Render Free Tier, server mungkin sedang booting (butuh ~30 detik). Silakan coba lagi.";
+            }
             setStatusMessage({
               type: "error",
-              text: `⚠️ ${res.message || "Gagal mengirim tes push."}`,
+              text: `⚠️ ${errorText}`,
             });
           }
         } catch (err: any) {
+          let errText = err.message || "Gagal menghubungkan push notification";
+          if (errText.toLowerCase().includes("load failed") || errText.toLowerCase().includes("failed to fetch")) {
+            errText = "Gagal menghubungi backend server. Pastikan URL backend aktif di Render.";
+          }
           setStatusMessage({
             type: "error",
-            text: `⚠️ Error saat mengirim tes: ${err.message}`,
+            text: `⚠️ ${errText}`,
           });
         } finally {
           setTimeout(() => setCountdown(null), 1500);
