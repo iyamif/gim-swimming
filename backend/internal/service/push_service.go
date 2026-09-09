@@ -149,7 +149,8 @@ func (s *pushService) Unsubscribe(ctx context.Context, endpoint string) error {
 // sendSinglePush sends notification payload using FCM (if token present) or Web Push
 func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscriptionRecord, payload *model.WebPushPayload) error {
 	// 1. Try Firebase Cloud Messaging (FCM) first if FCM Token and Client are available
-	if sub.FCMToken != "" && s.fcmClient != nil {
+	cleanFCMToken := strings.TrimSpace(sub.FCMToken)
+	if cleanFCMToken != "" && s.fcmClient != nil {
 		dataMap := make(map[string]string)
 		if payload.Data != nil {
 			for k, v := range payload.Data {
@@ -161,25 +162,45 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 		dataMap["unread_count"] = strconv.Itoa(payload.UnreadCount)
 		dataMap["tag"] = payload.Tag
 
+		targetURL := "/apps"
+		if payload.Data != nil {
+			if u, ok := payload.Data["url"].(string); ok && u != "" {
+				targetURL = u
+			}
+		}
+		dataMap["url"] = targetURL
+
+		fcmNotif := &messaging.Notification{
+			Title: payload.Title,
+			Body:  payload.Body,
+		}
+		// FCM Notification.ImageURL strictly requires an absolute http(s) URL
+		if strings.HasPrefix(payload.Icon, "http://") || strings.HasPrefix(payload.Icon, "https://") {
+			fcmNotif.ImageURL = payload.Icon
+		}
+
+		webpushNotif := &messaging.WebpushNotification{
+			Title: payload.Title,
+			Body:  payload.Body,
+			Tag:   payload.Tag,
+			Badge: payload.Badge,
+		}
+		if payload.Icon != "" {
+			webpushNotif.Icon = payload.Icon
+		}
+
 		msg := &messaging.Message{
-			Token: sub.FCMToken,
-			Notification: &messaging.Notification{
-				Title:    payload.Title,
-				Body:     payload.Body,
-				ImageURL: payload.Icon,
-			},
-			Data: dataMap,
+			Token:        cleanFCMToken,
+			Notification: fcmNotif,
+			Data:         dataMap,
 			Webpush: &messaging.WebpushConfig{
 				Headers: map[string]string{
 					"Urgency": "high",
 					"TTL":     "86400",
 				},
-				Notification: &messaging.WebpushNotification{
-					Title: payload.Title,
-					Body:  payload.Body,
-					Icon:  payload.Icon,
-					Badge: payload.Badge,
-					Tag:   payload.Tag,
+				Notification: webpushNotif,
+				FCMOptions: &messaging.WebpushFCMOptions{
+					Link: targetURL,
 				},
 			},
 		}
@@ -189,7 +210,7 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 			log.Printf("[FCM] Message sent successfully to user=%s (resp=%s)", sub.Username, fcmResp)
 			return nil
 		}
-		log.Printf("[FCM] Send error for token: %v. Falling back to WebPush...", err)
+		log.Printf("[FCM] Send error for token (user=%s): %v. Falling back to WebPush...", sub.Username, err)
 	}
 
 	// 2. Standard Web Push (RFC 8291/8292) using VAPID
