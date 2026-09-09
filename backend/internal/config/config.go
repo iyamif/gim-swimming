@@ -19,6 +19,7 @@ type Config struct {
 	DBName     string
 	DBSSLMode  string
 	JWTSecret               string
+	AppURL                  string
 	VAPIDPublicKey          string
 	VAPIDPrivateKey         string
 	VAPIDSubject            string
@@ -46,6 +47,7 @@ func LoadConfig() *Config {
 		DBName:                  getEnv("DB_NAME", "gim_swimming"),
 		DBSSLMode:               getEnv("DB_SSLMODE", "disable"),
 		JWTSecret:               getEnv("JWT_SECRET", "gim_swimming_secret_key_123"),
+		AppURL:                  getEnv("APP_URL", getEnv("FRONTEND_URL", "")),
 		VAPIDPublicKey:          getEnv("VAPID_PUBLIC_KEY", "BP1E0qAKBOVQHlCwm5K8IF7kYkX1_IxtFrd_LzVzSsAjV6gPSooiYCV8xnaUu6k1rVd4jY_J6c3k0qUhcngrROU"),
 		VAPIDPrivateKey:         getEnv("VAPID_PRIVATE_KEY", "cfiU4mGT5VAUuyjB5vTLW1KfjFfcAm235-5RCyNNWMk"),
 		VAPIDSubject:            getEnv("VAPID_SUBJECT", "mailto:admin@gimswimming.com"),

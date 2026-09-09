@@ -189,20 +189,36 @@ func (s *pushService) sendSinglePush(ctx context.Context, sub *model.PushSubscri
 			webpushNotif.Icon = payload.Icon
 		}
 
+		webpushConfig := &messaging.WebpushConfig{
+			Headers: map[string]string{
+				"Urgency": "high",
+				"TTL":     "86400",
+			},
+			Notification: webpushNotif,
+		}
+
+		// Resolve Link for WebpushFCMOptions: Firebase requires valid HTTPS scheme
+		linkURL := targetURL
+		if !strings.HasPrefix(linkURL, "http://") && !strings.HasPrefix(linkURL, "https://") {
+			if s.cfg != nil && s.cfg.AppURL != "" {
+				base := strings.TrimRight(s.cfg.AppURL, "/")
+				path := strings.TrimLeft(targetURL, "/")
+				linkURL = base + "/" + path
+			}
+		}
+
+		// Only include FCMOptions.Link if it is a valid HTTPS URL (Firebase rejects relative paths or non-https)
+		if strings.HasPrefix(linkURL, "https://") {
+			webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
+				Link: linkURL,
+			}
+		}
+
 		msg := &messaging.Message{
 			Token:        cleanFCMToken,
 			Notification: fcmNotif,
 			Data:         dataMap,
-			Webpush: &messaging.WebpushConfig{
-				Headers: map[string]string{
-					"Urgency": "high",
-					"TTL":     "86400",
-				},
-				Notification: webpushNotif,
-				FCMOptions: &messaging.WebpushFCMOptions{
-					Link: targetURL,
-				},
-			},
+			Webpush:      webpushConfig,
 		}
 
 		fcmResp, err := s.fcmClient.Send(ctx, msg)
