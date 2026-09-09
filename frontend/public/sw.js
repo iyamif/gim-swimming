@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v6";
+const CACHE_VERSION = "gim-swimming-v7";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -48,16 +48,30 @@ self.addEventListener("activate", (event) => {
 // Fetch Strategy:
 // 1. Navigation / HTML pages -> Network-First (always get freshest build, fallback to cache when offline)
 // 2. Static assets (JS, CSS, images, fonts) -> Stale-While-Revalidate (fast load + background cache update)
-// 3. API / Mutating requests -> Network-only
+// 3. API / Mutating / Cross-Origin requests -> Direct passthrough to browser network stack
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
-  // Bypass non-GET and chrome-extension / non-http requests
+  // Bypass non-GET, non-http, and chrome-extension requests
   if (request.method !== "GET" || !request.url.startsWith("http")) {
     return;
   }
 
   const url = new URL(request.url);
+
+  // CRITICAL: Bypass all cross-origin requests (e.g. backend Go server on :8080 or external APIs)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // CRITICAL: Bypass all backend API routes, hot-module reload, and Next.js dev server sockets
+  if (
+    url.pathname.startsWith("/api") ||
+    url.pathname.startsWith("/_next/webpack-hmr") ||
+    url.pathname.startsWith("/__nextjs")
+  ) {
+    return;
+  }
 
   // 1. Navigation / HTML Pages (e.g. /apps, /pendaftaran, /)
   if (request.mode === "navigate" || request.destination === "document") {
@@ -108,18 +122,6 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-
-  // 3. Default: Network first with cache fallback
-  event.respondWith(
-    fetch(request)
-      .then((networkResponse) => {
-        return networkResponse;
-      })
-      .catch(async () => {
-        const cached = await caches.match(request);
-        return cached || Response.error();
-      })
-  );
 });
 
 // Push notification event listener (Web Push + VAPID + Native App Badge API)

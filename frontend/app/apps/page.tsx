@@ -450,14 +450,9 @@ export default function AppsPage() {
         })
         .catch((err) => console.warn("[PWA] Service Worker registration failed:", err));
 
-      // Reload smoothly when new service worker takes over control
-      let refreshing = false;
+      // Log when new service worker takes over control without interrupting active user session
       handleControllerChange = () => {
-        if (!refreshing) {
-          refreshing = true;
-          console.log("[PWA] New controller active -> auto refreshing to latest version");
-          window.location.reload();
-        }
+        console.log("[PWA] New Service Worker controller is now active.");
       };
       navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
 

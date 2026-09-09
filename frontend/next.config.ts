@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
     const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080").replace(/\/+$/, "");
     return [
       {
+        source: "/api/:path*",
+        destination: `${apiUrl}/api/:path*`,
+      },
+      {
         source: "/foto-profile/:path*",
         destination: `${apiUrl}/foto-profile/:path*`,
       },
