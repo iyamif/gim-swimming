@@ -58,3 +58,12 @@ type TestPushInput struct {
 	Title       string `json:"title,omitempty"`
 	Message     string `json:"message,omitempty"`
 }
+
+// BroadcastPushInput represents payload when Admin broadcasts an announcement to all PWA devices
+type BroadcastPushInput struct {
+	Title   string `json:"title" binding:"required"`
+	Message string `json:"message" binding:"required"`
+	URL     string `json:"url,omitempty"`
+	Type    string `json:"type,omitempty"`
+}
+

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
+import BroadcastAnnouncementModal from "../BroadcastAnnouncementModal";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
 interface DashboardOverviewTabProps {
@@ -14,6 +15,7 @@ interface DashboardOverviewTabProps {
   notifications?: AdminNotification[];
   onMarkNotificationRead?: (id: number | string) => Promise<void>;
   onClearAllNotifications?: () => Promise<void>;
+  onRefresh?: () => Promise<void>;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -28,14 +30,17 @@ export default function DashboardOverviewTab({
   notifications = [],
   onMarkNotificationRead,
   onClearAllNotifications,
+  onRefresh,
   setActiveTab,
 }: DashboardOverviewTabProps) {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [showCoachModal, setShowCoachModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [userAvatar, setUserAvatar] = useState<string>("");
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [postText, setPostText] = useState("");
+
 
   const loadAvatar = () => {
     if (sessionUser) {
@@ -894,6 +899,47 @@ export default function DashboardOverviewTab({
         )}
 
         {/* ==========================================
+            ADMIN BROADCAST PUSH NOTIFICATION BANNER (ADMIN ONLY)
+            ========================================== */}
+        {!isCoachRole && (
+          <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 p-4 sm:p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-3 relative overflow-hidden animate-fadeIn">
+            {/* Ambient Depth Background Circles */}
+            <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-cyan-400/20 blur-lg pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md text-2xl shadow-xs border border-white/30">
+                  📢
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wide">
+                      Siarkan Pengumuman Push Notifikasi
+                    </h3>
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-cyan-300 text-slate-950 shadow-2xs">
+                      PWA Mobile
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-cyan-100 font-medium leading-tight mt-0.5">
+                    Kirim notifikasi instan + update badge icon ke seluruh ponsel orang tua, siswa, dan pelatih
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowBroadcastModal(true)}
+                className="px-4 py-2.5 rounded-2xl bg-white text-blue-700 hover:bg-cyan-50 text-xs font-black transition shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+              >
+                <span>🚀</span>
+                <span>+ Buat Pengumuman</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
             2.5 NOTIFIKASI & PEMBERITAHUAN TERBARU CONTAINER
             ========================================== */}
         {notifications.length > 0 && (
@@ -1069,6 +1115,17 @@ export default function DashboardOverviewTab({
               placeholder="Catat evaluasi atau pengumuman hari ini..."
               className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none"
             />
+            {!isCoachRole && (
+              <button
+                type="button"
+                onClick={() => setShowBroadcastModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
+                title="Kirim pengumuman push notifikasi ke semua HP"
+              >
+                <span>📢</span>
+                <span className="hidden sm:inline">Siarkan Push</span>
+              </button>
+            )}
           </div>
 
           {/* Feed Posts */}
@@ -1346,6 +1403,15 @@ export default function DashboardOverviewTab({
         sessionRole={sessionRole}
         onAvatarChange={(newAv) => setUserAvatar(newAv)}
       />
+
+      {/* Broadcast Announcement Modal (Admin View) */}
+      <BroadcastAnnouncementModal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+        onSuccess={onRefresh}
+        sessionUser={sessionUser}
+      />
     </div>
   );
 }
+

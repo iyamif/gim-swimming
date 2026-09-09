@@ -23,18 +23,20 @@ type PushService interface {
 	SendSchedulePushNotification(ctx context.Context, session *model.ScheduleSession)
 	SendAttendancePushNotification(ctx context.Context, att *model.AttendanceRecord, session *model.ScheduleSession)
 	SendTestPush(ctx context.Context, input *model.TestPushInput) (int, error)
+	BroadcastPush(ctx context.Context, input *model.BroadcastPushInput) (sentCount int, totalCount int, err error)
 }
 
 type pushService struct {
 	cfg             *config.Config
 	pushRepo        repository.PushRepository
+	attRepo         repository.AttendanceRepository
 	vapidPublicKey  string
 	vapidPrivateKey string
 	vapidSubject    string
 }
 
 // NewPushService initializes PushService with VAPID credentials
-func NewPushService(cfg *config.Config, pushRepo repository.PushRepository) PushService {
+func NewPushService(cfg *config.Config, pushRepo repository.PushRepository, attRepo repository.AttendanceRepository) PushService {
 	pubKey := cfg.VAPIDPublicKey
 	privKey := cfg.VAPIDPrivateKey
 	subject := cfg.VAPIDSubject
@@ -59,6 +61,7 @@ func NewPushService(cfg *config.Config, pushRepo repository.PushRepository) Push
 	return &pushService{
 		cfg:             cfg,
 		pushRepo:        pushRepo,
+		attRepo:         attRepo,
 		vapidPublicKey:  pubKey,
 		vapidPrivateKey: privKey,
 		vapidSubject:    subject,
@@ -365,9 +368,90 @@ func (s *pushService) SendTestPush(ctx context.Context, input *model.TestPushInp
 	return sentCount, nil
 }
 
+// BroadcastPush broadcasts an announcement push notification to all subscribed devices and records it in notifications table
+func (s *pushService) BroadcastPush(ctx context.Context, input *model.BroadcastPushInput) (int, int, error) {
+	if strings.TrimSpace(input.Title) == "" || strings.TrimSpace(input.Message) == "" {
+		return 0, 0, fmt.Errorf("judul dan pesan pengumuman tidak boleh kosong")
+	}
+
+	notifType := input.Type
+	if notifType == "" {
+		notifType = "announcement"
+	}
+
+	// 1. Save announcement notification to database for all users
+	if s.attRepo != nil {
+		notifRecord := &model.AdminNotification{
+			Title:      input.Title,
+			Message:    input.Message,
+			Type:       notifType,
+			TargetRole: "all",
+			IsRead:     false,
+			CreatedAt:  time.Now(),
+		}
+		if err := s.attRepo.CreateNotification(ctx, notifRecord); err != nil {
+			log.Printf("[WebPush] Warning: Failed to persist broadcast notification: %v", err)
+		} else {
+			log.Printf("[WebPush] Broadcast notification persisted with ID=%d", notifRecord.ID)
+		}
+	}
+
+	// 2. Fetch all active device push subscriptions
+	subs, err := s.pushRepo.FindAll(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("gagal mengambil daftar perangkat terdaftar: %w", err)
+	}
+
+	if len(subs) == 0 {
+		log.Println("[WebPush] Broadcast notification recorded, but no push subscriptions found.")
+		return 0, 0, nil
+	}
+
+	targetURL := input.URL
+	if targetURL == "" {
+		targetURL = "/apps"
+	}
+
+	// 3. Dispatch Web Push notification to all subscribers
+	sentCount := 0
+	tag := fmt.Sprintf("announcement-%d", time.Now().Unix())
+
+	for _, sub := range subs {
+		// Calculate current unread count for the recipient device
+		unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, sub.Role, sub.StudentName, sub.UserID)
+		if unreadCount <= 0 {
+			unreadCount = 1
+		}
+
+		payload := &model.WebPushPayload{
+			Title:       input.Title,
+			Body:        input.Message,
+			Message:     input.Message,
+			Icon:        "/icon.png",
+			Badge:       "/icon.png",
+			Tag:         tag,
+			UnreadCount: unreadCount,
+			Data: map[string]interface{}{
+				"url":  targetURL,
+				"type": "announcement",
+			},
+		}
+
+		if err := s.sendSinglePush(ctx, &sub, payload); err != nil {
+			log.Printf("[WebPush] Failed sending broadcast to endpoint=%s user=%s: %v", sub.Endpoint[:min(30, len(sub.Endpoint))], sub.Username, err)
+		} else {
+			sentCount++
+		}
+	}
+
+	log.Printf("[WebPush] Broadcast push successfully sent to %d / %d devices (Title: %s)", sentCount, len(subs), input.Title)
+	return sentCount, len(subs), nil
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
+

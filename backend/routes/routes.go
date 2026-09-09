@@ -106,7 +106,9 @@ func SetupRoutes(
 			pushGroup.POST("/subscribe", pushHandler.Subscribe)
 			pushGroup.POST("/unsubscribe", pushHandler.Unsubscribe)
 			pushGroup.POST("/test", pushHandler.SendTestPush)
+			pushGroup.POST("/broadcast", pushHandler.BroadcastPush)
 		}
+
 
 		// Students & Attendance Endpoints
 		studentGroup := v1.Group("/students")

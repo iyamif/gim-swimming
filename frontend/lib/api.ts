@@ -880,4 +880,46 @@ export async function triggerTestPush(payload: {
   }
 }
 
+export async function broadcastPushNotification(payload: {
+  title: string;
+  message: string;
+  url?: string;
+  type?: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  sent_count?: number;
+  total_recipients?: number;
+}> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/push/broadcast`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        title: payload.title,
+        message: payload.message,
+        url: payload.url || "/apps",
+        type: payload.type || "announcement",
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || "Gagal menyiarkan notifikasi");
+    }
+    return {
+      success: true,
+      message: json.message || "Pengumuman berhasil disiarkan ke semua pengguna PWA!",
+      sent_count: json.sent_count,
+      total_recipients: json.total_recipients,
+    };
+  } catch (err: any) {
+    console.error("broadcastPushNotification error:", err);
+    return {
+      success: false,
+      message: err.message || "Gagal menyiarkan notifikasi push",
+    };
+  }
+}
+
+
 

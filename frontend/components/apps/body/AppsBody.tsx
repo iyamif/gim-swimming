@@ -100,6 +100,7 @@ export default function AppsBody({
           notifications={notifications}
           onMarkNotificationRead={onMarkNotificationRead}
           onClearAllNotifications={onClearAllNotifications}
+          onRefresh={onRefresh}
           setActiveTab={setActiveTab}
         />
       )}

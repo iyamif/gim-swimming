@@ -105,3 +105,32 @@ func (h *PushHandler) SendTestPush(c *gin.Context) {
 		"sent_count": sentCount,
 	})
 }
+
+// BroadcastPush broadcasts a push notification announcement to all subscribed PWA devices
+func (h *PushHandler) BroadcastPush(c *gin.Context) {
+	var input model.BroadcastPushInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Judul dan isi pesan pengumuman wajib diisi: " + err.Error(),
+		})
+		return
+	}
+
+	sentCount, totalCount, err := h.pushService.BroadcastPush(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Gagal menyiarkan notifikasi: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":          true,
+		"message":          "Pengumuman berhasil disiarkan ke pengguna PWA!",
+		"sent_count":       sentCount,
+		"total_recipients": totalCount,
+	})
+}
+
