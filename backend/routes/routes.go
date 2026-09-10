@@ -117,6 +117,7 @@ func SetupRoutes(
 			studentGroup.GET("", appHandler.GetStudents)
 			studentGroup.POST("", appHandler.CreateStudent)
 			studentGroup.PUT("/:id", appHandler.UpdateStudent)
+			studentGroup.DELETE("/:id", appHandler.DeleteStudent)
 			studentGroup.PATCH("/:id/status", appHandler.UpdateStudentStatus)
 			studentGroup.POST("/attendance", appHandler.SubmitBulkAttendance)
 		}
@@ -126,6 +127,7 @@ func SetupRoutes(
 		{
 			coachGroup.GET("", appHandler.GetCoaches)
 			coachGroup.POST("", appHandler.CreateCoach)
+			coachGroup.DELETE("/:id", appHandler.DeleteCoach)
 		}
 
 		// Schedules Endpoints

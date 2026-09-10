@@ -9,9 +9,11 @@ import {
   createStudent,
   updateStudent,
   updateStudentStatus,
+  deleteStudent,
   submitBulkAttendance,
   fetchCoaches,
   createCoach,
+  deleteCoach,
   fetchSchedules,
   createSchedule,
   updateSchedule,
@@ -771,6 +773,30 @@ export default function AppsPage() {
     }
   };
 
+  // Handler: Delete Student (Admin)
+  const handleDeleteStudent = async (studentId: string) => {
+    try {
+      await deleteStudent(studentId);
+      const updatedStudents = await fetchStudents();
+      setStudents(updatedStudents);
+    } catch (err) {
+      console.error("Failed to delete student:", err);
+      throw err;
+    }
+  };
+
+  // Handler: Delete Coach (Admin)
+  const handleDeleteCoach = async (coachId: string) => {
+    try {
+      await deleteCoach(coachId);
+      const updatedCoaches = await fetchCoaches();
+      setCoaches(updatedCoaches);
+    } catch (err) {
+      console.error("Failed to delete coach:", err);
+      throw err;
+    }
+  };
+
   // Handler: Upload tuition receipt (Orang Tua view) to PostgreSQL DB
   const handleParentUploadReceipt = async (invoiceId: string) => {
     try {
@@ -980,14 +1006,7 @@ export default function AppsPage() {
   // ==========================================
   return (
     <div
-      className={`flex h-screen h-[100dvh] w-full ${
-        activeTab === "dashboard" ||
-        activeTab === "profile" ||
-        activeTab === "daftar_hadir" ||
-        activeTab === "pelatih"
-          ? "bg-[#1d4ed8]"
-          : "bg-[#f8fafc]"
-      } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
+      className="flex h-screen h-[100dvh] w-full bg-[#f8fafc] overflow-hidden text-slate-800 font-sans"
     >
       <DesktopSidebar
         navItems={navItems}
@@ -1010,15 +1029,7 @@ export default function AppsPage() {
       />
 
       <main
-        className={`flex-1 flex flex-col h-full overflow-hidden min-w-0 ${
-          activeTab === "dashboard" ||
-          activeTab === "profile" ||
-          activeTab === "daftar_hadir" ||
-          activeTab === "pelatih" ||
-          activeTab === "pengumuman"
-            ? "bg-[#1d4ed8]"
-            : "bg-[#f8fafc]"
-        } md:bg-[#f8fafc]`}
+        className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[#f8fafc]"
       >
         {/* Desktop Admin Header for tabs without integrated banner */}
         {activeTab !== "dashboard" &&
@@ -1069,8 +1080,10 @@ export default function AppsPage() {
             onSubmitAttendance={handleAbsensiSubmit}
             onUpdateStudentStatus={handleUpdateStudentStatus}
             onUpdateStudent={handleUpdateStudent}
+            onDeleteStudent={handleDeleteStudent}
             onAddStudent={handleAddSiswaSubmit}
             onAddCoach={handleAddPelatihSubmit}
+            onDeleteCoach={handleDeleteCoach}
           />
         </div>
       </main>

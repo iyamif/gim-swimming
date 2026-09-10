@@ -14,10 +14,12 @@ import {
   AlertCircle, 
   Users, 
   Clock, 
-  Calendar 
+  Calendar,
+  Trash2,
 } from "lucide-react";
 import { Student, Coach, ScheduleSession, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import SwipeableRow from "../SwipeableRow";
 
 interface DaftarHadirTabProps {
   students: Student[];
@@ -27,6 +29,7 @@ interface DaftarHadirTabProps {
   attendances?: AttendanceRecord[];
   onUpdateStudentStatus?: (studentId: string, status: string) => Promise<void> | void;
   onUpdateStudent?: (studentId: string, data: Partial<Student>) => Promise<void> | void;
+  onDeleteStudent?: (studentId: string) => Promise<void> | void;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -38,6 +41,7 @@ export default function DaftarHadirTab({
   attendances = [],
   onUpdateStudentStatus,
   onUpdateStudent,
+  onDeleteStudent,
   setActiveTab,
 }: DaftarHadirTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,6 +51,9 @@ export default function DaftarHadirTab({
   const [sortBy, setSortBy] = useState<"name" | "attendance">("name");
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [swipedStudentId, setSwipedStudentId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Edit mode states in modal
   const [isEditing, setIsEditing] = useState(false);
@@ -356,6 +363,25 @@ export default function DaftarHadirTab({
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!studentToDelete) return;
+    try {
+      setIsDeleting(true);
+      if (onDeleteStudent) {
+        await onDeleteStudent(String(studentToDelete.id));
+      }
+      if (selectedStudent && String(selectedStudent.id) === String(studentToDelete.id)) {
+        setSelectedStudent(null);
+      }
+      setStudentToDelete(null);
+    } catch (err: any) {
+      console.error("Gagal menghapus siswa:", err);
+      alert(err?.message || "Gagal menghapus data siswa");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
       {/* ==========================================
@@ -398,73 +424,83 @@ export default function DaftarHadirTab({
       <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-3.5 -mt-10 sm:-mt-12 relative z-20 animate-fadeIn">
         {/* Featured Top Student Card */}
         {featuredStudent && (
-          <div
+          <SwipeableRow
+            id={`featured-${featuredStudent.id}`}
+            isOpen={swipedStudentId === `featured-${featuredStudent.id}`}
+            onOpen={(id) => setSwipedStudentId(id)}
+            onClose={() => setSwipedStudentId(null)}
+            onDelete={() => setStudentToDelete(featuredStudent)}
             onClick={() => handleOpenStudentDetail(featuredStudent)}
-            className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center justify-between gap-3 cursor-pointer hover:border-cyan-300 hover:shadow-2xl transition group active:scale-98"
+            canSwipe={sessionRole === "admin"}
+            deleteLabel="Hapus"
           >
-            <div className="flex items-center gap-3.5">
-              {/* Circular Avatar */}
-              {(() => {
-                const avatar = getStudentAvatar(featuredStudent);
-                const isImg = isImageAvatar(avatar);
-                const active = isStudentActive(featuredStudent);
-                return (
-                  <div
-                    className={`h-14 w-14 sm:h-16 sm:w-16 rounded-full ${active
-                      ? "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500"
-                      : "bg-slate-400"
-                      } text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition`}
-                  >
-                    {isImg && avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={getAvatarImageUrl(avatar)}
-                        alt={featuredStudent.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
-                        }}
-                      />
-                    ) : avatar ? (
-                      <span className="text-2xl">{avatar}</span>
-                    ) : (
-                      <span>{featuredStudent.name.charAt(0).toUpperCase()}</span>
+            <div
+              className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center justify-between gap-3 cursor-pointer hover:border-cyan-300 hover:shadow-2xl transition group active:scale-98"
+            >
+              <div className="flex items-center gap-3.5">
+                {/* Circular Avatar */}
+                {(() => {
+                  const avatar = getStudentAvatar(featuredStudent);
+                  const isImg = isImageAvatar(avatar);
+                  const active = isStudentActive(featuredStudent);
+                  return (
+                    <div
+                      className={`h-14 w-14 sm:h-16 sm:w-16 rounded-full ${active
+                        ? "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500"
+                        : "bg-slate-400"
+                        } text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition`}
+                    >
+                      {isImg && avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={getAvatarImageUrl(avatar)}
+                          alt={featuredStudent.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : avatar ? (
+                        <span className="text-2xl">{avatar}</span>
+                      ) : (
+                        <span>{featuredStudent.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Info */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
+                      {featuredStudent.name}
+                    </h3>
+                    {!isStudentActive(featuredStudent) && (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-bold">
+                        Tidak Aktif
+                      </span>
                     )}
                   </div>
-                );
-              })()}
-
-              {/* Info */}
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
-                    {featuredStudent.name}
-                  </h3>
-                  {!isStudentActive(featuredStudent) && (
-                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-bold">
-                      Tidak Aktif
-                    </span>
-                  )}
+                  <p className="text-xs text-slate-500 font-bold mt-0.5">
+                    Lev: {featuredStudent.class || "Prestasi"}
+                  </p>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Wali: {featuredStudent.parent || "Orang Tua"} • Hadir {getStudentAttendanceRate(featuredStudent)}
+                  </p>
                 </div>
-                <p className="text-xs text-slate-500 font-bold mt-0.5">
-                  Lev: {featuredStudent.class || "Prestasi"}
-                </p>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  Wali: {featuredStudent.parent || "Orang Tua"} • Hadir {getStudentAttendanceRate(featuredStudent)}
-                </p>
+              </div>
+
+              {/* Badges on Right */}
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span className="px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100 text-[10px] font-black">
+                  {getNextClassForStudent(featuredStudent.name)}
+                </span>
+                <span className="text-slate-400 text-xs font-bold group-hover:text-blue-600 transition flex items-center gap-0.5">
+                  Detail <ChevronRight size={13} />
+                </span>
               </div>
             </div>
-
-            {/* Badges on Right */}
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <span className="px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100 text-[10px] font-black">
-                {getNextClassForStudent(featuredStudent.name)}
-              </span>
-              <span className="text-slate-400 text-xs font-bold group-hover:text-blue-600 transition flex items-center gap-0.5">
-                Detail <ChevronRight size={13} />
-              </span>
-            </div>
-          </div>
+          </SwipeableRow>
         )}
 
         {/* Search Bar & Filter Button in Single Clean Row */}
@@ -663,74 +699,84 @@ export default function DaftarHadirTab({
               const active = isStudentActive(student);
 
               return (
-                <div
+                <SwipeableRow
                   key={student.id}
+                  id={String(student.id)}
+                  isOpen={swipedStudentId === String(student.id)}
+                  onOpen={(id) => setSwipedStudentId(id)}
+                  onClose={() => setSwipedStudentId(null)}
+                  onDelete={() => setStudentToDelete(student)}
                   onClick={() => handleOpenStudentDetail(student)}
-                  className={`p-3.5 sm:p-4 rounded-3xl bg-white hover:bg-slate-50/90 border ${active ? "border-slate-100" : "border-slate-200/80 bg-slate-50/50"
-                    } shadow-xs hover:shadow-md hover:border-cyan-200 flex items-center justify-between gap-3 cursor-pointer transition active:scale-98 group`}
+                  canSwipe={sessionRole === "admin"}
+                  deleteLabel="Hapus"
                 >
-                  {/* Left: Avatar & Info */}
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const avatar = getStudentAvatar(student);
-                      const isImg = isImageAvatar(avatar);
-                      return (
-                        <div
-                          className={`h-12 w-12 rounded-full ${active
-                            ? "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500"
-                            : "bg-slate-400"
-                            } text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition`}
-                        >
-                          {isImg && avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={getAvatarImageUrl(avatar)}
-                              alt={student.name}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          ) : avatar ? (
-                            <span className="text-xl">{avatar}</span>
-                          ) : (
-                            <span>{student.name.charAt(0).toUpperCase()}</span>
+                  <div
+                    className={`p-3.5 sm:p-4 rounded-3xl bg-white hover:bg-slate-50 border ${active ? "border-slate-100" : "border-slate-200/80 bg-slate-50"
+                      } shadow-xs hover:shadow-md hover:border-cyan-200 flex items-center justify-between gap-3 cursor-pointer transition active:scale-98 group`}
+                  >
+                    {/* Left: Avatar & Info */}
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const avatar = getStudentAvatar(student);
+                        const isImg = isImageAvatar(avatar);
+                        return (
+                          <div
+                            className={`h-12 w-12 rounded-full ${active
+                              ? "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500"
+                              : "bg-slate-400"
+                              } text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition`}
+                          >
+                            {isImg && avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={getAvatarImageUrl(avatar)}
+                                alt={student.name}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                            ) : avatar ? (
+                              <span className="text-xl">{avatar}</span>
+                            ) : (
+                              <span>{student.name.charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4
+                            className={`text-xs sm:text-sm font-black transition capitalize ${active ? "text-slate-900 group-hover:text-blue-600" : "text-slate-600"
+                              }`}
+                          >
+                            {student.name}
+                          </h4>
+                          {!active && (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-bold">
+                              Tidak Aktif
+                            </span>
                           )}
                         </div>
-                      );
-                    })()}
-
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4
-                          className={`text-xs sm:text-sm font-black transition capitalize ${active ? "text-slate-900 group-hover:text-blue-600" : "text-slate-600"
-                            }`}
-                        >
-                          {student.name}
-                        </h4>
-                        {!active && (
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-bold">
-                            Tidak Aktif
-                          </span>
-                        )}
+                        <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+                          Lev: {student.class || "Prestasi"}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Kehadiran: {getStudentAttendanceRate(student)} • {student.parent || "Wali Murid"}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                        Lev: {student.class || "Prestasi"}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-medium">
-                        Kehadiran: {getStudentAttendanceRate(student)} • {student.parent || "Wali Murid"}
-                      </p>
+                    </div>
+
+                    {/* Right: Chevron & Next Class Badge */}
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
+                      <span className="px-2.5 py-1 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black shadow-2xs">
+                        {nextClass}
+                      </span>
                     </div>
                   </div>
-
-                  {/* Right: Chevron & Next Class Badge */}
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
-                    <span className="px-2.5 py-1 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black shadow-2xs">
-                      {nextClass}
-                    </span>
-                  </div>
-                </div>
+                </SwipeableRow>
               );
             })
           )}
@@ -1089,6 +1135,52 @@ export default function DaftarHadirTab({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          DELETE CONFIRMATION MODAL
+          ========================================== */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+          <div
+            onClick={() => !isDeleting && setStudentToDelete(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
+              <Trash2 size={24} />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-black text-slate-900">
+                Konfirmasi Hapus Siswa
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Apakah anda yakin menghapus <span className="font-bold text-slate-900">&quot;{studentToDelete.name}&quot;</span>?
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Data siswa dan riwayat absensi terkait akan dihapus secara permanen.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setStudentToDelete(null)}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-rose-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isDeleting ? "Menghapus..." : "Ya"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -22,11 +22,13 @@ type AppService interface {
 	CreateStudent(ctx context.Context, input *model.CreateStudentInput) (*model.Student, error)
 	UpdateStudent(ctx context.Context, id int64, input *model.UpdateStudentInput) (*model.Student, error)
 	UpdateStudentStatus(ctx context.Context, id int64, status string) error
+	DeleteStudent(ctx context.Context, id int64) error
 	SubmitBulkAttendance(ctx context.Context, input *model.BulkAttendanceInput) error
 
 	// Coaches
 	GetCoaches(ctx context.Context) ([]model.Coach, error)
 	CreateCoach(ctx context.Context, input *model.CreateCoachInput) (*model.Coach, error)
+	DeleteCoach(ctx context.Context, id int64) error
 
 	// Schedules
 	GetSchedules(ctx context.Context) ([]model.ScheduleSession, error)
@@ -210,6 +212,11 @@ func (s *appService) UpdateStudentStatus(ctx context.Context, id int64, status s
 	return s.studentRepo.UpdateStatus(ctx, id, dbStatus)
 }
 
+// DeleteStudent deletes a student by ID
+func (s *appService) DeleteStudent(ctx context.Context, id int64) error {
+	return s.studentRepo.Delete(ctx, id)
+}
+
 // SubmitBulkAttendance processes attendance for all students in a class
 func (s *appService) SubmitBulkAttendance(ctx context.Context, input *model.BulkAttendanceInput) error {
 	if input.Class == "" || len(input.AttendanceMap) == 0 {
@@ -360,6 +367,11 @@ func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachIn
 	}
 
 	return coach, nil
+}
+
+// DeleteCoach deletes a coach by ID
+func (s *appService) DeleteCoach(ctx context.Context, id int64) error {
+	return s.coachRepo.Delete(ctx, id)
 }
 
 // GetSchedules returns all schedules

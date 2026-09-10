@@ -18,6 +18,7 @@ type StudentRepository interface {
 	UpdateAttendanceRate(ctx context.Context, studentID int64, rate string) error
 	UpdateStatus(ctx context.Context, studentID int64, status string) error
 	Update(ctx context.Context, student *model.Student) error
+	Delete(ctx context.Context, id int64) error
 }
 
 type pgStudentRepository struct {
@@ -231,4 +232,11 @@ func (r *pgStudentRepository) Update(ctx context.Context, student *model.Student
 	)
 	return err
 }
+
+func (r *pgStudentRepository) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM students WHERE id = $1;`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+
 

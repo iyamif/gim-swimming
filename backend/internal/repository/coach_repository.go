@@ -13,6 +13,7 @@ type CoachRepository interface {
 	Create(ctx context.Context, coach *model.Coach) error
 	FindAll(ctx context.Context) ([]model.Coach, error)
 	FindByID(ctx context.Context, id int64) (*model.Coach, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type pgCoachRepository struct {
@@ -148,3 +149,10 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 
 	return &c, nil
 }
+
+func (r *pgCoachRepository) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM coaches WHERE id = $1;`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+

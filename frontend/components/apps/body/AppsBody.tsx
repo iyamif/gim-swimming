@@ -47,6 +47,7 @@ interface AppsBodyProps {
   ) => void;
   onUpdateStudentStatus?: (studentId: string, status: string) => Promise<void> | void;
   onUpdateStudent?: (studentId: string, data: Partial<Student>) => Promise<void> | void;
+  onDeleteStudent?: (studentId: string) => Promise<void> | void;
   onAddStudent: (data: {
     name: string;
     age: string;
@@ -69,6 +70,7 @@ interface AppsBodyProps {
     gender?: string;
     experience?: string;
   }) => void;
+  onDeleteCoach?: (coachId: string) => Promise<void> | void;
 }
 
 export default function AppsBody({
@@ -96,8 +98,10 @@ export default function AppsBody({
   onSubmitAttendance,
   onUpdateStudentStatus,
   onUpdateStudent,
+  onDeleteStudent,
   onAddStudent,
   onAddCoach,
+  onDeleteCoach,
 }: AppsBodyProps) {
   const content = (
     <>
@@ -152,6 +156,7 @@ export default function AppsBody({
           attendances={attendances}
           onUpdateStudentStatus={onUpdateStudentStatus}
           onUpdateStudent={onUpdateStudent}
+          onDeleteStudent={onDeleteStudent}
           setActiveTab={setActiveTab}
         />
       )}
@@ -163,6 +168,7 @@ export default function AppsBody({
           schedules={schedules}
           students={students}
           attendances={attendances}
+          onDeleteCoach={onDeleteCoach}
           setActiveTab={setActiveTab}
         />
       )}

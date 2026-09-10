@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, X, Filter, ChevronDown, ChevronRight, MessageCircle, Users, Award, Calendar, CheckCircle } from "lucide-react";
+import { Search, X, Filter, ChevronDown, ChevronRight, MessageCircle, Users, Award, Calendar, CheckCircle, Trash2 } from "lucide-react";
 import { Coach, ScheduleSession, Student, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import SwipeableRow from "../SwipeableRow";
 
 interface PelatihTabProps {
   coaches: Coach[];
@@ -11,6 +12,7 @@ interface PelatihTabProps {
   schedules?: ScheduleSession[];
   students?: Student[];
   attendances?: AttendanceRecord[];
+  onDeleteCoach?: (coachId: string) => Promise<void> | void;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -20,12 +22,16 @@ export default function PelatihTab({
   schedules = [],
   students = [],
   attendances = [],
+  onDeleteCoach,
   setActiveTab,
 }: PelatihTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExpertise, setSelectedExpertise] = useState<string>("ALL");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
+  const [coachToDelete, setCoachToDelete] = useState<Coach | null>(null);
+  const [swipedCoachId, setSwipedCoachId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [avatarTick, setAvatarTick] = useState(0);
 
   // Listen to avatar changes across app
@@ -81,6 +87,25 @@ export default function PelatihTab({
     );
   };
 
+  const handleConfirmDeleteCoach = async () => {
+    if (!coachToDelete) return;
+    try {
+      setIsDeleting(true);
+      if (onDeleteCoach) {
+        await onDeleteCoach(String(coachToDelete.id));
+      }
+      if (selectedCoach && String(selectedCoach.id) === String(coachToDelete.id)) {
+        setSelectedCoach(null);
+      }
+      setCoachToDelete(null);
+    } catch (err: any) {
+      console.error("Gagal menghapus pelatih:", err);
+      alert(err?.message || "Gagal menghapus data pelatih");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
       {/* ==========================================
@@ -124,66 +149,76 @@ export default function PelatihTab({
             FEATURED / TOP COACH CARD (MATCHING MOCKUP)
             ========================================== */}
         {featuredCoach && (
-          <div
+          <SwipeableRow
+            id={`featured-${featuredCoach.id}`}
+            isOpen={swipedCoachId === `featured-${featuredCoach.id}`}
+            onOpen={(id) => setSwipedCoachId(id)}
+            onClose={() => setSwipedCoachId(null)}
+            onDelete={() => setCoachToDelete(featuredCoach)}
             onClick={() => setSelectedCoach(featuredCoach)}
-            className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center justify-between gap-3 cursor-pointer hover:border-cyan-300 hover:shadow-2xl transition group active:scale-98"
+            canSwipe={sessionRole === "admin"}
+            deleteLabel="Hapus"
           >
-            <div className="flex items-center gap-3.5">
-              {(() => {
-                const avatar = getCoachAvatar(featuredCoach);
-                const isImg = isImageAvatar(avatar);
-                return (
-                  <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition">
-                    {isImg && avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={getAvatarImageUrl(avatar)}
-                        alt={featuredCoach.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
-                        }}
-                      />
-                    ) : avatar ? (
-                      <span className="text-2xl">{avatar}</span>
-                    ) : (
-                      <span>{featuredCoach.name.charAt(0).toUpperCase()}</span>
-                    )}
+            <div
+              className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center justify-between gap-3 cursor-pointer hover:border-cyan-300 hover:shadow-2xl transition group active:scale-98"
+            >
+              <div className="flex items-center gap-3.5">
+                {(() => {
+                  const avatar = getCoachAvatar(featuredCoach);
+                  const isImg = isImageAvatar(avatar);
+                  return (
+                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0 overflow-hidden group-hover:scale-105 transition">
+                      {isImg && avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={getAvatarImageUrl(avatar)}
+                          alt={featuredCoach.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : avatar ? (
+                        <span className="text-2xl">{avatar}</span>
+                      ) : (
+                        <span>{featuredCoach.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Info */}
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
+                    {featuredCoach.name.toLowerCase().startsWith("coach") ? featuredCoach.name : `Coach ${featuredCoach.name}`}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold mt-0.5">
+                    {featuredCoach.spec || "Lvl 3 FINA"}
+                  </p>
+
+                  {/* Specialty tags matching mockup */}
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black">
+                      Kids
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-100 text-[10px] font-black">
+                      Competitive
+                    </span>
                   </div>
-                );
-              })()}
-
-              {/* Info */}
-              <div>
-                <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
-                  {featuredCoach.name.toLowerCase().startsWith("coach") ? featuredCoach.name : `Coach ${featuredCoach.name}`}
-                </h3>
-                <p className="text-xs text-slate-500 font-bold mt-0.5">
-                  {featuredCoach.spec || "Lvl 3 FINA"}
-                </p>
-
-                {/* Specialty tags matching mockup */}
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black">
-                    Kids
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-100 text-[10px] font-black">
-                    Competitive
-                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Badges on Right */}
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
-                Available
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black shadow-2xs">
-                In Class
-              </span>
+              {/* Badges on Right */}
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
+                  Available
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black shadow-2xs">
+                  In Class
+                </span>
+              </div>
             </div>
-          </div>
+          </SwipeableRow>
         )}
 
         {/* ==========================================
@@ -269,62 +304,72 @@ export default function PelatihTab({
           ) : (
             filteredCoaches.map((coach) => {
               return (
-                <div
+                <SwipeableRow
                   key={coach.id}
+                  id={String(coach.id)}
+                  isOpen={swipedCoachId === String(coach.id)}
+                  onOpen={(id) => setSwipedCoachId(id)}
+                  onClose={() => setSwipedCoachId(null)}
+                  onDelete={() => setCoachToDelete(coach)}
                   onClick={() => setSelectedCoach(coach)}
-                  className="p-3.5 sm:p-4 rounded-3xl bg-white hover:bg-slate-50/90 border border-slate-100 shadow-sm hover:shadow-md hover:border-cyan-200 flex items-center justify-between gap-3 cursor-pointer transition active:scale-98 group"
+                  canSwipe={sessionRole === "admin"}
+                  deleteLabel="Hapus"
                 >
-                  {/* Left: Avatar & Info */}
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const avatar = getCoachAvatar(coach);
-                      const isImg = isImageAvatar(avatar);
-                      return (
-                        <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition">
-                          {isImg && avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={getAvatarImageUrl(avatar)}
-                              alt={coach.name}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          ) : avatar ? (
-                            <span className="text-xl">{avatar}</span>
-                          ) : (
-                            <span>{coach.name.charAt(0).toUpperCase()}</span>
-                          )}
+                  <div
+                    className="p-3.5 sm:p-4 rounded-3xl bg-white hover:bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md hover:border-cyan-200 flex items-center justify-between gap-3 cursor-pointer transition active:scale-98 group"
+                  >
+                    {/* Left: Avatar & Info */}
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const avatar = getCoachAvatar(coach);
+                        const isImg = isImageAvatar(avatar);
+                        return (
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-xs shrink-0 overflow-hidden group-hover:scale-105 transition">
+                            {isImg && avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={getAvatarImageUrl(avatar)}
+                                alt={coach.name}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                            ) : avatar ? (
+                              <span className="text-xl">{avatar}</span>
+                            ) : (
+                              <span>{coach.name.charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
+                          {coach.name}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+                          {coach.spec || "Lvl 3 FINA"}
+                        </p>
+
+                        {/* Small Status Pill under name (matching mockup) */}
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="px-2 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black">
+                            Available
+                          </span>
+                          <span className="px-2 py-0.2 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 text-[9px] font-black">
+                            In Class
+                          </span>
                         </div>
-                      );
-                    })()}
-
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
-                        {coach.name}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                        {coach.spec || "Lvl 3 FINA"}
-                      </p>
-
-                      {/* Small Status Pill under name (matching mockup) */}
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <span className="px-2 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black">
-                          Available
-                        </span>
-                        <span className="px-2 py-0.2 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 text-[9px] font-black">
-                          In Class
-                        </span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Right: Chevron */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
+                    {/* Right: Chevron */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
+                    </div>
                   </div>
-                </div>
+                </SwipeableRow>
               );
             })
           )}
@@ -458,6 +503,52 @@ export default function PelatihTab({
                 className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          DELETE CONFIRMATION MODAL
+          ========================================== */}
+      {coachToDelete && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+          <div
+            onClick={() => !isDeleting && setCoachToDelete(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
+              <Trash2 size={24} />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-black text-slate-900">
+                Konfirmasi Hapus Pelatih
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Apakah anda yakin menghapus <span className="font-bold text-slate-900">&quot;{coachToDelete.name}&quot;</span>?
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Data pelatih akan dihapus secara permanen dari sistem.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setCoachToDelete(null)}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDeleteCoach}
+                className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-rose-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isDeleting ? "Menghapus..." : "Ya"}
               </button>
             </div>
           </div>

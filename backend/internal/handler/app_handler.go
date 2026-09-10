@@ -137,6 +137,32 @@ func (h *AppHandler) UpdateStudentStatus(c *gin.Context) {
 	})
 }
 
+// DeleteStudent handles DELETE /api/v1/students/:id
+func (h *AppHandler) DeleteStudent(c *gin.Context) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "ID siswa tidak valid",
+		})
+		return
+	}
+
+	if err := h.appService.DeleteStudent(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Data siswa berhasil dihapus",
+	})
+}
+
 // SubmitBulkAttendance handles POST /api/v1/students/attendance
 func (h *AppHandler) SubmitBulkAttendance(c *gin.Context) {
 	var input model.BulkAttendanceInput
@@ -205,6 +231,32 @@ func (h *AppHandler) CreateCoach(c *gin.Context) {
 		"success": true,
 		"message": "Pelatih berhasil didaftarkan",
 		"data":    coach,
+	})
+}
+
+// DeleteCoach handles DELETE /api/v1/coaches/:id
+func (h *AppHandler) DeleteCoach(c *gin.Context) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "ID pelatih tidak valid",
+		})
+		return
+	}
+
+	if err := h.appService.DeleteCoach(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Data pelatih berhasil dihapus",
 	})
 }
 

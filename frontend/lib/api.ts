@@ -234,6 +234,23 @@ export async function updateStudentStatus(id: string | number, status: string): 
   }
 }
 
+export async function deleteStudent(id: string | number): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/students/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal menghapus data siswa");
+    }
+    return true;
+  } catch (err) {
+    console.error("deleteStudent error:", err);
+    throw err;
+  }
+}
+
 // ================= COACHES =================
 
 export async function fetchCoaches(): Promise<Coach[]> {
@@ -285,6 +302,23 @@ export async function createCoach(payload: {
     };
   } catch (err) {
     console.error("createCoach error:", err);
+    throw err;
+  }
+}
+
+export async function deleteCoach(id: string | number): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/coaches/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal menghapus data pelatih");
+    }
+    return true;
+  } catch (err) {
+    console.error("deleteCoach error:", err);
     throw err;
   }
 }
