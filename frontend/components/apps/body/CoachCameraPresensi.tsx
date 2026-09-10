@@ -7,6 +7,27 @@ import {
   getPoolCoordinates,
   checkAttendanceTimeStatus,
 } from "../../../lib/api";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Check,
+  CheckCircle2,
+  AlertTriangle,
+  AlertCircle,
+  Lock,
+  Flag,
+  Camera,
+  RefreshCw,
+  RotateCw,
+  Zap,
+  FileText,
+  X,
+  ChevronRight,
+  User,
+  Waves,
+} from "lucide-react";
 
 interface CoachCameraPresensiProps {
   schedules: ScheduleSession[];
@@ -470,12 +491,12 @@ export default function CoachCameraPresensi({
 
   // Quick chips for note input
   const quickChips = [
-    "🏊‍♂️ Latihan Gaya Dada 25m Selesai",
-    "⏱️ Ketahanan & Stamina Meningkat",
-    "🌊 Latihan Gerakan Kaki & Luncuran",
-    "⭐ Seluruh Siswa Aktif & Disiplin",
-    "🏊‍♀️ Pengenalan Gaya Bebas & Pernapasan",
-    "💪 Latihan Penguatan Otot Inti",
+    "Latihan Gaya Dada 25m Selesai",
+    "Ketahanan & Stamina Meningkat",
+    "Latihan Gerakan Kaki & Luncuran",
+    "Seluruh Siswa Aktif & Disiplin",
+    "Pengenalan Gaya Bebas & Pernapasan",
+    "Latihan Penguatan Otot Inti",
   ];
 
   const appendQuickChip = (text: string) => {
@@ -526,7 +547,7 @@ export default function CoachCameraPresensi({
               className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 transition active:scale-95 cursor-pointer shadow-lg"
               title="Kembali ke Dashboard"
             >
-              <span className="text-xl">←</span>
+              <ArrowLeft size={18} />
             </button>
             <div className="text-right">
               <span className="text-[10px] px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 font-bold uppercase tracking-wider">
@@ -552,13 +573,13 @@ export default function CoachCameraPresensi({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">🏊‍♂️</span>
+                <Waves size={16} className="text-cyan-400" />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Sesi Latihan Terpilih:
                 </span>
               </div>
-              <span className="text-[10px] text-cyan-400 group-hover:underline font-bold">
-                Ganti Sesi ›
+              <span className="text-[10px] text-cyan-400 group-hover:underline font-bold flex items-center gap-0.5">
+                Ganti Sesi <ChevronRight size={12} />
               </span>
             </div>
 
@@ -567,22 +588,32 @@ export default function CoachCameraPresensi({
                 {activeSchedule ? `${activeSchedule.title || activeSchedule.class}` : "Belum Ada Jadwal"}
               </h3>
               <div className="flex items-center gap-3 text-xs text-slate-300 flex-wrap">
-                <span className="font-mono font-bold text-cyan-300">
-                  ⏰ {activeSchedule?.timeStart || "--:--"} - {activeSchedule?.timeEnd || "--:--"} WIB
+                <span className="font-mono font-bold text-cyan-300 flex items-center gap-1">
+                  <Clock size={12} /> {activeSchedule?.timeStart || "--:--"} - {activeSchedule?.timeEnd || "--:--"} WIB
                 </span>
                 <span>•</span>
-                <span>📍 {activeSchedule?.poolArea || "Kolam Renang"}</span>
+                <span className="flex items-center gap-1">
+                  <MapPin size={12} className="text-slate-400" /> {activeSchedule?.poolArea || "Kolam Renang"}
+                </span>
               </div>
             </div>
 
             {/* GPS Distance info */}
             <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
               <span className="flex items-center gap-1">
-                <span>📍</span>
+                <MapPin size={12} className="text-cyan-400" />
                 <span>Radius: {distanceMeters} meter</span>
               </span>
-              <span className={isLocationValid ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
-                {isLocationValid ? "✓ Di Lokasi Kolam" : "⚠️ Di Luar Radius"}
+              <span className={isLocationValid ? "text-emerald-400 font-bold flex items-center gap-1" : "text-amber-400 font-bold flex items-center gap-1"}>
+                {isLocationValid ? (
+                  <>
+                    <Check size={12} /> Di Lokasi Kolam
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={12} /> Di Luar Radius
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -595,16 +626,15 @@ export default function CoachCameraPresensi({
             <button
               type="button"
               onClick={handleSelectPresensiMasuk}
-              className={`w-full p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group ${
-                isAlreadyCheckedIn
+              className={`w-full p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group ${isAlreadyCheckedIn
                   ? "bg-slate-900/60 border-slate-800 opacity-90"
                   : "bg-gradient-to-br from-slate-900 via-slate-900/95 to-blue-950/40 border-blue-500/40 hover:border-blue-400 shadow-xl hover:shadow-blue-500/10 ring-1 ring-blue-500/20"
-              }`}
+                }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3.5">
-                  <div className="h-12 w-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition">
-                    🟢
+                  <div className="h-12 w-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition">
+                    <CheckCircle2 size={24} />
                   </div>
                   <div>
                     <h2 className="text-base font-black text-white flex items-center gap-2">
@@ -618,9 +648,7 @@ export default function CoachCameraPresensi({
                     </p>
                   </div>
                 </div>
-                <span className="text-xl text-slate-400 group-hover:text-white transition font-bold shrink-0 mt-1">
-                  →
-                </span>
+                <ChevronRight size={20} className="text-slate-400 group-hover:text-white transition shrink-0 mt-1" />
               </div>
 
               {/* Status Badge */}
@@ -628,11 +656,11 @@ export default function CoachCameraPresensi({
                 <span className="text-[11px] text-slate-400">Status Sesi Ini:</span>
                 {isAlreadyCheckedIn ? (
                   <span className="px-2.5 py-0.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold flex items-center gap-1">
-                    <span>✓</span> Sudah Presensi Masuk
+                    <Check size={11} /> Sudah Presensi Masuk
                   </span>
                 ) : (
-                  <span className="text-blue-400 font-bold text-[11px]">
-                    Siap Presensi Masuk ›
+                  <span className="text-blue-400 font-bold text-[11px] flex items-center gap-0.5">
+                    Siap Presensi Masuk <ChevronRight size={12} />
                   </span>
                 )}
               </div>
@@ -642,22 +670,20 @@ export default function CoachCameraPresensi({
             <button
               type="button"
               onClick={handleSelectPresensiKeluar}
-              className={`w-full p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group ${
-                isAlreadyCheckedOut
+              className={`w-full p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group ${isAlreadyCheckedOut
                   ? "bg-slate-900/60 border-slate-800 opacity-90"
                   : isAlreadyCheckedIn
-                  ? "bg-gradient-to-br from-slate-900 via-slate-900/95 to-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 shadow-xl hover:shadow-emerald-500/10 ring-1 ring-emerald-500/20"
-                  : "bg-slate-900/50 border-slate-800/80 opacity-75 hover:opacity-100"
-              }`}
+                    ? "bg-gradient-to-br from-slate-900 via-slate-900/95 to-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 shadow-xl hover:shadow-emerald-500/10 ring-1 ring-emerald-500/20"
+                    : "bg-slate-900/50 border-slate-800/80 opacity-75 hover:opacity-100"
+                }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3.5">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition ${
-                    isAlreadyCheckedIn
-                      ? "bg-emerald-500/20 border border-emerald-400/40"
-                      : "bg-slate-800 border border-slate-700"
-                  }`}>
-                    {isAlreadyCheckedIn ? "🏁" : "🔒"}
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition ${isAlreadyCheckedIn
+                      ? "bg-emerald-500/20 border border-emerald-400/40 text-emerald-400"
+                      : "bg-slate-800 border border-slate-700 text-slate-400"
+                    }`}>
+                    {isAlreadyCheckedIn ? <Flag size={22} /> : <Lock size={20} />}
                   </div>
                   <div>
                     <h2 className="text-base font-black text-white flex items-center gap-2">
@@ -671,9 +697,7 @@ export default function CoachCameraPresensi({
                     </p>
                   </div>
                 </div>
-                <span className="text-xl text-slate-400 group-hover:text-white transition font-bold shrink-0 mt-1">
-                  →
-                </span>
+                <ChevronRight size={20} className="text-slate-400 group-hover:text-white transition shrink-0 mt-1" />
               </div>
 
               {/* Status Badge & Validator Indicator */}
@@ -681,15 +705,15 @@ export default function CoachCameraPresensi({
                 <span className="text-[11px] text-slate-400">Status Sesi Ini:</span>
                 {isAlreadyCheckedOut ? (
                   <span className="px-2.5 py-0.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold flex items-center gap-1">
-                    <span>✓</span> Selesai (Sudah Presensi Keluar)
+                    <Check size={11} /> Selesai (Sudah Presensi Keluar)
                   </span>
                 ) : isAlreadyCheckedIn ? (
-                  <span className="text-emerald-400 font-bold text-[11px]">
-                    Siap Presensi Keluar &amp; Catatan Siswa ›
+                  <span className="text-emerald-400 font-bold text-[11px] flex items-center gap-0.5">
+                    Siap Presensi Keluar &amp; Catatan Siswa <ChevronRight size={12} />
                   </span>
                 ) : (
                   <span className="px-2.5 py-0.5 rounded-xl bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1">
-                    <span>🔒</span> Wajib Presensi Masuk Dulu
+                    <Lock size={10} /> Wajib Presensi Masuk Dulu
                   </span>
                 )}
               </div>
@@ -703,8 +727,8 @@ export default function CoachCameraPresensi({
         {showCheckoutWarningModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
             <div className="w-full max-w-sm rounded-3xl bg-[#1a1e24] border border-rose-500/30 p-6 space-y-4 shadow-2xl text-white text-center">
-              <div className="h-16 w-16 rounded-full bg-rose-500/20 border border-rose-500/40 text-3xl flex items-center justify-center mx-auto text-rose-400 shadow-lg">
-                ⚠️
+              <div className="h-16 w-16 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mx-auto text-rose-400 shadow-lg">
+                <AlertTriangle size={32} />
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-base font-black text-white">
@@ -730,7 +754,7 @@ export default function CoachCameraPresensi({
                   }}
                   className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
                 >
-                  <span>🟢</span>
+                  <CheckCircle2 size={16} />
                   <span>Lakukan Presensi Masuk Sekarang</span>
                 </button>
                 <button
@@ -758,7 +782,7 @@ export default function CoachCameraPresensi({
                   onClick={() => setShowScheduleSelector(false)}
                   className="h-7 w-7 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-xs cursor-pointer hover:bg-slate-700"
                 >
-                  ✕
+                  <X size={14} />
                 </button>
               </div>
 
@@ -772,22 +796,21 @@ export default function CoachCameraPresensi({
                         setSelectedScheduleId(s.id);
                         setShowScheduleSelector(false);
                       }}
-                      className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
-                        isSelected
+                      className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${isSelected
                           ? "bg-cyan-500/20 border-cyan-400/50 text-white font-bold"
                           : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/50 text-slate-300"
-                      }`}
+                        }`}
                     >
                       <div>
                         <p className="text-xs font-black">{s.title || s.class}</p>
-                        <p className="text-[10px] text-cyan-300">
-                          ⏰ {s.timeStart} - {s.timeEnd} WIB • 📍 {s.poolArea}
+                        <p className="text-[10px] text-cyan-300 flex items-center gap-1">
+                          <Clock size={10} /> {s.timeStart} - {s.timeEnd} WIB • <MapPin size={10} /> {s.poolArea}
                         </p>
                         <p className="text-[9px] text-slate-400">
                           {s.date || "Setiap Hari"} • Pelatih: {s.coachName || "Coach"}
                         </p>
                       </div>
-                      {isSelected && <span className="text-cyan-400 font-black">✓</span>}
+                      {isSelected && <Check size={14} className="text-cyan-400" />}
                     </button>
                   );
                 })}
@@ -821,8 +844,8 @@ export default function CoachCameraPresensi({
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden bg-slate-950 flex items-center justify-center">
         {cameraError ? (
           <div className="text-center px-6 max-w-sm space-y-4">
-            <div className="h-20 w-20 rounded-full bg-slate-800/80 border border-white/20 flex items-center justify-center mx-auto text-3xl shadow-xl">
-              📷
+            <div className="h-20 w-20 rounded-full bg-slate-800/80 border border-white/20 flex items-center justify-center mx-auto text-slate-400 shadow-xl">
+              <Camera size={36} />
             </div>
             <div>
               <p className="text-sm font-bold text-white mb-1">Kamera Tidak Aktif</p>
@@ -830,9 +853,10 @@ export default function CoachCameraPresensi({
             </div>
             <button
               onClick={() => initCamera(cameraFacing)}
-              className="px-4 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg active:scale-95"
+              className="px-4 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5 mx-auto"
             >
-              🔄 Coba Buka Kamera Lagi
+              <RotateCw size={14} />
+              <span>Coba Buka Kamera Lagi</span>
             </button>
           </div>
         ) : (
@@ -841,9 +865,8 @@ export default function CoachCameraPresensi({
             autoPlay
             playsInline
             muted
-            className={`w-full h-full object-cover ${
-              cameraFacing === "user" ? "scale-x-[-1]" : ""
-            }`}
+            className={`w-full h-full object-cover ${cameraFacing === "user" ? "scale-x-[-1]" : ""
+              }`}
           />
         )}
       </div>
@@ -862,16 +885,15 @@ export default function CoachCameraPresensi({
               className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
               title="Kembali Pilih Jenis Presensi"
             >
-              <span className="text-lg">←</span>
+              <ArrowLeft size={18} />
             </button>
             <div>
               <h1 className="text-base sm:text-lg font-black tracking-tight text-white drop-shadow-md flex items-center gap-1.5">
                 {chosenMode === "masuk" ? "Presensi Masuk" : "Presensi Keluar"}
-                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
-                  chosenMode === "masuk"
+                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${chosenMode === "masuk"
                     ? "bg-blue-500/30 text-blue-200 border border-blue-400/40"
                     : "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40"
-                }`}>
+                  }`}>
                   {chosenMode === "masuk" ? "Awal Sesi" : "Selesai Sesi"}
                 </span>
               </h1>
@@ -897,7 +919,6 @@ export default function CoachCameraPresensi({
             className="px-3 py-1.5 rounded-2xl bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-[10px] font-bold text-slate-200 hover:text-white transition cursor-pointer flex items-center gap-1 active:scale-95 shadow-lg"
             title="Ganti Mode Presensi"
           >
-            <span>🔄</span>
             <span>Ganti ke {chosenMode === "masuk" ? "Keluar" : "Masuk"}</span>
           </button>
         </div>
@@ -907,7 +928,7 @@ export default function CoachCameraPresensi({
           {/* Item 1: Waktu Kehadiran */}
           <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#283038]/70 border border-white/5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-lg">
-              ⏱️
+              <Clock size={20} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-semibold text-slate-300 leading-tight">
@@ -923,7 +944,7 @@ export default function CoachCameraPresensi({
           <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-[#283038]/70 border border-white/5">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-lg">
-                📍
+                <MapPin size={20} />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black text-white leading-tight">
@@ -940,7 +961,7 @@ export default function CoachCameraPresensi({
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer border border-white/10 disabled:opacity-50"
               title="Perbarui Titik GPS"
             >
-              <span className={`text-xs ${locationLoading ? "animate-spin" : ""}`}>🔄</span>
+              <RotateCw size={14} className={locationLoading ? "animate-spin" : ""} />
             </button>
           </div>
 
@@ -952,7 +973,7 @@ export default function CoachCameraPresensi({
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-lg">
-                🏊‍♂️
+                <Waves size={20} />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-semibold text-slate-300 leading-tight">
@@ -963,29 +984,27 @@ export default function CoachCameraPresensi({
                 </p>
               </div>
             </div>
-            <span className="text-slate-400 group-hover:text-white font-bold text-sm shrink-0 px-1">
-              ›
-            </span>
+            <ChevronRight size={16} className="text-slate-400 group-hover:text-white shrink-0" />
           </div>
 
           {/* Item 4: Status / Alert Banner */}
           {chosenMode === "masuk" ? (
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#592629]/80 border border-rose-500/30 backdrop-blur-md">
-              <div className="h-8 w-8 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0 text-rose-300 text-base">
-                {isAlreadyCheckedIn ? "✅" : timeStatus.isLate ? "⚠️" : "⏱️"}
+              <div className="h-8 w-8 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0 text-rose-300">
+                {isAlreadyCheckedIn ? <CheckCircle2 size={16} /> : timeStatus.isLate ? <AlertTriangle size={16} /> : <Clock size={16} />}
               </div>
               <p className="text-[11px] font-bold text-rose-200 leading-snug flex-1">
                 {isAlreadyCheckedIn
                   ? "Anda sudah melakukan Presensi Masuk pada sesi ini. Pilih 'Ganti ke Keluar' bila sesi telah selesai."
                   : timeStatus.isLate
-                  ? "Presensi Masuk (Terlambat). Masukkan alasan keterlambatan saat submit foto presensi."
-                  : "Anda hanya bisa Presensi Masuk sekali dalam satu sesi latihan."}
+                    ? "Presensi Masuk (Terlambat). Masukkan alasan keterlambatan saat submit foto presensi."
+                    : "Anda hanya bisa Presensi Masuk sekali dalam satu sesi latihan."}
               </p>
             </div>
           ) : (
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#1b3a32]/85 border border-emerald-500/30 backdrop-blur-md">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-300 text-base">
-                {isAlreadyCheckedOut ? "✅" : "📝"}
+              <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-300">
+                {isAlreadyCheckedOut ? <CheckCircle2 size={16} /> : <FileText size={16} />}
               </div>
               <p className="text-[11px] font-bold text-emerald-200 leading-snug flex-1">
                 {isAlreadyCheckedOut
@@ -1002,14 +1021,13 @@ export default function CoachCameraPresensi({
         {/* Flash / Torch Button */}
         <button
           onClick={toggleFlash}
-          className={`flex h-13 w-13 items-center justify-center rounded-full backdrop-blur-md border transition active:scale-90 cursor-pointer shadow-lg ${
-            isFlashActive
+          className={`flex h-13 w-13 items-center justify-center rounded-full backdrop-blur-md border transition active:scale-90 cursor-pointer shadow-lg ${isFlashActive
               ? "bg-amber-400 text-slate-900 border-amber-300 ring-4 ring-amber-400/40"
               : "bg-black/40 hover:bg-black/60 border-white/25 text-white"
-          }`}
+            }`}
           title="Toggle Flash / Penerangan"
         >
-          <span className="text-xl">⚡</span>
+          <Zap size={20} />
         </button>
 
         {/* Large Shutter Button */}
@@ -1017,13 +1035,12 @@ export default function CoachCameraPresensi({
           <button
             onClick={handleShutterPress}
             disabled={isSubmitting || isCurrentModeCompleted}
-            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-all duration-150 cursor-pointer shadow-2xl active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isCurrentModeCompleted
+            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-all duration-150 cursor-pointer shadow-2xl active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed ${isCurrentModeCompleted
                 ? "bg-emerald-500/80 border-emerald-300"
                 : chosenMode === "keluar"
-                ? "bg-transparent hover:scale-105 border-emerald-300"
-                : "bg-transparent hover:scale-105"
-            }`}
+                  ? "bg-transparent hover:scale-105 border-emerald-300"
+                  : "bg-transparent hover:scale-105"
+              }`}
             title={
               chosenMode === "masuk"
                 ? "Ambil Foto & Presensi Masuk"
@@ -1031,20 +1048,19 @@ export default function CoachCameraPresensi({
             }
           >
             <div
-              className={`h-16 w-16 rounded-full transition-all shadow-inner flex items-center justify-center ${
-                isCurrentModeCompleted
-                  ? "bg-emerald-400 text-white font-black text-xl"
+              className={`h-16 w-16 rounded-full transition-all shadow-inner flex items-center justify-center ${isCurrentModeCompleted
+                  ? "bg-emerald-400 text-white font-black"
                   : isSubmitting
-                  ? "bg-cyan-400 animate-ping"
-                  : chosenMode === "keluar"
-                  ? "bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 text-slate-950 font-black text-sm"
-                  : "bg-white/80 hover:bg-white active:bg-cyan-400"
-              }`}
+                    ? "bg-cyan-400 animate-ping"
+                    : chosenMode === "keluar"
+                      ? "bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 text-slate-950 font-black"
+                      : "bg-white/80 hover:bg-white active:bg-cyan-400"
+                }`}
             >
               {isCurrentModeCompleted ? (
-                "✓"
+                <Check size={28} />
               ) : chosenMode === "keluar" ? (
-                "📝"
+                <FileText size={22} />
               ) : null}
             </div>
           </button>
@@ -1056,7 +1072,7 @@ export default function CoachCameraPresensi({
           className="flex h-13 w-13 items-center justify-center rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/25 text-white transition active:scale-90 cursor-pointer shadow-lg"
           title="Ganti Kamera Depan / Belakang"
         >
-          <span className="text-xl">🔄</span>
+          <RefreshCw size={20} />
         </button>
       </div>
 
@@ -1067,8 +1083,8 @@ export default function CoachCameraPresensi({
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-xl">
-                  📝
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400">
+                  <FileText size={22} />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-white leading-tight">
@@ -1083,7 +1099,7 @@ export default function CoachCameraPresensi({
                 onClick={() => setShowCheckoutNotesModal(false)}
                 className="h-8 w-8 rounded-full bg-white/10 text-slate-300 flex items-center justify-center text-xs hover:bg-white/20 cursor-pointer"
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
 
@@ -1097,10 +1113,10 @@ export default function CoachCameraPresensi({
                 />
                 <div className="flex-1 min-w-0 text-xs">
                   <p className="font-bold text-white flex items-center gap-1">
-                    <span className="text-emerald-400">✓</span> Foto Selfie Terverifikasi
+                    <CheckCircle2 size={14} className="text-emerald-400" /> Foto Selfie Terverifikasi
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    📍 {targetPoolInfo.name} • {formattedDateTime}
+                  <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                    <MapPin size={10} className="text-slate-400" /> {targetPoolInfo.name} • {formattedDateTime}
                   </p>
                 </div>
               </div>
@@ -1118,9 +1134,9 @@ export default function CoachCameraPresensi({
                       key={i}
                       type="button"
                       onClick={() => appendStudentTag(st)}
-                      className="px-2.5 py-1 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-200 text-xs font-semibold transition cursor-pointer active:scale-95 flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-200 text-xs font-semibold transition cursor-pointer active:scale-95 flex items-center gap-1.5"
                     >
-                      <span>👤</span>
+                      <User size={12} />
                       <span>{st}</span>
                     </button>
                   ))}
@@ -1159,8 +1175,8 @@ export default function CoachCameraPresensi({
                 rows={4}
                 className="w-full p-3.5 rounded-2xl bg-black/40 border border-white/15 text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 leading-relaxed font-sans resize-none"
               />
-              <p className="text-[10px] text-slate-400">
-                💡 Catatan ini akan tersimpan di riwayat jadwal dan dapat dilihat oleh admin &amp; wali murid.
+              <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                <AlertCircle size={12} className="text-cyan-400 shrink-0" /> Catatan ini akan tersimpan di riwayat jadwal dan dapat dilihat oleh admin &amp; wali murid.
               </p>
             </div>
 
@@ -1181,12 +1197,12 @@ export default function CoachCameraPresensi({
               >
                 {isSubmitting ? (
                   <>
-                    <span className="animate-spin text-sm">🔄</span>
+                    <RotateCw size={14} className="animate-spin" />
                     <span>Menyimpan...</span>
                   </>
                 ) : (
                   <>
-                    <span>✓</span>
+                    <Check size={14} />
                     <span>Kirim Presensi Keluar</span>
                   </>
                 )}
@@ -1201,7 +1217,7 @@ export default function CoachCameraPresensi({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-4 shadow-2xl text-white">
             <div className="flex items-center gap-2 text-amber-400">
-              <span className="text-xl">⚠️</span>
+              <AlertTriangle size={18} />
               <h3 className="text-sm font-black">Presensi Terlambat</h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">

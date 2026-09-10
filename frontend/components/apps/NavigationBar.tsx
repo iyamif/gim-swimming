@@ -3,6 +3,45 @@
 import React, { useState, useEffect } from "react";
 import { NavItem } from "./types";
 import { isImageAvatar, getAvatarImageUrl } from "../../lib/api";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Wallet,
+  Users,
+  Award,
+  Clock,
+  Megaphone,
+  UserPlus,
+  User,
+  LogOut,
+  Home,
+  ChevronRight,
+} from "lucide-react";
+
+export function getTabIcon(id: string, size = 18) {
+  switch (id) {
+    case "dashboard":
+      return <LayoutDashboard size={size} className="shrink-0" />;
+    case "jadwal":
+      return <CalendarDays size={size} className="shrink-0" />;
+    case "keuangan":
+      return <Wallet size={size} className="shrink-0" />;
+    case "daftar_hadir":
+      return <Users size={size} className="shrink-0" />;
+    case "pelatih":
+      return <Award size={size} className="shrink-0" />;
+    case "absensi":
+      return <Clock size={size} className="shrink-0" />;
+    case "pengumuman":
+      return <Megaphone size={size} className="shrink-0" />;
+    case "create":
+      return <UserPlus size={size} className="shrink-0" />;
+    case "profile":
+      return <User size={size} className="shrink-0" />;
+    default:
+      return <LayoutDashboard size={size} className="shrink-0" />;
+  }
+}
 
 interface NavigationBarProps {
   navItems: NavItem[];
@@ -101,10 +140,10 @@ export function DesktopSidebar({
 
           {/* Quick Edit Profile Icon */}
           <span
-            className="text-slate-400 group-hover:text-cyan-600 text-xs p-1"
+            className="text-slate-400 group-hover:text-cyan-600 p-1"
             title="Lihat Halaman Profil"
           >
-            ›
+            <ChevronRight size={14} />
           </span>
         </div>
       </div>
@@ -114,10 +153,10 @@ export function DesktopSidebar({
         {(navItems && navItems.length > 0
           ? navItems
           : [
-              { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview", icon: "📊" },
-              { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
-              { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
-              { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
+              { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview" },
+              { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang" },
+              { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa" },
+              { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian" },
             ]
         ).map((item) => {
           const isActive = activeTab === item.id;
@@ -135,7 +174,7 @@ export function DesktopSidebar({
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
-              <span className="text-base">{item.icon}</span>
+              <span>{getTabIcon(item.id, 18)}</span>
               <span className="flex-1 text-left truncate">{item.fullLabel}</span>
 
               {showScheduleBadge && (
@@ -171,7 +210,7 @@ export function DesktopSidebar({
               : "bg-slate-50 hover:bg-cyan-50 hover:text-cyan-700 text-slate-600 border-slate-100"
           }`}
         >
-          <span>👤</span>
+          <User size={14} />
           <span>Profil Pengguna</span>
         </button>
 
@@ -182,7 +221,7 @@ export function DesktopSidebar({
             className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-rose-50/60 hover:bg-rose-100/80 text-rose-600 text-xs font-bold transition cursor-pointer border border-rose-100"
             title="Keluar dari Akun"
           >
-            <span>🚪</span>
+            <LogOut size={14} />
             <span>Keluar (Logout)</span>
           </button>
         )}
@@ -239,7 +278,7 @@ export function MobileBottomNav({
           activeTab === "dashboard" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
         }`}
       >
-        <span className="text-xl mb-0.5">🏠</span>
+        <div className="mb-0.5"><Home size={19} /></div>
         <span className="text-[10px] tracking-tight">Home</span>
         {unreadTotal > 0 && (
           <span className="absolute top-1 right-[28%] h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
@@ -253,7 +292,7 @@ export function MobileBottomNav({
           activeTab === "daftar_hadir" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
         }`}
       >
-        <span className="text-xl mb-0.5">📋</span>
+        <div className="mb-0.5"><Users size={19} /></div>
         <span className="text-[10px] tracking-tight">Siswa</span>
       </button>
 
@@ -264,7 +303,7 @@ export function MobileBottomNav({
           className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/40 border-4 border-white active:scale-90 transition-transform duration-150 cursor-pointer"
           title="Input Presensi Cepat"
         >
-          <span className="text-2xl">⏱️</span>
+          <Clock size={24} />
         </button>
         <span
           className={`text-[10px] mt-1 tracking-tight font-bold ${
@@ -283,7 +322,7 @@ export function MobileBottomNav({
             activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
           }`}
         >
-          <span className="text-xl mb-0.5">📅</span>
+          <div className="mb-0.5"><CalendarDays size={19} /></div>
           <span className="text-[10px] tracking-tight">Jadwal</span>
           {unreadSchedule > 0 && (
             <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
@@ -296,7 +335,7 @@ export function MobileBottomNav({
             activeTab === "keuangan" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
           }`}
         >
-          <span className="text-xl mb-0.5">💰</span>
+          <div className="mb-0.5"><Wallet size={19} /></div>
           <span className="text-[10px] tracking-tight">Keuangan</span>
         </button>
       )}
@@ -346,3 +385,4 @@ export default function NavigationBar(props: NavigationBarProps) {
     </>
   );
 }
+

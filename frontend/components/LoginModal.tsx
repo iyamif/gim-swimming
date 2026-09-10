@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { X, AlertCircle, Lock, User, Loader2, CheckCircle2, Scan } from "lucide-react";
 import { API_BASE_URL, getApiBaseUrl, setupInitialPassword } from "../lib/api";
 
 interface LoginModalProps {
@@ -357,9 +358,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full border border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition duration-200"
           aria-label="Close modal"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="h-4 w-4" />
         </button>
 
         {/* STEP 1: Standard Username/Password Login */}
@@ -384,9 +383,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
             {error && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-650 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 shrink-0">
-                  <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-                </svg>
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
                 <span>{error}</span>
               </div>
             )}
@@ -442,10 +439,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 >
                   {loading ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
+                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
                       Memverifikasi...
                     </>
                   ) : (
@@ -523,16 +517,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               // Initial Prompt Screen for Username/Email before scanning
               <div className="w-full flex flex-col items-center mt-4">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-500 border border-cyan-100 animate-pulse">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="h-8 w-8"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                  </svg>
+                  <User className="h-8 w-8" />
                 </div>
 
                 <p className="text-xs text-slate-500 text-center mb-6 max-w-[280px]">
@@ -541,9 +526,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
                 {error && (
                   <div className="w-full mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-650 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 shrink-0">
-                      <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-                    </svg>
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
                     <span>{error}</span>
                   </div>
                 )}
@@ -656,20 +639,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           <div>
             <div className="text-center mb-6">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="h-6 w-6 text-blue-600"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-                  />
-                </svg>
+                <Lock className="h-6 w-6 text-blue-600" />
               </div>
 
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100 mb-2">
@@ -687,9 +657,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
             {setupError && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-650 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 shrink-0">
-                  <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-                </svg>
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
                 <span>{setupError}</span>
               </div>
             )}
@@ -728,10 +696,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               >
                 {setupLoading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
                     Menyimpan Kata Sandi...
                   </>
                 ) : (
@@ -750,22 +715,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               {/* Glowing ring */}
               <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full animate-pulse-ring" />
 
-              {/* Animated checkmark */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={3.5}
-                stroke="currentColor"
-                className="h-10 w-10 text-emerald-500"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="animate-checkmark"
-                  d="M4.5 12.75l6 6 9-13.5"
-                />
-              </svg>
+              <CheckCircle2 className="h-10 w-10 text-emerald-500 animate-checkmark" />
             </div>
 
             <h3 className="text-xl font-black tracking-tight text-slate-900 mb-2">

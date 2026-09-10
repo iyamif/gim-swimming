@@ -2,6 +2,25 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
+  Clock,
+  Camera,
+  ClipboardList,
+  Calendar,
+  MapPin,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Zap,
+  Award,
+  User,
+  Search,
+  Check,
+  X,
+  Radio,
+  RotateCw,
+  Navigation,
+} from "lucide-react";
+import {
   Student,
   Coach,
   ScheduleSession,
@@ -244,6 +263,35 @@ export default function AbsensiTab({
     return ids;
   }, [attendances, activeSchedule]);
 
+  // List of students enrolled in the active schedule
+  const enrolledStudents = useMemo(() => {
+    if (!activeSchedule) return [];
+    const scheduleStudentIds = new Set(activeSchedule.studentIds || []);
+    const scheduleStudentNames = new Set((activeSchedule.studentNames || []).map((n) => n.toLowerCase()));
+
+    const matched = students.filter(
+      (s) =>
+        scheduleStudentIds.has(s.id) ||
+        scheduleStudentNames.has(s.name.toLowerCase()) ||
+        (s.class && activeSchedule.class && s.class.toLowerCase() === activeSchedule.class.toLowerCase())
+    );
+
+    return matched.length > 0 ? matched : students;
+  }, [students, activeSchedule]);
+
+  const isStudentCheckedIn = (studentId: string) => checkedInStudentIds.has(studentId);
+
+  const handleStudentStatusChange = (
+    studentId: string,
+    status: "Hadir" | "Terlambat" | "Izin" | "Sakit" | "Alpa"
+  ) => {
+    setStudentStatusMap((prev) => ({ ...prev, [studentId]: status }));
+  };
+
+  const studentCheckInLoading: Record<string, boolean> = submittingStudentId
+    ? { [submittingStudentId]: true }
+    : {};
+
   // Handle Coach Check-In
   const handleCoachCheckInSubmit = async (reasonOverride?: string) => {
     if (!activeSchedule) return;
@@ -404,7 +452,7 @@ export default function AbsensiTab({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-2xl">⏱️</span>
+              <Clock size={20} className="text-blue-600" />
               <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
                 Presensi &amp; Absensi Sesi Renang
               </h2>
@@ -420,7 +468,7 @@ export default function AbsensiTab({
               onClick={() => setViewMode("camera")}
               className="px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs active:scale-95"
             >
-              <span>📷</span>
+              <Camera size={14} />
               <span>Buka Kamera Presensi</span>
             </button>
             <button
@@ -431,7 +479,7 @@ export default function AbsensiTab({
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>⏱️</span>
+              <Clock size={14} />
               <span>Input Presensi</span>
             </button>
             <button
@@ -442,7 +490,7 @@ export default function AbsensiTab({
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>📋</span>
+              <ClipboardList size={14} />
               <span>Rekap &amp; Histori ({attendances.length})</span>
             </button>
           </div>
@@ -475,7 +523,7 @@ export default function AbsensiTab({
 
             {availableSchedules.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                <span className="text-3xl">📅</span>
+                <Calendar size={36} className="text-slate-300 mx-auto" />
                 <p className="text-xs font-bold text-slate-700">Belum Ada Jadwal Sesi</p>
                 <p className="text-[11px] text-slate-400">
                   Silakan buat jadwal les renang di tab Jadwal terlebih dahulu.
@@ -515,8 +563,9 @@ export default function AbsensiTab({
                           <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider">
                             {activeSchedule.class}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 text-[10px] font-bold border border-slate-200">
-                            📍 {activeSchedule.poolArea}
+                          <span className="px-2 py-0.5 rounded-md bg-white text-slate-700 text-[10px] font-bold border border-slate-200 flex items-center gap-0.5">
+                            <MapPin size={10} className="text-slate-500" />
+                            <span>{activeSchedule.poolArea}</span>
                           </span>
                         </div>
                         <h4 className="text-sm font-black text-slate-900 mt-1">
@@ -525,11 +574,13 @@ export default function AbsensiTab({
                       </div>
 
                       <div className="text-right">
-                        <span className="text-xs sm:text-sm font-black text-blue-600 block">
-                          ⏰ {activeSchedule.timeStart} - {activeSchedule.timeEnd} WIB
+                        <span className="text-xs sm:text-sm font-black text-blue-600 block flex items-center gap-1 justify-end">
+                          <Clock size={12} className="text-blue-600" />
+                          <span>{activeSchedule.timeStart} - {activeSchedule.timeEnd} WIB</span>
                         </span>
-                        <span className="text-[10px] text-slate-500 font-bold">
-                          📅 {activeSchedule.date}
+                        <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1 justify-end mt-0.5">
+                          <Calendar size={11} className="text-slate-400" />
+                          <span>{activeSchedule.date}</span>
                         </span>
                       </div>
                     </div>
@@ -562,7 +613,7 @@ export default function AbsensiTab({
               <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">📡</span>
+                    <Navigation size={18} className="text-cyan-600" />
                     <h4 className="text-xs sm:text-sm font-black text-slate-900">
                       Validasi Lokasi (GPS)
                     </h4>
@@ -571,10 +622,10 @@ export default function AbsensiTab({
                   <button
                     onClick={() => requestCurrentLocation()}
                     disabled={locationLoading}
-                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-xl transition cursor-pointer flex items-center gap-1"
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-xl transition cursor-pointer flex items-center gap-1.5"
                     title="Perbarui GPS"
                   >
-                    <span>🔄</span>
+                    <RotateCw size={11} className={locationLoading ? "animate-spin" : ""} />
                     <span>{locationLoading ? "Mencari GPS..." : "Refresh GPS"}</span>
                   </button>
                 </div>
@@ -622,7 +673,11 @@ export default function AbsensiTab({
                           : "bg-rose-50 text-rose-700 border border-rose-200 animate-pulse"
                       }`}
                     >
-                      <span>{isLocationValid ? "🟢" : "🔴"}</span>
+                      {isLocationValid ? (
+                        <CheckCircle2 size={12} className="text-emerald-600" />
+                      ) : (
+                        <AlertCircle size={12} className="text-rose-600" />
+                      )}
                       <span>
                         {isLocationValid ? "DALAM RADIUS (< 2 KM)" : "DI LUAR RADIUS (> 2 KM)"}
                       </span>
@@ -631,8 +686,18 @@ export default function AbsensiTab({
 
                   {/* Simulator Quick Action Pill */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400 italic">
-                      {isSimulatedGPS ? "⚡ GPS Disimulasikan di Kolam" : "📍 GPS Akurat Perangkat"}
+                    <span className="text-slate-400 italic flex items-center gap-1">
+                      {isSimulatedGPS ? (
+                        <>
+                          <Zap size={11} className="text-amber-500" />
+                          <span>GPS Disimulasikan di Kolam</span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin size={11} className="text-blue-500" />
+                          <span>GPS Akurat Perangkat</span>
+                        </>
+                      )}
                     </span>
                     <button
                       type="button"
@@ -650,7 +715,7 @@ export default function AbsensiTab({
               <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">⏰</span>
+                    <Clock size={16} className="text-blue-600" />
                     <h4 className="text-xs sm:text-sm font-black text-slate-900">
                       Validasi Waktu Sesi
                     </h4>
@@ -695,7 +760,7 @@ export default function AbsensiTab({
                   <div className="flex items-center justify-between pt-0.5">
                     <span className="text-[11px] font-bold text-slate-500">Status Waktu:</span>
                     <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black ${
+                      className={`px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1 ${
                         timeStatus.statusBadge === "ready"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : timeStatus.statusBadge === "late"
@@ -703,11 +768,22 @@ export default function AbsensiTab({
                           : "bg-slate-100 text-slate-600 border border-slate-200"
                       }`}
                     >
-                      {timeStatus.statusBadge === "ready"
-                        ? "🟢 SIAP PRESENSI (TEPAT WAKTU)"
-                        : timeStatus.statusBadge === "late"
-                        ? `🟡 TERLAMBAT (+${timeStatus.minutesPastStart} MNT)`
-                        : "⏳ BELUM DIBUKA"}
+                      {timeStatus.statusBadge === "ready" ? (
+                        <>
+                          <CheckCircle2 size={11} className="text-emerald-600" />
+                          <span>SIAP PRESENSI (TEPAT WAKTU)</span>
+                        </>
+                      ) : timeStatus.statusBadge === "late" ? (
+                        <>
+                          <AlertTriangle size={11} className="text-amber-600" />
+                          <span>TERLAMBAT (+{timeStatus.minutesPastStart} MNT)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock size={11} className="text-slate-500" />
+                          <span>BELUM DIBUKA</span>
+                        </>
+                      )}
                     </span>
                   </div>
 
@@ -727,7 +803,7 @@ export default function AbsensiTab({
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-lg shadow-sm">
-                      🏊‍♂️
+                      <Award size={20} />
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
@@ -741,7 +817,7 @@ export default function AbsensiTab({
 
                   {isCoachCheckedIn ? (
                     <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-black flex items-center gap-1.5 shadow-2xs">
-                      <span>✓</span>
+                      <Check size={13} />
                       <span>Pelatih Sudah Hadir</span>
                     </span>
                   ) : (
@@ -756,7 +832,7 @@ export default function AbsensiTab({
                     {timeStatus.isLate && (
                       <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
                         <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                          <span>⚠️</span>
+                          <AlertTriangle size={14} className="text-amber-600" />
                           <span>Presensi Terlambat (&gt; 15 menit setelah sesi dimulai)</span>
                         </p>
                         <p className="text-[11px] text-amber-800">
@@ -778,7 +854,7 @@ export default function AbsensiTab({
                       onClick={() => handleCoachCheckInSubmit()}
                       className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-cyan-500/25 active:scale-98 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      <span>⏱️</span>
+                      <Clock size={16} />
                       <span>
                         {coachCheckInLoading
                           ? "Menyimpan Presensi..."
@@ -800,72 +876,60 @@ export default function AbsensiTab({
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
                   <div>
                     <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                      Presensi Siswa Terdaftar
+                      Presensi Siswa / Peserta Les ({enrolledStudents.length})
                     </h3>
                     <p className="text-[11px] text-slate-400 font-medium">
-                      Catat kehadiran siswa pada sesi {activeSchedule.title}
+                      Tandai status kehadiran setiap murid yang hadir pada sesi ini
                     </p>
                   </div>
-
-                  <span className="text-xs font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100">
-                    {activeSchedule.studentNames?.length || 0} Siswa
-                  </span>
                 </div>
 
-                {(!activeSchedule.studentNames || activeSchedule.studentNames.length === 0) ? (
+                {enrolledStudents.length === 0 ? (
                   <p className="text-xs text-slate-400 italic text-center py-6">
-                    Belum ada siswa yang ditautkan ke jadwal sesi ini.
+                    Tidak ada siswa yang terdaftar pada sesi jadwal ini.
                   </p>
                 ) : (
-                  <div className="divide-y divide-slate-100">
-                    {activeSchedule.studentNames.map((stName, idx) => {
-                      const stId = activeSchedule.studentIds?.[idx] || `st-${idx}`;
-                      const isCheckedIn = checkedInStudentIds.has(stId);
-                      const currentStatus =
-                        studentStatusMap[stId] || (timeStatus.isLate ? "Terlambat" : "Hadir");
+                  <div className="space-y-3">
+                    {enrolledStudents.map((student) => {
+                      const currentStatus = studentStatusMap[student.id] || "Hadir";
+                      const checkedIn = isStudentCheckedIn(student.id);
 
                       return (
                         <div
-                          key={stId}
-                          className="py-3.5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          key={student.id}
+                          className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-black text-xs shrink-0">
-                              {stName.charAt(0).toUpperCase()}
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-500 text-white font-black text-xs shrink-0">
+                              <User size={16} />
                             </div>
                             <div>
                               <h4 className="text-xs sm:text-sm font-black text-slate-900 capitalize">
-                                {stName}
+                                {student.name}
                               </h4>
-                              <p className="text-[10px] text-slate-400 font-medium">
-                                Level: {activeSchedule.class}
+                              <p className="text-[10px] text-slate-400 font-bold">
+                                Kelas: {student.class} • Wali: {student.parent || "-"}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                            {/* Status Buttons */}
-                            <div className="flex gap-1">
-                              {(["Hadir", "Izin", "Sakit", "Alpa"] as const).map((st) => (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
+                              {(["Hadir", "Sakit", "Izin", "Alpa"] as const).map((st) => (
                                 <button
                                   key={st}
                                   type="button"
-                                  onClick={() =>
-                                    setStudentStatusMap((prev) => ({
-                                      ...prev,
-                                      [stId]: st,
-                                    }))
-                                  }
-                                  className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition cursor-pointer ${
+                                  onClick={() => handleStudentStatusChange(student.id, st)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
                                     currentStatus === st
                                       ? st === "Hadir"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs"
-                                        : st === "Izin"
-                                        ? "bg-amber-50 text-amber-700 border-amber-300 shadow-2xs"
+                                        ? "bg-emerald-600 text-white shadow-2xs"
                                         : st === "Sakit"
-                                        ? "bg-blue-50 text-blue-700 border-blue-300 shadow-2xs"
-                                        : "bg-rose-50 text-rose-700 border-rose-300 shadow-2xs"
-                                      : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                                        ? "bg-blue-600 text-white shadow-2xs"
+                                        : st === "Izin"
+                                        ? "bg-amber-500 text-white shadow-2xs"
+                                        : "bg-rose-600 text-white shadow-2xs"
+                                      : "text-slate-600 hover:bg-slate-100"
                                   }`}
                                 >
                                   {st}
@@ -873,25 +937,20 @@ export default function AbsensiTab({
                               ))}
                             </div>
 
-                            {/* Submit Button per Student */}
                             <button
                               type="button"
-                              disabled={
-                                submittingStudentId === stId ||
-                                (!isLocationValid && currentStatus !== "Izin" && currentStatus !== "Sakit") ||
-                                !timeStatus.canCheckIn
-                              }
-                              onClick={() => handleStudentCheckIn(stId, stName)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
-                                isCheckedIn
-                                  ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                              disabled={studentCheckInLoading[student.id]}
+                              onClick={() => handleStudentCheckIn(student.id, student.name)}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs active:scale-95 ${
+                                checkedIn
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                                   : "bg-blue-600 hover:bg-blue-700 text-white"
                               }`}
                             >
-                              {submittingStudentId === stId
+                              {studentCheckInLoading[student.id]
                                 ? "Menyimpan..."
-                                : isCheckedIn
-                                ? "✓ Absen Ulang"
+                                : checkedIn
+                                ? "Perbarui"
                                 : "Simpan Absen"}
                             </button>
                           </div>
@@ -921,7 +980,9 @@ export default function AbsensiTab({
                 placeholder="Cari nama, sesi, atau tanggal..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
               />
-              <span className="absolute left-3 top-3 text-xs text-slate-400">🔍</span>
+              <span className="absolute left-3 top-3 text-slate-400 flex items-center">
+                <Search size={14} />
+              </span>
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
@@ -955,7 +1016,7 @@ export default function AbsensiTab({
           <div className="space-y-3">
             {filteredHistory.length === 0 ? (
               <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 shadow-sm space-y-2">
-                <span className="text-3xl">📋</span>
+                <ClipboardList size={38} className="text-slate-300 mx-auto" />
                 <h4 className="text-sm font-bold text-slate-700">Belum Ada Riwayat Presensi</h4>
                 <p className="text-xs text-slate-400">
                   Data presensi yang masuk akan tersimpan otomatis di sini dan dihubungkan ke pembayaran honor pelatih &amp; catatan siswa.
@@ -980,7 +1041,7 @@ export default function AbsensiTab({
                               : "bg-gradient-to-tr from-cyan-500 to-blue-500 shadow-2xs"
                           }`}
                         >
-                          {isCoach ? "🏊‍♂️" : "👤"}
+                          {isCoach ? <Award size={16} /> : <User size={16} />}
                         </div>
 
                         <div>
@@ -1006,7 +1067,7 @@ export default function AbsensiTab({
 
                       <div className="text-right">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
                             isLate
                               ? "bg-amber-50 text-amber-800 border border-amber-200"
                               : att.status === "Hadir"
@@ -1016,7 +1077,14 @@ export default function AbsensiTab({
                               : "bg-rose-50 text-rose-700 border border-rose-200"
                           }`}
                         >
-                          {isLate ? "⚠️ Terlambat" : att.status}
+                          {isLate ? (
+                            <>
+                              <AlertTriangle size={11} className="text-amber-700" />
+                              <span>Terlambat</span>
+                            </>
+                          ) : (
+                            att.status
+                          )}
                         </span>
                         <p className="text-[10px] text-slate-400 font-medium mt-1">
                           {att.date} • {att.time_start}-{att.time_end} WIB
@@ -1032,8 +1100,12 @@ export default function AbsensiTab({
                       </div>
 
                       <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                        <span>📍 Jarak GPS: {att.distance_km} km</span>
-                        <span className="text-emerald-600 font-bold">✓ Valid</span>
+                        <span className="flex items-center gap-0.5">
+                          <MapPin size={10} /> Jarak GPS: {att.distance_km} km
+                        </span>
+                        <span className="text-emerald-600 font-bold flex items-center gap-0.5">
+                          <Check size={11} /> Valid
+                        </span>
                       </div>
                     </div>
 
@@ -1048,7 +1120,7 @@ export default function AbsensiTab({
                     {/* Notes / Perkembangan Siswa if available */}
                     {att.notes && (
                       <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-[11px] text-slate-700 space-y-0.5">
-                        <span className="font-bold text-slate-800">📝 Catatan / Evaluasi: </span>
+                        <span className="font-bold text-slate-800">Catatan / Evaluasi: </span>
                         <span className="whitespace-pre-line">{att.notes}</span>
                       </div>
                     )}
@@ -1071,7 +1143,8 @@ export default function AbsensiTab({
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <h4 className="text-sm font-black text-amber-950 flex items-center gap-1.5">
-                  <span>⚠️</span> Konfirmasi Keterlambatan Pelatih
+                  <AlertTriangle size={15} className="text-amber-600" />
+                  <span>Konfirmasi Keterlambatan Pelatih</span>
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Presensi melewati batas 15 menit setelah sesi dimulai
@@ -1079,9 +1152,9 @@ export default function AbsensiTab({
               </div>
               <button
                 onClick={() => setShowCoachLateModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 

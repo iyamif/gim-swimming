@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { ArrowLeft, Loader2, Send, MessageCircle, CheckCircle2 } from "lucide-react";
 
 export default function Pendaftaran() {
   const [formData, setFormData] = useState({
@@ -96,17 +97,8 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
           href="/"
           className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-cyan-500 transition-colors duration-200"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={3}
-            stroke="currentColor"
-            className="h-3.5 w-3.5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-          </svg>
-          Kembali ke Beranda
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Kembali ke Beranda</span>
         </Link>
       </div>
 
@@ -250,14 +242,14 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
               >
                 {loading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
                     Memproses...
                   </>
                 ) : (
-                  <>Kirim Pendaftaran via WhatsApp 🚀</>
+                  <>
+                    <span>Kirim Pendaftaran via WhatsApp</span>
+                    <Send className="h-4 w-4 ml-1" />
+                  </>
                 )}
               </button>
             </div>
@@ -266,16 +258,7 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
           /* Success Message state */
           <div className="text-center py-8 space-y-6">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={3}
-                stroke="currentColor"
-                className="h-8 w-8"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
+              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
             </div>
             <div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -293,9 +276,10 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
                   const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:\n\n*Nama Lengkap*: ${formData.nama}\n*Usia*: ${formData.usia} tahun\n*Pilihan Program*: ${formData.program}\n*Nomor WhatsApp*: ${formData.whatsapp}\n*Jadwal yang Diinginkan*: ${formData.jadwal || "-"}\n*Catatan Tambahan*: ${formData.catatan || "-"}\n\nMohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
                   window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`, "_blank");
                 }}
-                className="w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-md hover:bg-emerald-600 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer"
+                className="w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-md hover:bg-emerald-600 hover:shadow-lg transition-all duration-300 active:scale-[0.98] cursor-pointer inline-flex items-center justify-center gap-2"
               >
-                Buka Ulang Chat WhatsApp 💬
+                <MessageCircle className="h-4 w-4" />
+                <span>Buka Ulang Chat WhatsApp</span>
               </button>
               <Link
                 href="/"

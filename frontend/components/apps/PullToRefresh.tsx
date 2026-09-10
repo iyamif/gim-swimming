@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from "react";
+import { CheckCircle2 } from "lucide-react";
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -185,7 +186,7 @@ export default function PullToRefresh({
           {isRefreshing ? (
             isSuccess ? (
               <>
-                <span className="text-emerald-500 text-sm">✅</span>
+                <CheckCircle2 size={16} className="text-emerald-500" />
                 <span className="text-emerald-600 font-black">Data Berhasil Diperbarui</span>
               </>
             ) : (

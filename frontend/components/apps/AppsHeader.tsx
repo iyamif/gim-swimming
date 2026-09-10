@@ -1,6 +1,16 @@
 import React from "react";
 import EditProfileModal from "./EditProfileModal";
 import { isImageAvatar, getAvatarImageUrl } from "../../lib/api";
+import {
+  RotateCw,
+  Bell,
+  Download,
+  LogOut,
+  Calendar,
+  AlertTriangle,
+  Clock,
+  Radio,
+} from "lucide-react";
 
 interface ParentHeaderProps {
   sessionUser?: string;
@@ -68,7 +78,7 @@ export function ParentHeader({
               className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 text-slate-600 hover:text-cyan-600 transition cursor-pointer disabled:opacity-60"
               title="Perbarui Data Database"
             >
-              {/* <span className={`text-xs ${isRefreshingLocal ? "animate-spin" : ""}`}>🔄</span> */}
+              <RotateCw size={14} className={isRefreshingLocal ? "animate-spin" : ""} />
             </button>
           )}
 
@@ -101,17 +111,19 @@ export function ParentHeader({
           {showInstallBtn && (
             <button
               onClick={onInstallClick}
-              className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1 shadow-md shadow-rose-500/20 shrink-0"
+              className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-500/20 shrink-0"
             >
-              <span>📥</span> <span className="hidden sm:inline">Install App</span>
+              <Download size={13} />
+              <span className="hidden sm:inline">Install App</span>
             </button>
           )}
 
           <button
             onClick={onLogout}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-red-500 hover:bg-slate-50 transition cursor-pointer"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-red-500 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5"
           >
-            Keluar
+            <LogOut size={13} />
+            <span>Keluar</span>
           </button>
         </div>
       </header>
@@ -187,7 +199,7 @@ export function AdminHeader({
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 text-xs font-bold text-slate-600 hover:text-cyan-700 transition cursor-pointer disabled:opacity-60"
             title="Muat Ulang Data Terbaru dari Database"
           >
-            <span className={isRefreshingLocal ? "animate-spin inline-block" : ""}>🔄</span>
+            <RotateCw size={13} className={isRefreshingLocal ? "animate-spin" : ""} />
             <span className="hidden sm:inline">Refresh Data</span>
           </button>
         )}
@@ -199,7 +211,7 @@ export function AdminHeader({
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition cursor-pointer relative shadow-2xs"
             title="Notifikasi"
           >
-            <span className="text-base">🔔</span>
+            <Bell size={18} />
             {unreadNotifs.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white ring-2 ring-white shadow-xs animate-pulse">
                 {unreadNotifs.length > 99 ? "99+" : unreadNotifs.length}
@@ -238,7 +250,6 @@ export function AdminHeader({
                     {notifications.slice(0, 8).map((notif) => {
                       const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
                       const isLate = notif.title?.includes("Terlambat");
-                      const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
 
                       return (
                         <div
@@ -264,8 +275,16 @@ export function AdminHeader({
                             }`}
                         >
                           <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <span className="text-xs font-black text-slate-900 flex items-center gap-1">
-                              <span>{icon}</span>
+                            <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                              {isSchedule ? (
+                                <Calendar size={13} className="text-emerald-600 shrink-0" />
+                              ) : isLate ? (
+                                <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                              ) : notif.type?.includes("attendance") ? (
+                                <Clock size={13} className="text-blue-600 shrink-0" />
+                              ) : (
+                                <Bell size={13} className="text-slate-600 shrink-0" />
+                              )}
                               <span className="truncate">{notif.title}</span>
                             </span>
                             {!notif.is_read && (
@@ -286,11 +305,14 @@ export function AdminHeader({
 
                 {/* Web Push Status Footer in Popup */}
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
                     <span>Web Push VAPID</span>
                   </span>
-                  <span className="text-blue-600 font-bold">App Badge Sync 📲</span>
+                  <span className="text-blue-600 font-bold flex items-center gap-1">
+                    <Radio size={11} />
+                    <span>App Badge Sync</span>
+                  </span>
                 </div>
               </div>
             </>
@@ -312,9 +334,9 @@ export function AdminHeader({
         {showInstallBtn && (
           <button
             onClick={onInstallClick}
-            className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1 shadow-md shadow-rose-500/20 shrink-0"
+            className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-500/20 shrink-0"
           >
-
+            <Download size={13} />
             <span className="hidden sm:inline">Install App</span>
           </button>
         )}
@@ -322,9 +344,10 @@ export function AdminHeader({
         {/* Logout button */}
         <button
           onClick={onLogout}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-red-500 hover:border-red-200 transition cursor-pointer"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-red-500 hover:border-red-200 transition cursor-pointer flex items-center gap-1.5"
         >
-          Keluar
+          <LogOut size={13} />
+          <span>Keluar</span>
         </button>
       </div>
     </header>

@@ -1,5 +1,17 @@
 import React, { useState } from "react";
 import { Invoice, Student, Coach, AttendanceRecord } from "../types";
+import {
+  CalendarDays,
+  CreditCard,
+  ChevronRight,
+  Handshake,
+  AlertTriangle,
+  Eye,
+  Check,
+  X,
+  Search,
+  MapPin,
+} from "lucide-react";
 
 interface KeuanganTabProps {
   invoices: Invoice[];
@@ -176,7 +188,7 @@ export default function KeuanganTab({
               className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-600 hover:text-cyan-700 border border-slate-200/80 transition cursor-pointer shadow-2xs"
               title="Pilih Periode Keuangan"
             >
-              <span className="text-base">📅</span>
+              <CalendarDays size={16} />
             </button>
           </div>
 
@@ -290,8 +302,8 @@ export default function KeuanganTab({
               className="p-4 sm:p-4.5 rounded-3xl bg-white hover:bg-slate-50/80 border border-slate-100 shadow-sm flex items-center justify-between gap-3 cursor-pointer transition active:scale-98"
             >
               <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 text-xl shrink-0 border border-blue-100 shadow-2xs">
-                  💳
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100 shadow-2xs">
+                  <CreditCard size={18} />
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-black text-slate-900">
@@ -307,7 +319,7 @@ export default function KeuanganTab({
                 <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100">
                   +{formatShortK(totalIncomePaid || 1450000)}
                 </span>
-                <span className="text-sm font-black text-slate-400">›</span>
+                <ChevronRight size={16} className="text-slate-400" />
               </div>
             </div>
 
@@ -317,8 +329,8 @@ export default function KeuanganTab({
               className="p-4 sm:p-4.5 rounded-3xl bg-white hover:bg-slate-50/80 border border-slate-100 shadow-sm flex items-center justify-between gap-3 cursor-pointer transition active:scale-98"
             >
               <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 text-xl shrink-0 border border-cyan-100 shadow-2xs">
-                  🤝
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 shrink-0 border border-cyan-100 shadow-2xs">
+                  <Handshake size={18} />
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-black text-slate-900">
@@ -334,7 +346,7 @@ export default function KeuanganTab({
                 <span className="text-xs font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100">
                   -{formatShortK(totalCoachExpenses || 650000)}
                 </span>
-                <span className="text-sm font-black text-slate-400">›</span>
+                <ChevronRight size={16} className="text-slate-400" />
               </div>
             </div>
           </div>
@@ -347,7 +359,7 @@ export default function KeuanganTab({
           <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 shadow-sm space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-base">⚠️</span>
+                <AlertTriangle size={16} className="text-amber-600" />
                 <h4 className="text-xs sm:text-sm font-black text-amber-950">
                   Perlu Konfirmasi Pembayaran ({pendingInvoices.length})
                 </h4>
@@ -374,23 +386,26 @@ export default function KeuanganTab({
                     {inv.uploadReceipt && (
                       <button
                         onClick={() => setSelectedReceiptInvoice(inv)}
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer flex items-center gap-1"
                         title="Lihat Bukti Transfer"
                       >
-                        👁️ Bukti
+                        <Eye size={12} />
+                        <span>Bukti</span>
                       </button>
                     )}
                     <button
                       onClick={() => onVerifyPayment(inv.id, true)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition cursor-pointer shadow-xs"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1"
                     >
-                      ✓ Terima
+                      <Check size={12} />
+                      <span>Terima</span>
                     </button>
                     <button
                       onClick={() => onVerifyPayment(inv.id, false)}
-                      className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition cursor-pointer border border-rose-200"
+                      className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition cursor-pointer border border-rose-200 flex items-center gap-1"
                     >
-                      ✕ Tolak
+                      <X size={12} />
+                      <span>Tolak</span>
                     </button>
                   </div>
                 </div>
@@ -457,13 +472,13 @@ export default function KeuanganTab({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3.5 py-2.5 pl-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
-            <span className="absolute left-3 top-2.5 text-xs text-slate-400">🔍</span>
+            <Search size={14} className="absolute left-3 top-3 text-slate-400" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                ✕
+                <X size={14} />
               </button>
             )}
           </div>
@@ -554,8 +569,8 @@ export default function KeuanganTab({
           <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-5 my-auto max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 text-lg border border-blue-100">
-                  💳
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <CreditCard size={18} />
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">
@@ -570,7 +585,7 @@ export default function KeuanganTab({
                 onClick={() => setShowPaymentReceivedModal(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -626,8 +641,8 @@ export default function KeuanganTab({
           <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-5 my-auto max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 text-lg border border-cyan-100">
-                  🤝
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100">
+                  <Handshake size={18} />
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">
@@ -642,7 +657,7 @@ export default function KeuanganTab({
                 onClick={() => setShowCoachPaymentModal(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -677,8 +692,9 @@ export default function KeuanganTab({
                         Basis Presensi: <span className="font-bold text-slate-900">{c.verifiedCount > 0 ? `${c.verifiedCount} Sesi Tervalidasi` : `${c.sessionsCount} Sesi (Standar Periode)`}</span>
                       </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
-                      📍 GPS Radius ≤ 2km
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-1">
+                      <MapPin size={10} />
+                      <span>GPS Radius ≤ 2km</span>
                     </span>
                   </div>
                 </div>
@@ -718,7 +734,7 @@ export default function KeuanganTab({
                 onClick={() => setSelectedReceiptInvoice(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -746,18 +762,20 @@ export default function KeuanganTab({
                     onVerifyPayment(selectedReceiptInvoice.id, true);
                     setSelectedReceiptInvoice(null);
                   }}
-                  className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer shadow-sm"
+                  className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                 >
-                  ✓ Terima Pembayaran
+                  <Check size={14} />
+                  <span>Terima Pembayaran</span>
                 </button>
                 <button
                   onClick={() => {
                     onVerifyPayment(selectedReceiptInvoice.id, false);
                     setSelectedReceiptInvoice(null);
                   }}
-                  className="px-4 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-200"
+                  className="px-4 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-200 flex items-center justify-center gap-1.5"
                 >
-                  ✕ Tolak
+                  <X size={14} />
+                  <span>Tolak</span>
                 </button>
               </div>
             )}

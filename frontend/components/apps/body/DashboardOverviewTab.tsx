@@ -2,6 +2,30 @@ import React, { useState, useEffect } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import {
+  Clock,
+  Calendar,
+  CalendarDays,
+  CalendarX2,
+  CreditCard,
+  Building2,
+  Megaphone,
+  Users,
+  UserPlus,
+  User,
+  GraduationCap,
+  Plane,
+  Camera,
+  Bell,
+  AlertTriangle,
+  MapPin,
+  MessageCircle,
+  Lightbulb,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Waves,
+} from "lucide-react";
 
 interface DashboardOverviewTabProps {
   sessionUser: string;
@@ -298,49 +322,49 @@ export default function DashboardOverviewTab({
     {
       id: "kehadiran",
       label: "Kehadiran",
-      icon: "⏱️",
+      icon: <Clock size={22} />,
       bgCircle: "bg-orange-50 border-orange-100 text-orange-500",
       action: () => setActiveTab && setActiveTab("kehadiran"),
     },
     {
       id: "izin",
       label: "Izin & Cuti",
-      icon: "✈️",
+      icon: <Plane size={22} />,
       bgCircle: "bg-sky-50 border-sky-100 text-sky-500",
       action: () => setActiveTab && setActiveTab("daftar_hadir"),
     },
     {
       id: "gaji",
       label: isCoachRole ? "Honor Pelatih" : "Gaji / SPP",
-      icon: "💵",
+      icon: <CreditCard size={22} />,
       bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-500",
       action: () => setActiveTab && setActiveTab("keuangan"),
     },
     {
       id: "kalender",
       label: "Jadwal Les",
-      icon: "📅",
+      icon: <CalendarDays size={22} />,
       bgCircle: "bg-blue-50 border-blue-100 text-blue-500",
       action: () => setActiveTab && setActiveTab("jadwal"),
     },
     {
       id: "perusahaan",
       label: `Siswa (${students.length})`,
-      icon: "🏢",
+      icon: <GraduationCap size={22} />,
       bgCircle: "bg-cyan-50 border-cyan-100 text-cyan-600",
       action: () => setActiveTab && setActiveTab("daftar_hadir"),
     },
     {
       id: "pengumuman",
       label: "Pengumuman",
-      icon: "📢",
+      icon: <Megaphone size={22} />,
       bgCircle: "bg-indigo-50 border-indigo-100 text-indigo-500",
       action: () => setActiveTab && setActiveTab("pengumuman"),
     },
     {
       id: "tim",
       label: `Pelatih (${coaches.length})`,
-      icon: "👥",
+      icon: <Users size={22} />,
       bgCircle: "bg-teal-50 border-teal-100 text-teal-500",
       action: () => setActiveTab && setActiveTab("pelatih"),
     },
@@ -349,7 +373,7 @@ export default function DashboardOverviewTab({
           {
             id: "kasbon",
             label: "Registrasi",
-            icon: "👤+",
+            icon: <UserPlus size={22} />,
             bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
             action: () => setActiveTab && setActiveTab("create"),
           },
@@ -416,8 +440,8 @@ export default function DashboardOverviewTab({
                 )}
               </div>
               <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-blue-700 shadow-2xs" />
-              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-500 text-[9px] text-white opacity-0 group-hover:opacity-100 transition shadow-xs border border-white">
-                📷
+              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-500 text-white opacity-0 group-hover:opacity-100 transition shadow-xs border border-white">
+                <Camera size={10} />
               </span>
             </button>
 
@@ -444,7 +468,7 @@ export default function DashboardOverviewTab({
                     className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
                     title="Notifikasi"
                   >
-                    <span className="text-lg">🔔</span>
+                    <Bell size={18} />
                     {totalUnread > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
                         {totalUnread > 99 ? "99+" : totalUnread}
@@ -497,7 +521,7 @@ export default function DashboardOverviewTab({
                           {notifications.slice(0, 12).map((notif) => {
                             const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
                             const isLate = notif.title?.includes("Terlambat");
-                            const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+                            const IconComponent = isSchedule ? CalendarDays : isLate ? AlertTriangle : notif.type?.includes("attendance") ? Clock : Bell;
                             
                             let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
                             if (!notif.is_read) {
@@ -528,7 +552,7 @@ export default function DashboardOverviewTab({
                               >
                                 <div className="flex items-center justify-between gap-1 mb-1">
                                   <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                                    <span>{icon}</span>
+                                    <IconComponent size={14} className={isSchedule ? "text-emerald-600" : isLate ? "text-amber-600" : "text-blue-600"} />
                                     <span className="truncate">{notif.title}</span>
                                   </span>
                                   {!notif.is_read && (
@@ -556,8 +580,8 @@ export default function DashboardOverviewTab({
                               className="p-3 bg-cyan-50/60 rounded-2xl border border-cyan-100 cursor-pointer hover:bg-cyan-100/60 transition text-left"
                             >
                               <div className="flex items-center justify-between gap-1">
-                                <p className="text-xs font-black text-slate-900 flex items-center gap-1">
-                                  <span>💳</span>
+                                <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                  <CreditCard size={14} className="text-cyan-600" />
                                   <span>Transfer SPP: {inv.name}</span>
                                 </p>
                                 <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-200 text-amber-900">
@@ -593,15 +617,12 @@ export default function DashboardOverviewTab({
             {/* Header: Navigation & Quick Actions */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm">📅</span>
+                <CalendarDays size={16} className="text-cyan-600" />
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs sm:text-sm font-black text-slate-900">
                       {isCoachRole ? "Jadwal Melatih" : "Jadwal Latihan"}
                     </h3>
-                    {/* <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100/80">
-                      {calendarViewMode === "week" ? "Mingguan" : "Bulanan"}
-                    </span> */}
                   </div>
                   <p className="text-[10px] text-slate-400 font-medium">
                     {activeCalendarLabel}
@@ -631,14 +652,14 @@ export default function DashboardOverviewTab({
                   className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
                   title={calendarViewMode === "week" ? "Minggu Sebelumnya" : "Bulan Sebelumnya"}
                 >
-                  ‹
+                  <ChevronLeft size={14} />
                 </button>
                 <button
                   onClick={handleNext}
                   className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
                   title={calendarViewMode === "week" ? "Minggu Berikutnya" : "Bulan Berikutnya"}
                 >
-                  ›
+                  <ChevronRight size={14} />
                 </button>
               </div>
             </div>
@@ -681,11 +702,12 @@ export default function DashboardOverviewTab({
                       </span>
 
                       {/* Active session indicator dot */}
-                      {hasSession && !today && (
-                        <span className="h-1 w-1 rounded-full bg-cyan-400 mt-1" />
-                      )}
-                      {today && (
-                        <span className="h-1 w-1 rounded-full bg-white mt-1" />
+                      {hasSession && (
+                        <span
+                          className={`h-1 w-1 rounded-full mt-1 ${
+                            today ? "bg-white" : "bg-cyan-400"
+                          }`}
+                        />
                       )}
                     </button>
                   );
@@ -741,14 +763,16 @@ export default function DashboardOverviewTab({
                         </span>
 
                         {/* Active session indicator dot */}
-                        {hasSession && !today && (
+                        {hasSession && (
                           <span
-                            className={`h-1.5 w-1.5 rounded-full mt-0.5 ${isCurrentMonth ? "bg-cyan-500" : "bg-slate-300"
-                              }`}
+                            className={`h-1.5 w-1.5 rounded-full mt-0.5 ${
+                              today
+                                ? "bg-white"
+                                : isCurrentMonth
+                                ? "bg-cyan-500"
+                                : "bg-slate-300"
+                            }`}
                           />
-                        )}
-                        {today && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-white mt-0.5" />
                         )}
                       </button>
                     );
@@ -759,8 +783,8 @@ export default function DashboardOverviewTab({
 
             {/* Quick helper tip & Calendar View Mode Switch */}
             <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100/80 pt-2.5">
-              <span className="flex items-center gap-1">
-                <span className="text-xs">💡</span>
+              <span className="flex items-center gap-1.5">
+                <Lightbulb size={13} className="text-amber-500" />
                 <span>Klik salah satu hari untuk melihat rincian</span>
               </span>
               <button
@@ -774,13 +798,14 @@ export default function DashboardOverviewTab({
               >
                 {calendarViewMode === "week" ? (
                   <>
-                    <span>📅</span>
-                    <span>month ›</span>
+                    <Calendar size={12} />
+                    <span>Bulanan</span>
+                    <ChevronRight size={12} />
                   </>
                 ) : (
                   <>
-                    <span>‹</span>
-                    <span>weeks</span>
+                    <ChevronLeft size={12} />
+                    <span>Mingguan</span>
                   </>
                 )}
               </button>
@@ -801,8 +826,8 @@ export default function DashboardOverviewTab({
             {/* Container Header */}
             <div className="flex items-center justify-between flex-wrap gap-2 relative z-10 border-b border-white/15 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white text-base shadow-xs border border-white/30">
-                  🏊‍♂️
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white shadow-xs border border-white/30">
+                  <Waves size={18} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -824,7 +849,7 @@ export default function DashboardOverviewTab({
                   onClick={() => setActiveTab("absensi")}
                   className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-cyan-50 text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
-                  <span>⏱️</span>
+                  <Clock size={13} />
                   <span>Input Presensi</span>
                 </button>
               )}
@@ -852,11 +877,11 @@ export default function DashboardOverviewTab({
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] font-bold">
-                        <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white border border-white/30">
-                          ⏰ {schedule.timeStart} - {schedule.timeEnd} WIB
+                        <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white border border-white/30 flex items-center gap-1">
+                          <Clock size={11} /> {schedule.timeStart} - {schedule.timeEnd} WIB
                         </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-white/20 text-cyan-100">
-                          📍 {schedule.poolArea}
+                        <span className="px-2.5 py-1 rounded-lg bg-white/20 text-cyan-100 flex items-center gap-1">
+                          <MapPin size={11} /> {schedule.poolArea}
                         </span>
                       </div>
                     </div>
@@ -875,7 +900,7 @@ export default function DashboardOverviewTab({
                               key={stIdx}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 backdrop-blur-sm text-white text-[11px] font-semibold border border-white/25 shadow-2xs"
                             >
-                              <span>👤</span>
+                              <User size={11} />
                               <span>{stName}</span>
                             </span>
                           ))}
@@ -901,8 +926,6 @@ export default function DashboardOverviewTab({
           </div>
         )}
 
-
-
         {/* ==========================================
             3. PASTEL 8-GRID FEATURE MENU WITH PAGINATION
             ========================================== */}
@@ -917,7 +940,7 @@ export default function DashboardOverviewTab({
                 <div
                   className={`flex h-13 w-13 sm:h-14 sm:w-14 items-center justify-center rounded-2xl ${item.bgCircle} border shadow-xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-2`}
                 >
-                  <span className="text-2xl">{item.icon}</span>
+                  {item.icon}
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 group-hover:text-cyan-600 transition text-center leading-tight">
                   {item.label}
@@ -982,7 +1005,7 @@ export default function DashboardOverviewTab({
                 className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
                 title="Buka Pusat Pengumuman & Siarkan Push"
               >
-                <span>📢</span>
+                <Megaphone size={13} />
                 <span className="hidden sm:inline">Pusat Pengumuman</span>
               </button>
             )}
@@ -994,8 +1017,8 @@ export default function DashboardOverviewTab({
             <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white text-xs font-bold">
-                    🏊
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white">
+                    <Waves size={16} />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 leading-tight">
@@ -1017,8 +1040,8 @@ export default function DashboardOverviewTab({
             <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white text-xs font-bold">
-                    💰
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                    <CreditCard size={16} />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 leading-tight">
@@ -1067,7 +1090,7 @@ export default function DashboardOverviewTab({
                 onClick={() => setSelectedDateDetails(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -1081,7 +1104,7 @@ export default function DashboardOverviewTab({
               if (daySchedules.length === 0) {
                 return (
                   <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                    <span className="text-3xl">🏖️</span>
+                    <CalendarX2 size={36} className="text-slate-400 mx-auto" />
                     <h4 className="text-xs font-bold text-slate-700">Tidak Ada Sesi Terjadwal</h4>
                     <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
                       {isCoachRole
@@ -1121,11 +1144,11 @@ export default function DashboardOverviewTab({
                           </h4>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-black text-blue-600 block">
-                            ⏰ {schedule.time}
+                          <span className="text-xs font-black text-blue-600 block flex items-center justify-end gap-1">
+                            <Clock size={11} /> {schedule.time}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            📍 {schedule.poolArea}
+                          <span className="text-[10px] text-slate-400 font-medium flex items-center justify-end gap-1">
+                            <MapPin size={10} /> {schedule.poolArea}
                           </span>
                         </div>
                       </div>
@@ -1134,7 +1157,7 @@ export default function DashboardOverviewTab({
                       <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 text-xs">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 font-black text-xs border border-cyan-100">
-                            🏊‍♂️
+                            <Waves size={16} />
                           </div>
                           <div>
                             <p className="text-[10px] text-slate-400 font-bold uppercase">Instruktur / Pelatih</p>
@@ -1147,9 +1170,10 @@ export default function DashboardOverviewTab({
                             href={`https://wa.me/${schedule.coach.phone}?text=Halo%20${schedule.coach.name},%20konfirmasi%20jadwal%20latihan%20renang`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1.5 cursor-pointer"
                           >
-                            <span>💬</span> Hubungi
+                            <MessageCircle size={12} />
+                            <span>Hubungi</span>
                           </a>
                         )}
                       </div>
@@ -1165,7 +1189,7 @@ export default function DashboardOverviewTab({
                               key={student.id}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold shadow-2xs"
                             >
-                              <span>👤</span>
+                              <User size={11} />
                               <span>{student.name}</span>
                               <span className="text-[9px] font-bold text-cyan-600 bg-cyan-50 px-1.5 py-0.2 rounded">
                                 {student.attendanceRate}
@@ -1189,21 +1213,10 @@ export default function DashboardOverviewTab({
             })()}
 
             {/* Modal Actions */}
-            <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                onClick={() => {
-                  setSelectedDateDetails(null);
-                  if (setActiveTab) setActiveTab("jadwal");
-                }}
-                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-md shadow-cyan-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>📅</span>
-                <span>Kelola & Buat Jadwal</span>
-              </button>
-
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
               <button
                 onClick={() => setSelectedDateDetails(null)}
-                className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
                 Tutup
               </button>
@@ -1222,13 +1235,14 @@ export default function DashboardOverviewTab({
           <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>👥</span> Daftar Instruktur & Pelatih GIM
+                <Users size={16} className="text-cyan-600" />
+                <span>Daftar Instruktur &amp; Pelatih GIM</span>
               </h3>
               <button
                 onClick={() => setShowCoachModal(false)}
                 className="text-slate-400 hover:text-slate-600 text-base font-bold cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 

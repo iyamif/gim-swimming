@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { Search, X, Filter, ChevronDown, ChevronRight, MessageCircle, Users, Award, Calendar, CheckCircle } from "lucide-react";
 import { Coach, ScheduleSession, Student, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
@@ -196,15 +197,15 @@ export default function PelatihTab({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-3 pl-10 pr-10 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition"
           />
-          <span className="absolute left-3.5 top-3.5 text-slate-400 text-xs sm:text-sm">
-            🔍
+          <span className="absolute left-3.5 top-3.5 text-slate-400 flex items-center justify-center">
+            <Search size={16} />
           </span>
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3.5 top-3.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
-              ✕
+              <X size={16} />
             </button>
           )}
         </div>
@@ -219,15 +220,14 @@ export default function PelatihTab({
 
           <button
             onClick={() => setShowFilterDropdown((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-              showFilterDropdown || selectedExpertise !== "ALL"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${showFilterDropdown || selectedExpertise !== "ALL"
                 ? "bg-cyan-50 text-cyan-700 border-cyan-300 ring-2 ring-cyan-400/20"
                 : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200/80 shadow-2xs"
-            }`}
+              }`}
           >
-            <span>🏊‍♂️</span>
+            <Filter size={13} />
             <span>Filter Spesialisasi</span>
-            <span className="text-[10px]">▼</span>
+            <ChevronDown size={12} className={`transition-transform duration-200 ${showFilterDropdown ? "rotate-180" : ""}`} />
           </button>
         </div>
 
@@ -242,11 +242,10 @@ export default function PelatihTab({
                 <button
                   key={exp}
                   onClick={() => setSelectedExpertise(exp)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                    selectedExpertise === exp
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${selectedExpertise === exp
                       ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                       : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
-                  }`}
+                    }`}
                 >
                   {exp === "ALL" ? "Semua Bidang" : exp}
                 </button>
@@ -261,7 +260,7 @@ export default function PelatihTab({
         <div className="space-y-2.5">
           {filteredCoaches.length === 0 ? (
             <div className="p-10 rounded-3xl bg-white border border-slate-100 text-center space-y-2 shadow-sm">
-              <span className="text-3xl">🏊‍♂️</span>
+              <Users size={36} className="text-slate-300 mx-auto" />
               <h4 className="text-sm font-bold text-slate-700">Pelatih Tidak Ditemukan</h4>
               <p className="text-xs text-slate-400">
                 Tidak ada data instruktur/pelatih yang sesuai dengan pencarian &quot;{searchQuery}&quot;.
@@ -323,9 +322,7 @@ export default function PelatihTab({
 
                   {/* Right: Chevron */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-400 group-hover:text-cyan-600 font-bold text-sm transition">
-                      ›
-                    </span>
+                    <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
                   </div>
                 </div>
               );
@@ -383,7 +380,7 @@ export default function PelatihTab({
                 onClick={() => setSelectedCoach(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -452,7 +449,7 @@ export default function PelatihTab({
                   rel="noopener noreferrer"
                   className="w-full py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-2 border border-emerald-200 cursor-pointer"
                 >
-                  <span>💬</span> Hubungi via WhatsApp
+                  <MessageCircle size={15} /> Hubungi via WhatsApp
                 </a>
               )}
 

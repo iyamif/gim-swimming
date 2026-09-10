@@ -1,8 +1,35 @@
-"use client";
-
 import React, { useState } from "react";
 import { AdminNotification } from "../types";
 import { broadcastPushNotification } from "../../../lib/api";
+import {
+  Megaphone,
+  RotateCw,
+  ArrowLeft,
+  PenTool,
+  Zap,
+  Globe,
+  Users,
+  GraduationCap,
+  Award,
+  AlertTriangle,
+  CalendarDays,
+  CreditCard,
+  Send,
+  Smartphone,
+  ClipboardList,
+  Trash2,
+  Clock,
+  Search,
+  Inbox,
+  AlertCircle,
+  Copy,
+  ChevronRight,
+  Check,
+  CheckCircle2,
+  Waves,
+  Trophy,
+  Sun,
+} from "lucide-react";
 
 interface PengumumanTabProps {
   sessionUser: string;
@@ -224,13 +251,14 @@ export default function PengumumanTab({
                 className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 hover:bg-white/25 border border-white/25 text-white transition active:scale-95 cursor-pointer"
                 title="Kembali ke Dashboard"
               >
-                <span className="text-lg">←</span>
+                <ArrowLeft size={18} />
               </button>
             )}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
-                  <span>📢</span> Pusat Pengumuman
+                  <Megaphone size={20} className="text-cyan-300" />
+                  <span>Pusat Pengumuman</span>
                 </h1>
                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-300 text-slate-950 shadow-xs">
                   {isAdmin ? "Broadcast Admin" : "Pemberitahuan"}
@@ -248,10 +276,10 @@ export default function PengumumanTab({
             {onRefresh && (
               <button
                 onClick={() => onRefresh()}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white transition cursor-pointer text-sm"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white transition cursor-pointer"
                 title="Muat Ulang"
               >
-                🔄
+                <RotateCw size={15} />
               </button>
             )}
           </div>
@@ -269,8 +297,8 @@ export default function PengumumanTab({
           <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/60 border border-slate-100 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 text-xl shadow-xs">
-                  ✍️
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 shadow-xs">
+                  <PenTool size={18} />
                 </div>
                 <div>
                   <h2 className="text-sm sm:text-base font-black text-slate-900">
@@ -289,8 +317,9 @@ export default function PengumumanTab({
 
             {/* Quick Presets Pills */}
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
-                ⚡ Template Cepat (1-Klik Isi Form)
+              <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap size={13} className="text-amber-500" />
+                <span>Template Cepat (1-Klik Isi Form)</span>
               </label>
               <div className="flex flex-wrap gap-2">
                 {presets.map((preset) => (
@@ -319,10 +348,10 @@ export default function PengumumanTab({
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { id: "all", label: "Semua", icon: "🌐" },
-                      { id: "orangtua", label: "Orang Tua", icon: "👨‍👩‍👧" },
-                      { id: "siswa", label: "Siswa", icon: "🏊" },
-                      { id: "pelatih", label: "Pelatih", icon: "👥" },
+                      { id: "all", label: "Semua", icon: <Globe size={13} /> },
+                      { id: "orangtua", label: "Orang Tua", icon: <Users size={13} /> },
+                      { id: "siswa", label: "Siswa", icon: <GraduationCap size={13} /> },
+                      { id: "pelatih", label: "Pelatih", icon: <Award size={13} /> },
                     ].map((role) => (
                       <button
                         key={role.id}
@@ -334,7 +363,7 @@ export default function PengumumanTab({
                             : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                         }`}
                       >
-                        <span>{role.icon}</span>
+                        {role.icon}
                         <span>{role.label}</span>
                       </button>
                     ))}
@@ -348,10 +377,10 @@ export default function PengumumanTab({
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { id: "announcement", label: "Umum", icon: "📢", color: "blue" },
-                      { id: "urgent", label: "Penting / Urgent", icon: "🚨", color: "rose" },
-                      { id: "schedule", label: "Jadwal", icon: "📅", color: "emerald" },
-                      { id: "finance", label: "Keuangan / SPP", icon: "💳", color: "amber" },
+                      { id: "announcement", label: "Umum", icon: <Megaphone size={12} /> },
+                      { id: "urgent", label: "Penting / Urgent", icon: <AlertTriangle size={12} /> },
+                      { id: "schedule", label: "Jadwal", icon: <CalendarDays size={12} /> },
+                      { id: "finance", label: "Keuangan / SPP", icon: <CreditCard size={12} /> },
                     ].map((cat) => (
                       <button
                         key={cat.id}
@@ -363,7 +392,7 @@ export default function PengumumanTab({
                             : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                         }`}
                       >
-                        <span>{cat.icon}</span>
+                        {cat.icon}
                         <span className="truncate">{cat.label}</span>
                       </button>
                     ))}
@@ -385,7 +414,7 @@ export default function PengumumanTab({
                     maxLength={60}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Contoh: 📢 Pengumuman Libur Latihan Renang"
+                    placeholder="Contoh: Pengumuman Libur Latihan Renang"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-xs text-slate-800 placeholder-slate-400 outline-none transition bg-white"
                   />
                 </div>
@@ -420,11 +449,11 @@ export default function PengumumanTab({
                     onChange={(e) => setTargetUrl(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white outline-none cursor-pointer"
                   >
-                    <option value="/apps">🏠 Halaman Utama (Dashboard Overview)</option>
-                    <option value="/apps?tab=jadwal">📅 Halaman Jadwal Les</option>
-                    <option value="/apps?tab=keuangan">💰 Halaman Keuangan / SPP</option>
-                    <option value="/apps?tab=daftar_hadir">📋 Halaman Daftar Hadir Siswa</option>
-                    <option value="/apps?tab=absensi">⏱️ Halaman Input Presensi</option>
+                    <option value="/apps">Halaman Utama (Dashboard Overview)</option>
+                    <option value="/apps?tab=jadwal">Halaman Jadwal Les</option>
+                    <option value="/apps?tab=keuangan">Halaman Keuangan / SPP</option>
+                    <option value="/apps?tab=daftar_hadir">Halaman Daftar Hadir Siswa</option>
+                    <option value="/apps?tab=absensi">Halaman Input Presensi</option>
                   </select>
                 </div>
 
@@ -438,7 +467,11 @@ export default function PengumumanTab({
                     }`}
                   >
                     <div className="flex items-center gap-2 font-bold">
-                      <span>{feedback.type === "success" ? "✅" : "⚠️"}</span>
+                      {feedback.type === "success" ? (
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                      )}
                       <span>{feedback.text}</span>
                     </div>
                     {feedback.details && (
@@ -458,12 +491,12 @@ export default function PengumumanTab({
                   >
                     {sending ? (
                       <>
-                        <span className="animate-spin text-sm">⏳</span>
+                        <RotateCw size={14} className="animate-spin" />
                         <span>Menyiarkan Notifikasi...</span>
                       </>
                     ) : (
                       <>
-                        <span className="text-base">🚀</span>
+                        <Send size={14} />
                         <span>Siarkan Pengumuman ke Semua HP</span>
                       </>
                     )}
@@ -489,7 +522,8 @@ export default function PengumumanTab({
               <div className="lg:col-span-5 flex flex-col items-center justify-start space-y-3">
                 <div className="w-full text-left">
                   <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>📱</span> Preview Tampilan di HP Siswa
+                    <Smartphone size={14} className="text-cyan-600" />
+                    <span>Preview Tampilan di HP Siswa</span>
                   </label>
                   <p className="text-[10px] text-slate-400">
                     Simulasi notifikasi banner & lockscreen HP penerima
@@ -527,7 +561,7 @@ export default function PengumumanTab({
 
                     <div className="pl-0.5 space-y-0.5">
                       <h4 className="text-xs font-black text-slate-900 leading-snug">
-                        {title.trim() || "Judul Pengumuman 📢"}
+                        {title.trim() || "Judul Pengumuman"}
                       </h4>
                       <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3">
                         {message.trim() ||
@@ -543,7 +577,7 @@ export default function PengumumanTab({
                 </div>
 
                 <p className="text-[10px] text-slate-400 text-center leading-tight">
-                  Tersinkronisasi otomatis ke Android, iOS PWA, dan Web Desktop.
+                  Tampilan notifikasi di atas disesuaikan dengan tema smartphone penerima (iOS/Android)
                 </p>
               </div>
             </div>
@@ -556,8 +590,8 @@ export default function PengumumanTab({
         <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-sm border border-slate-100 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 border border-cyan-100 text-cyan-600 text-xl shadow-xs">
-                📋
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 border border-cyan-100 text-cyan-600 shadow-xs">
+                <ClipboardList size={18} />
               </div>
               <div>
                 <h2 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
@@ -580,9 +614,10 @@ export default function PengumumanTab({
                 onClick={async () => {
                   await onClearAllNotifications();
                 }}
-                className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 transition cursor-pointer border border-slate-200/80 shrink-0 self-start sm:self-auto"
+                className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 transition cursor-pointer border border-slate-200/80 shrink-0 self-start sm:self-auto flex items-center gap-1.5"
               >
-                🗑️ Bersihkan Semua
+                <Trash2 size={13} />
+                <span>Bersihkan Semua</span>
               </button>
             )}
           </div>
@@ -592,11 +627,11 @@ export default function PengumumanTab({
             {/* Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
               {[
-                { id: "all", label: "Semua", icon: "🌐", count: notifications.length },
+                { id: "all", label: "Semua", icon: <Globe size={13} />, count: notifications.length },
                 {
                   id: "announcement",
                   label: "Pengumuman",
-                  icon: "📢",
+                  icon: <Megaphone size={13} />,
                   count: notifications.filter(
                     (n) =>
                       n.type?.includes("announcement") ||
@@ -606,7 +641,7 @@ export default function PengumumanTab({
                 {
                   id: "schedule",
                   label: "Jadwal",
-                  icon: "📅",
+                  icon: <CalendarDays size={13} />,
                   count: notifications.filter(
                     (n) =>
                       n.type?.includes("schedule") ||
@@ -616,7 +651,7 @@ export default function PengumumanTab({
                 {
                   id: "system",
                   label: "Presensi / Sistem",
-                  icon: "⏱️",
+                  icon: <Clock size={13} />,
                   count: notifications.filter(
                     (n) =>
                       n.type?.includes("attendance") || n.type?.includes("system")
@@ -632,7 +667,7 @@ export default function PengumumanTab({
                       : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
                   }`}
                 >
-                  <span>{f.icon}</span>
+                  {f.icon}
                   <span>{f.label}</span>
                   {f.count > 0 && (
                     <span
@@ -651,9 +686,7 @@ export default function PengumumanTab({
 
             {/* Keyword Search */}
             <div className="relative min-w-[200px]">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                🔍
-              </span>
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
@@ -667,8 +700,8 @@ export default function PengumumanTab({
           {/* List of Announcements & Notifications */}
           <div className="space-y-3">
             {filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-2">
-                <span className="text-3xl">📭</span>
+              <div className="p-8 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-2 flex flex-col items-center justify-center">
+                <Inbox size={32} className="text-slate-300 mx-auto mb-1" />
                 <p className="text-xs font-bold text-slate-600">
                   {searchQuery
                     ? "Tidak ada pengumuman yang sesuai dengan kata kunci."
@@ -691,15 +724,25 @@ export default function PengumumanTab({
                   notif.title?.toLowerCase().includes("urgent") ||
                   notif.title?.toLowerCase().includes("penting");
 
-                const icon = isUrgent
-                  ? "🚨"
+                const IconComponent = isUrgent
+                  ? AlertTriangle
                   : isSchedule
-                  ? "📅"
+                  ? CalendarDays
                   : isLate
-                  ? "⚠️"
+                  ? AlertCircle
                   : notif.type?.includes("attendance")
-                  ? "⏱️"
-                  : "📢";
+                  ? Clock
+                  : Megaphone;
+
+                const iconColor = isUrgent
+                  ? "text-rose-600"
+                  : isSchedule
+                  ? "text-emerald-600"
+                  : isLate
+                  ? "text-amber-600"
+                  : notif.type?.includes("attendance")
+                  ? "text-cyan-600"
+                  : "text-blue-600";
 
                 return (
                   <div
@@ -715,8 +758,8 @@ export default function PengumumanTab({
                     }`}
                   >
                     <div className="flex items-start gap-3.5 flex-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white border border-slate-100 text-xl shadow-xs">
-                        {icon}
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white border border-slate-100 shadow-xs ${iconColor}`}>
+                        <IconComponent size={18} />
                       </div>
 
                       <div className="space-y-1.5 flex-1 min-w-0">
@@ -768,10 +811,11 @@ export default function PengumumanTab({
                             setMessage(notif.message);
                             window.scrollTo({ top: 0, behavior: "smooth" });
                           }}
-                          className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer border border-slate-200 active:scale-95"
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer border border-slate-200 active:scale-95 flex items-center gap-1"
                           title="Salin ke Form Buat Pengumuman"
                         >
-                          📋 Gunakan Teks
+                          <Copy size={11} />
+                          <span>Gunakan Teks</span>
                         </button>
                       )}
 
@@ -783,19 +827,21 @@ export default function PengumumanTab({
                             }
                             setActiveTab("jadwal");
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95"
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95 flex items-center gap-1"
                         >
-                          Buka Jadwal →
+                          <span>Buka Jadwal</span>
+                          <ChevronRight size={13} />
                         </button>
                       )}
 
                       {!notif.is_read && onMarkNotificationRead && (
                         <button
                           onClick={() => onMarkNotificationRead(notif.id)}
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95 shadow-2xs"
+                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1"
                           title="Tandai Sudah Dibaca"
                         >
-                          ✓ Dibaca
+                          <Check size={12} />
+                          <span>Dibaca</span>
                         </button>
                       )}
                     </div>

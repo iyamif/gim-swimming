@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const activities = [
   {
@@ -152,16 +153,7 @@ export default function HeroCarousel() {
         className="absolute left-4 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#061827]/40 text-white backdrop-blur-md transition hover:bg-cyan-400 hover:text-[#061827] hover:border-cyan-400 opacity-0 group-hover:opacity-100 focus:opacity-100 z-10"
         aria-label="Previous Slide"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2.5}
-          stroke="currentColor"
-          className="h-4 w-4"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-        </svg>
+        <ChevronLeft className="h-4 w-4" />
       </button>
 
       {/* Right Arrow Button */}
@@ -170,16 +162,7 @@ export default function HeroCarousel() {
         className="absolute right-4 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#061827]/40 text-white backdrop-blur-md transition hover:bg-cyan-400 hover:text-[#061827] hover:border-cyan-400 opacity-0 group-hover:opacity-100 focus:opacity-100 z-10"
         aria-label="Next Slide"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2.5}
-          stroke="currentColor"
-          className="h-4 w-4"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-        </svg>
+        <ChevronRight className="h-4 w-4" />
       </button>
 
       {/* Indicators / Dots */}

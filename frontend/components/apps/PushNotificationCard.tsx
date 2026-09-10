@@ -7,6 +7,21 @@ import {
   isPushNotificationSupported,
   isAppBadgeSupported,
 } from "../../lib/pushNotifications";
+import {
+  Bell,
+  Clock,
+  Zap,
+  Sparkles,
+  RotateCw,
+  RefreshCw,
+  Send,
+  Smartphone,
+  Info,
+  ChevronUp,
+  ChevronDown,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 
 interface PushNotificationCardProps {
   sessionUser: string;
@@ -66,18 +81,18 @@ export default function PushNotificationCard({
       if (res.success) {
         setStatusMessage({
           type: "success",
-          text: "✅ Notifikasi HP berhasil diaktifkan! Perangkat Anda kini siap menerima notifikasi saat aplikasi ditutup.",
+          text: "Notifikasi HP berhasil diaktifkan! Perangkat Anda kini siap menerima notifikasi saat aplikasi ditutup.",
         });
       } else {
         setStatusMessage({
           type: "error",
-          text: `⚠️ ${res.error || "Gagal mengaktifkan notifikasi push."}`,
+          text: res.error || "Gagal mengaktifkan notifikasi push.",
         });
       }
     } catch (err: any) {
       setStatusMessage({
         type: "error",
-        text: `⚠️ Terjadi kesalahan: ${err.message || "Gagal menghubungkan push notification"}`,
+        text: `Terjadi kesalahan: ${err.message || "Gagal menghubungkan push notification"}`,
       });
     } finally {
       setIsSubscribing(false);
@@ -124,7 +139,7 @@ export default function PushNotificationCard({
           if (res.success) {
             setStatusMessage({
               type: "success",
-              text: "🚀 Notifikasi tes berhasil dikirim dari server! Jika aplikasi ditutup, notifikasi akan langsung muncul di bar notifikasi & lockscreen HP Anda.",
+              text: "Notifikasi tes berhasil dikirim dari server! Jika aplikasi ditutup, notifikasi akan langsung muncul di bar notifikasi & lockscreen HP Anda.",
             });
           } else {
             let errorText = res.message || "Gagal mengirim tes push.";
@@ -133,7 +148,7 @@ export default function PushNotificationCard({
             }
             setStatusMessage({
               type: "error",
-              text: `⚠️ ${errorText}`,
+              text: errorText,
             });
           }
         } catch (err: any) {
@@ -143,7 +158,7 @@ export default function PushNotificationCard({
           }
           setStatusMessage({
             type: "error",
-            text: `⚠️ ${errText}`,
+            text: errText,
           });
         } finally {
           setTimeout(() => setCountdown(null), 1500);
@@ -167,8 +182,8 @@ export default function PushNotificationCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-3 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white text-xl shadow-md shadow-indigo-600/20">
-            🔔
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
+            <Bell size={20} />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -197,12 +212,12 @@ export default function PushNotificationCard({
             }`}
         >
           {isGranted
-            ? "🟢 Aktif (Siap)"
+            ? "Aktif (Siap)"
             : isDenied
-              ? "🔴 Diblokir"
+              ? "Diblokir"
               : isUnsupported
-                ? "⚪ Tidak Didukung"
-                : "🟡 Belum Diaktifkan"}
+                ? "Tidak Didukung"
+                : "Belum Diaktifkan"}
         </span>
       </div>
 
@@ -211,14 +226,15 @@ export default function PushNotificationCard({
         <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg space-y-2 animate-fadeIn relative z-10">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black uppercase tracking-wider text-cyan-200 flex items-center gap-1.5">
-              <span>⏱️</span> Hitung Mundur Pengujian Notifikasi
+              <Clock size={14} className="text-cyan-200" />
+              <span>Hitung Mundur Pengujian Notifikasi</span>
             </span>
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-blue-700 font-black text-sm shadow-md animate-bounce">
               {countdown}
             </span>
           </div>
           <p className="text-xs font-bold leading-relaxed text-cyan-50">
-            👉 <strong>Segera TUTUP / MINIMIZE aplikasi atau KUNCI layar HP Anda sekarang!</strong> Dalam{" "}
+            Segera <strong>TUTUP / MINIMIZE aplikasi atau KUNCI layar HP Anda sekarang!</strong> Dalam{" "}
             {countdown} detik, notifikasi akan dikirim dari server untuk menguji penerimaan di latar belakang.
           </p>
         </div>
@@ -228,11 +244,11 @@ export default function PushNotificationCard({
       {!compact && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 relative z-10">
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/80 border border-slate-100 shadow-2xs">
-            <span>⚡</span>
+            <Zap size={14} className="text-indigo-500 shrink-0" />
             <span>Notifikasi instan jadwal baru &amp; perubahan sesi</span>
           </div>
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/80 border border-slate-100 shadow-2xs">
-            <span>🔴</span>
+            <Sparkles size={14} className="text-indigo-500 shrink-0" />
             <span>Badge count angka di ikon aplikasi HP</span>
           </div>
         </div>
@@ -249,12 +265,12 @@ export default function PushNotificationCard({
           >
             {isSubscribing ? (
               <>
-                <span className="animate-spin inline-block">🔄</span>
+                <RotateCw size={14} className="animate-spin" />
                 <span>Menghubungkan ke Server...</span>
               </>
             ) : (
               <>
-                <span>🔔</span>
+                <Bell size={14} />
                 <span>Aktifkan Notifikasi di HP Ini (1-Klik)</span>
               </>
             )}
@@ -269,7 +285,7 @@ export default function PushNotificationCard({
             className="py-2.5 px-3 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             title="Perbarui pendaftaran push token jika berganti perangkat"
           >
-
+            <RefreshCw size={13} className="text-slate-500" />
             <span>Sinkronkan Ulang</span>
           </button>
         )}
@@ -280,7 +296,7 @@ export default function PushNotificationCard({
           onClick={startTestCountdown}
           className="flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md shadow-indigo-600/20 transition cursor-pointer flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
         >
-          <span>📲</span>
+          <Smartphone size={14} />
           <span>
             {countdown !== null ? `Mengirim dalam ${countdown}s...` : "Uji Notifikasi (Hitung Mundur 5 Detik)"}
           </span>
@@ -290,14 +306,21 @@ export default function PushNotificationCard({
       {/* Live Status Message Alert */}
       {statusMessage && (
         <div
-          className={`p-3 rounded-2xl text-xs font-bold relative z-10 animate-fadeIn ${statusMessage.type === "success"
+          className={`p-3 rounded-2xl text-xs font-bold relative z-10 animate-fadeIn flex items-start gap-2 ${statusMessage.type === "success"
             ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
             : statusMessage.type === "error"
               ? "bg-rose-50 text-rose-800 border border-rose-200"
               : "bg-blue-50 text-blue-800 border border-blue-200"
             }`}
         >
-          {statusMessage.text}
+          {statusMessage.type === "success" ? (
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+          ) : statusMessage.type === "error" ? (
+            <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+          ) : (
+            <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
+          )}
+          <span>{statusMessage.text}</span>
         </div>
       )}
 
@@ -309,16 +332,16 @@ export default function PushNotificationCard({
           className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 flex items-center justify-between w-full cursor-pointer py-1"
         >
           <span className="flex items-center gap-1.5">
-
+            <Info size={13} className="text-indigo-600" />
             <span>Tips agar notifikasi tidak tertunda oleh sistem Android / iOS</span>
           </span>
-          <span>{showTips ? "▲ Sembunyikan" : "▼ Lihat Tips"}</span>
+          <span>{showTips ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
         </button>
 
         {showTips && (
           <div className="mt-2.5 p-3.5 rounded-2xl bg-white/90 border border-indigo-100 text-[11px] text-slate-700 space-y-2.5 animate-fadeIn leading-relaxed">
             <div>
-              <strong className="text-slate-900 block mb-0.5">📱 Pengguna Android (Chrome / Samsung Internet):</strong>
+              <strong className="text-slate-900 block mb-0.5">Pengguna Android (Chrome / Samsung Internet):</strong>
               <ul className="list-disc pl-4 space-y-1 text-slate-600">
                 <li>
                   Buka <em>Pengaturan HP &gt; Aplikasi &gt; Chrome (atau GIM Swimming) &gt; Notifikasi &gt; Izinkan</em>.
@@ -330,7 +353,7 @@ export default function PushNotificationCard({
             </div>
 
             <div>
-              <strong className="text-slate-900 block mb-0.5">🍏 Pengguna iPhone / iPad (iOS 16.4+):</strong>
+              <strong className="text-slate-900 block mb-0.5">Pengguna iPhone / iPad (iOS 16.4+):</strong>
               <p className="text-slate-600">
                 Web Push di iPhone memerlukan aplikasi ditambahkan ke Home Screen terlebih dahulu. Buka di Safari, ketuk tombol <strong>Share (Bagikan) &gt; Tambah ke Layar Utama (Add to Home Screen)</strong>, lalu buka aplikasi dari ikon layar utama dan izinkan notifikasi.
               </p>

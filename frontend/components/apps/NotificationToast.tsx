@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { AdminNotification } from "./types";
+import {
+  Calendar,
+  AlertTriangle,
+  Clock,
+  Bell,
+  ArrowRight,
+  X,
+} from "lucide-react";
 
 interface NotificationToastProps {
   notification: AdminNotification | null;
@@ -68,7 +76,7 @@ export default function NotificationToast({
     notification.title?.toLowerCase().includes("hadir") ||
     notification.title?.toLowerCase().includes("absen");
 
-  const icon = isSchedule ? "📅" : isLate ? "⚠️" : isAttendance ? "⏱️" : "🔔";
+  const IconComponent = isSchedule ? Calendar : isLate ? AlertTriangle : isAttendance ? Clock : Bell;
   const accentColor = isSchedule
     ? "from-emerald-500 to-teal-600 border-emerald-400/40 text-emerald-400"
     : isLate
@@ -96,9 +104,9 @@ export default function NotificationToast({
         <div className="flex items-start gap-3 relative z-10">
           {/* Pulsing Icon Bubble */}
           <div
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr ${accentColor} text-xl shadow-md border ring-4 ring-white/10`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr ${accentColor} shadow-md border ring-4 ring-white/10`}
           >
-            <span>{icon}</span>
+            <IconComponent size={20} className="text-white" />
           </div>
 
           {/* Content */}
@@ -124,10 +132,10 @@ export default function NotificationToast({
               <button
                 type="button"
                 onClick={handleClick}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-[11px] font-bold text-slate-950 transition cursor-pointer shadow-sm shadow-cyan-500/25"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-[11px] font-bold text-slate-950 transition cursor-pointer shadow-sm shadow-cyan-500/25"
               >
                 <span>{isSchedule ? "Lihat Jadwal" : isAttendance ? "Buka Absensi" : "Buka"}</span>
-                <span>→</span>
+                <ArrowRight size={12} />
               </button>
               <button
                 type="button"
@@ -146,7 +154,7 @@ export default function NotificationToast({
             className="text-slate-400 hover:text-white h-7 w-7 rounded-full flex items-center justify-center hover:bg-white/10 transition cursor-pointer shrink-0"
             title="Tutup Notifikasi"
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
 

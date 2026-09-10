@@ -171,21 +171,11 @@ func SeedStudentsAndAttendance(db *sql.DB) {
 		{
 			name:           "Rian",
 			class:          "Prestasi",
-			attendanceRate: "80%",
+			attendanceRate: "100%",
 			parent:         "Bambang",
 			phone:          "081234567891",
 			age:            "10 thn",
 			status:         "Active",
-			logs: []struct {
-				date   string
-				status string
-			}{
-				{date: "24 Aug 2026", status: "Hadir"},
-				{date: "21 Aug 2026", status: "Hadir"},
-				{date: "17 Aug 2026", status: "Hadir"},
-				{date: "14 Aug 2026", status: "Izin"},
-				{date: "10 Aug 2026", status: "Alpa"},
-			},
 		},
 		{
 			name:           "Budi",
@@ -195,29 +185,15 @@ func SeedStudentsAndAttendance(db *sql.DB) {
 			phone:          "081234567892",
 			age:            "7 thn",
 			status:         "Active",
-			logs: []struct {
-				date   string
-				status string
-			}{
-				{date: "24 Aug 2026", status: "Hadir"},
-				{date: "21 Aug 2026", status: "Hadir"},
-			},
 		},
 		{
 			name:           "Siti",
 			class:          "Private Class",
-			attendanceRate: "50%",
+			attendanceRate: "100%",
 			parent:         "Dewi",
 			phone:          "081234567893",
 			age:            "12 thn",
 			status:         "Active",
-			logs: []struct {
-				date   string
-				status string
-			}{
-				{date: "24 Aug 2026", status: "Hadir"},
-				{date: "21 Aug 2026", status: "Sakit"},
-			},
 		},
 	}
 
@@ -235,16 +211,6 @@ func SeedStudentsAndAttendance(db *sql.DB) {
 		}
 
 		log.Printf("Seeded student %s with ID %d", s.name, studentID)
-
-		for _, logItem := range s.logs {
-			_, err := db.Exec(`
-				INSERT INTO attendance_logs (student_id, date, status, created_at)
-				VALUES ($1, $2, $3, NOW());
-			`, studentID, logItem.date, logItem.status)
-			if err != nil {
-				log.Printf("Failed to insert log for student %d: %v", studentID, err)
-			}
-		}
 	}
 }
 

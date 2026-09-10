@@ -1,4 +1,5 @@
 import React from "react";
+import { Share, PlusSquare } from "lucide-react";
 
 interface IOSInstallModalProps {
   isOpen: boolean;
@@ -23,11 +24,22 @@ export default function IOSInstallModal({ isOpen, onClose }: IOSInstallModalProp
           </div>
           <div className="flex items-start gap-3">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">2</span>
-            <p>Ketuk tombol <strong>Bagikan (Share)</strong> <span className="inline-block px-1.5 py-0.5 rounded bg-white border text-sm">📤</span> pada bagian navigasi bawah Safari.</p>
+            <p className="flex items-center gap-1.5 flex-wrap">
+              <span>Ketuk tombol <strong>Bagikan (Share)</strong></span>
+              <span className="inline-flex items-center justify-center p-1 rounded bg-white border border-slate-200 text-blue-500 shadow-2xs">
+                <Share size={13} />
+              </span>
+              <span>pada bagian navigasi bawah Safari.</span>
+            </p>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">3</span>
-            <p>Gulir ke bawah dan ketuk opsi <strong>Tambahkan ke Layar Utama (Add to Home Screen)</strong> <span className="inline-block px-1.5 py-0.5 rounded bg-white border text-sm">➕</span>.</p>
+            <p className="flex items-center gap-1.5 flex-wrap">
+              <span>Gulir ke bawah dan ketuk opsi <strong>Tambahkan ke Layar Utama</strong></span>
+              <span className="inline-flex items-center justify-center p-1 rounded bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                <PlusSquare size={13} />
+              </span>
+            </p>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-[10px] font-black text-cyan-600">4</span>

@@ -1,4 +1,24 @@
 import React, { useState, useRef, useEffect } from "react";
+import {
+  Calendar,
+  CalendarDays,
+  Plus,
+  Search,
+  MapPin,
+  Clock,
+  User,
+  Trash2,
+  Pencil,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  Check,
+  X,
+  Award,
+} from "lucide-react";
 import { ScheduleSession, Student, Coach } from "../types";
 
 const MONTH_NAMES_INDO = [
@@ -327,28 +347,6 @@ export default function JadwalTab({
     return `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
   };
 
-  const getClassTimePresets = (cls: string) => {
-    const c = (cls || "").toLowerCase();
-    if (c.includes("kid") || c.includes("baby")) {
-      return [
-        { label: "Pagi A (08:00 - 08:30)", start: "08:00", end: "08:30" },
-        { label: "Pagi B (09:00 - 09:30)", start: "09:00", end: "09:30" },
-        { label: "Sore A (15:00 - 15:30)", start: "15:00", end: "15:30" },
-        { label: "Sore B (16:00 - 16:30)", start: "16:00", end: "16:30" },
-      ];
-    }
-    if (c.includes("prestasi")) {
-      return [
-        { label: "Sore Prestasi (15:00 - 17:30)", start: "15:00", end: "17:30" },
-      ];
-    }
-    return [
-      { label: "Pagi (08:00 - 09:00)", start: "08:00", end: "09:00" },
-      { label: "Siang (10:00 - 11:00)", start: "10:00", end: "11:00" },
-      { label: "Sore A (15:00 - 16:00)", start: "15:00", end: "16:00" },
-      { label: "Sore B (16:30 - 17:30)", start: "16:30", end: "17:30" },
-    ];
-  };
 
   const validateDurationForClass = (cls: string, start: string, end: string): string | null => {
     if (!start || !end) return "Jam mulai dan jam selesai wajib diisi!";
@@ -820,7 +818,7 @@ export default function JadwalTab({
       <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xl">📅</span>
+            <Calendar size={20} className="text-blue-600" />
             <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
               Manajemen Jadwal Les Renang
             </h2>
@@ -834,7 +832,7 @@ export default function JadwalTab({
           onClick={() => setShowAddModal(true)}
           className="px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2"
         >
-          <span>➕</span>
+          <Plus size={15} />
           <span>Buat Jadwal Baru</span>
         </button>
       </div>
@@ -852,7 +850,9 @@ export default function JadwalTab({
             placeholder="Cari siswa, pelatih, atau tanggal..."
             className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition"
           />
-          <span className="absolute left-3 top-2.5 text-xs text-slate-400">🔍</span>
+          <span className="absolute left-3 top-2.5 text-slate-400 flex items-center">
+            <Search size={14} />
+          </span>
         </div>
 
         {/* Filter by class */}
@@ -862,8 +862,8 @@ export default function JadwalTab({
               key={cls}
               onClick={() => setFilterClass(cls)}
               className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer shrink-0 ${filterClass === cls
-                  ? "bg-cyan-500 text-white shadow-xs"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
+                ? "bg-cyan-500 text-white shadow-xs"
+                : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-100"
                 }`}
             >
               {cls}
@@ -877,16 +877,17 @@ export default function JadwalTab({
           ========================================== */}
       {filteredSchedules.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 shadow-sm space-y-3">
-          <span className="text-4xl">🏊‍♂️</span>
+          <CalendarDays size={40} className="text-slate-300 mx-auto" />
           <h3 className="text-sm font-bold text-slate-700">Belum Ada Jadwal Sesi</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             Tidak ditemukan jadwal renang yang cocok. Klik tombol di bawah untuk membuat jadwal sesi baru.
           </p>
           <button
             onClick={() => setShowAddModal(true)}
-            className="mt-2 px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer"
+            className="mt-2 px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer flex items-center gap-1.5 mx-auto"
           >
-            + Tambah Jadwal Sekarang
+            <Plus size={13} />
+            <span>Tambah Jadwal Sekarang</span>
           </button>
         </div>
       ) : (
@@ -905,21 +906,21 @@ export default function JadwalTab({
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-cyan-50 text-cyan-700 border border-cyan-100">
                       {sch.class}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-400">
-                      📍 {sch.poolArea}
+                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-0.5">
+                      <MapPin size={11} className="text-slate-400" />
+                      <span>{sch.poolArea}</span>
                     </span>
                   </div>
                   <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-1 flex items-center gap-1.5">
                     <span>{sch.title}</span>
-                    <span className="text-blue-500 opacity-0 group-hover:opacity-100 transition text-xs font-bold">
-                      ✏️
-                    </span>
+                    <Pencil size={12} className="text-blue-500 opacity-0 group-hover:opacity-100 transition" />
                   </h4>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="text-xs font-black text-blue-600 block">
-                    ⏰ {sch.timeStart} - {sch.timeEnd} WIB
+                  <span className="text-xs font-black text-blue-600 block flex items-center gap-1 justify-end">
+                    <Clock size={12} className="text-blue-600" />
+                    <span>{sch.timeStart} - {sch.timeEnd} WIB</span>
                   </span>
                   <span className="text-[10px] font-bold text-slate-500">
                     {formatDateIndo(sch.date)}
@@ -931,7 +932,7 @@ export default function JadwalTab({
               <div className="flex items-center justify-between p-2.5 bg-slate-50/80 rounded-2xl border border-slate-100 text-xs">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-xs">
-                    🏊‍♂️
+                    <Award size={16} />
                   </div>
                   <div>
                     <p className="text-[9px] text-slate-400 font-bold uppercase">Pelatih / Instruktur</p>
@@ -947,7 +948,7 @@ export default function JadwalTab({
                     onClick={(e) => e.stopPropagation()}
                     className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
                   >
-                    <span>💬</span> Hubungi
+                    Hubungi
                   </a>
                 )}
               </div>
@@ -963,7 +964,7 @@ export default function JadwalTab({
                       key={idx}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-800 text-[11px] font-semibold"
                     >
-                      <span>👤</span>
+                      <User size={11} className="text-slate-400" />
                       <span>{name}</span>
                     </span>
                   ))}
@@ -986,18 +987,20 @@ export default function JadwalTab({
                       e.stopPropagation();
                       onDeleteSchedule(sch.id);
                     }}
-                    className="px-2.5 py-1 rounded-xl text-red-500 hover:bg-red-50 text-[11px] font-bold transition cursor-pointer"
+                    className="px-2.5 py-1 rounded-xl text-red-500 hover:bg-red-50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
                   >
-                    🗑️ Hapus
+                    <Trash2 size={12} />
+                    <span>Hapus</span>
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleOpenEditModal(sch);
                     }}
-                    className="px-2.5 py-1 rounded-xl text-blue-600 hover:bg-blue-50 text-[11px] font-bold transition cursor-pointer"
+                    className="px-2.5 py-1 rounded-xl text-blue-600 hover:bg-blue-50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
                   >
-                    ✏️ Edit
+                    <Pencil size={12} />
+                    <span>Edit</span>
                   </button>
                 </div>
 
@@ -1008,7 +1011,7 @@ export default function JadwalTab({
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
                 >
-                  <span>⏱️</span>
+                  <Clock size={12} />
                   <span>Mulai Presensi</span>
                 </button>
               </div>
@@ -1041,7 +1044,7 @@ export default function JadwalTab({
                 onClick={() => setEditingSchedule(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -1050,7 +1053,7 @@ export default function JadwalTab({
               {editConflictingSchedule && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs space-y-1.5 animate-fadeIn">
                   <div className="flex items-center gap-2 font-black text-rose-700">
-                    <span className="text-sm">⚠️</span>
+                    <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                     <span>BENTROK JADWAL PELATIH TERDETEKSI!</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-rose-700">
@@ -1075,7 +1078,7 @@ export default function JadwalTab({
                     </label>
                     {isSingleStudentClass(editClass) ? (
                       <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                        1 Siswa (1-on-1)
+
                       </span>
                     ) : (
                       <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
@@ -1099,8 +1102,8 @@ export default function JadwalTab({
                     <label className="block text-xs font-bold text-slate-700 truncate">
                       Lokasi Kolam
                     </label>
-                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
-                      📍 Area
+                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5">
+                      <MapPin size={9} /> Area
                     </span>
                   </div>
                   <select
@@ -1129,7 +1132,7 @@ export default function JadwalTab({
                       {c.name} ({c.spec})
                     </option>
                   ))}
-                  <option value="custom">✏️ Masukkan Pelatih Lainnya / Custom...</option>
+                  <option value="custom">Masukkan Pelatih Lainnya / Custom...</option>
                 </select>
 
                 {editCoachId === "custom" && (
@@ -1160,16 +1163,27 @@ export default function JadwalTab({
                   tabIndex={0}
                   onClick={() => setIsEditCalendarOpen((prev) => !prev)}
                   className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isEditCalendarOpen
-                      ? "border-blue-500 bg-white ring-2 ring-blue-100 shadow-sm"
-                      : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
+                    ? "border-blue-500 bg-white ring-2 ring-blue-100 shadow-sm"
+                    : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-slate-900">
-                      📅 {editDate ? formatFullDateIndo(editDate) : "Pilih Tanggal Latihan"}
+                    <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <Calendar size={14} className="text-blue-600" />
+                      <span>{editDate ? formatFullDateIndo(editDate) : "Pilih Tanggal Latihan"}</span>
                     </span>
-                    <span className="text-[11px] font-bold text-blue-600">
-                      {isEditCalendarOpen ? "▲ Tutup" : "▼ Ubah Tanggal"}
+                    <span className="text-[11px] font-bold text-blue-600 flex items-center gap-0.5">
+                      {isEditCalendarOpen ? (
+                        <>
+                          <ChevronUp size={13} />
+                          <span>Tutup</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={13} />
+                          <span>Ubah Tanggal</span>
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1187,14 +1201,14 @@ export default function JadwalTab({
                           onClick={handlePrevEditCalMonth}
                           className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                         >
-                          ‹
+                          <ChevronLeft size={14} />
                         </button>
                         <button
                           type="button"
                           onClick={handleNextEditCalMonth}
                           className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                         >
-                          ›
+                          <ChevronRight size={14} />
                         </button>
                       </div>
                     </div>
@@ -1240,12 +1254,12 @@ export default function JadwalTab({
                                 setIsEditCalendarOpen(false);
                               }}
                               className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${isPast
-                                  ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
-                                  : isSelected
-                                    ? "bg-blue-600 text-white font-black shadow-sm"
-                                    : isToday
-                                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                      : "hover:bg-slate-100 text-slate-700"
+                                ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
+                                : isSelected
+                                  ? "bg-blue-600 text-white font-black shadow-sm"
+                                  : isToday
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "hover:bg-slate-100 text-slate-700"
                                 }`}
                             >
                               {day}
@@ -1267,10 +1281,11 @@ export default function JadwalTab({
                     Jam Sesi Latihan (WIB)
                   </label>
                   <span
-                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRequiredDurationBadge(editClass).badgeClass
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${getRequiredDurationBadge(editClass).badgeClass
                       }`}
                   >
-                    ⏱️ {getRequiredDurationBadge(editClass).text}
+                    <Clock size={11} />
+                    <span>{getRequiredDurationBadge(editClass).text}</span>
                   </span>
                 </div>
 
@@ -1304,28 +1319,10 @@ export default function JadwalTab({
                 {/* Validation message if duration mismatch */}
                 {validateDurationForClass(editClass, editTimeStart, editTimeEnd) && (
                   <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
-                    <span className="shrink-0 text-xs">⚠️</span>
+                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
                     <span>{validateDurationForClass(editClass, editTimeStart, editTimeEnd)}</span>
                   </div>
                 )}
-
-                {/* Presets */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] font-bold text-slate-400 mr-1">Preset:</span>
-                  {getClassTimePresets(editClass).map((tp) => (
-                    <button
-                      key={tp.label}
-                      type="button"
-                      onClick={() => {
-                        setEditTimeStart(tp.start);
-                        setEditTimeEnd(tp.end);
-                      }}
-                      className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition cursor-pointer"
-                    >
-                      {tp.label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* 5. Student Selection */}
@@ -1359,7 +1356,7 @@ export default function JadwalTab({
                         }}
                         className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
                       >
-                        <span>✓</span>
+                        <Check size={12} />
                         <span>
                           {(() => {
                             const filtered = students.filter((s) => {
@@ -1409,8 +1406,8 @@ export default function JadwalTab({
                         <label
                           key={student.id}
                           className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
-                              ? "bg-blue-50 border border-blue-300 text-blue-950 font-bold shadow-2xs"
-                              : "hover:bg-white border border-transparent"
+                            ? "bg-blue-50 border border-blue-300 text-blue-950 font-bold shadow-2xs"
+                            : "hover:bg-white border border-transparent"
                             }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -1445,9 +1442,9 @@ export default function JadwalTab({
                     }
                     className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white"
                   >
-                    <option value="Active">🟢 Aktif (Active)</option>
-                    <option value="Completed">🔵 Selesai (Completed)</option>
-                    <option value="Cancelled">🔴 Dibatalkan (Cancelled)</option>
+                    <option value="Active">Aktif </option>
+                    <option value="Completed">Selesai </option>
+                    <option value="Cancelled">Dibatalkan</option>
                   </select>
                 </div>
 
@@ -1476,15 +1473,15 @@ export default function JadwalTab({
                     timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
                   }
                   className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${Boolean(editConflictingSchedule) ||
-                      editSelectedStudentIds.length === 0 ||
-                      !editDate ||
-                      timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
-                      ? "bg-slate-400 cursor-not-allowed opacity-75"
-                      : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-blue-500/25 active:scale-95"
+                    editSelectedStudentIds.length === 0 ||
+                    !editDate ||
+                    timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
+                    ? "bg-slate-400 cursor-not-allowed opacity-75"
+                    : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-blue-500/25 active:scale-95"
                     }`}
                 >
                   {editConflictingSchedule
-                    ? "⚠️ Jadwal Pelatih Bentrok (Sesuaikan Waktu)"
+                    ? "Jadwal Pelatih Bentrok (Sesuaikan Waktu)"
                     : "Simpan Perubahan Jadwal"}
                 </button>
                 <button
@@ -1524,7 +1521,7 @@ export default function JadwalTab({
                 onClick={() => setShowAddModal(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -1533,7 +1530,7 @@ export default function JadwalTab({
               {conflictingSchedules.length > 0 && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs space-y-1.5 animate-fadeIn">
                   <div className="flex items-center gap-2 font-black text-rose-700">
-                    <span className="text-sm">⚠️</span>
+                    <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                     <span>BENTROK JADWAL PELATIH ({conflictingSchedules.length} Sesi Terdeteksi)!</span>
                   </div>
                   <p className="text-[11px] leading-relaxed text-rose-700">
@@ -1558,7 +1555,7 @@ export default function JadwalTab({
                     </label>
                     {isSingleStudentClass(formClass) ? (
                       <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                        1 Siswa (1-on-1)
+                        -
                       </span>
                     ) : (
                       <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
@@ -1582,8 +1579,8 @@ export default function JadwalTab({
                     <label className="block text-xs font-bold text-slate-700 truncate">
                       Lokasi Kolam
                     </label>
-                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
-                      📍 Area
+                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5">
+                      <MapPin size={9} /> Area
                     </span>
                   </div>
                   <select
@@ -1612,7 +1609,7 @@ export default function JadwalTab({
                       {c.name} ({c.spec})
                     </option>
                   ))}
-                  <option value="custom">✏️ Masukkan Pelatih Lainnya / Custom...</option>
+                  <option value="custom">Masukkan Pelatih Lainnya / Custom...</option>
                 </select>
 
                 {formCoachId === "custom" && (
@@ -1654,8 +1651,8 @@ export default function JadwalTab({
                     }
                   }}
                   className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isCalendarOpen
-                      ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
-                      : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
+                    ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
+                    : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
                     }`}
                 >
                   {selectedDates.length === 0 ? (
@@ -1679,7 +1676,7 @@ export default function JadwalTab({
                             }}
                             className="ml-0.5 hover:bg-white/20 rounded-full h-3.5 w-3.5 flex items-center justify-center text-[10px] cursor-pointer"
                           >
-                            ×
+                            <X size={10} />
                           </button>
                         </span>
                       ))}
@@ -1697,7 +1694,7 @@ export default function JadwalTab({
                           onClick={handlePrevCalMonth}
                           className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                         >
-                          ‹
+                          <ChevronLeft size={14} />
                         </button>
                         <h4 className="text-xs font-black text-slate-900 px-1">
                           {MONTH_NAMES_INDO[calMonth]} {calYear}
@@ -1707,7 +1704,7 @@ export default function JadwalTab({
                           onClick={handleNextCalMonth}
                           className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                         >
-                          ›
+                          <ChevronRight size={14} />
                         </button>
                       </div>
 
@@ -1715,17 +1712,19 @@ export default function JadwalTab({
                         <button
                           type="button"
                           onClick={handleAutoAdd12Prestasi}
-                          className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer"
+                          className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1"
                         >
-                          ⚡ 12x (Sen, Rab, Jum)
+                          <Zap size={10} />
+                          <span>12x (Sen, Rab, Jum)</span>
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={handleAutoAdd4Weekly}
-                          className="px-2.5 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-black border border-cyan-200 transition cursor-pointer"
+                          className="px-2.5 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-black border border-cyan-200 transition cursor-pointer flex items-center gap-1"
                         >
-                          ⚡ Paket 4 Pekan Rutin
+                          <Zap size={10} />
+                          <span>Paket 4 Pekan Rutin</span>
                         </button>
                       )}
                     </div>
@@ -1738,10 +1737,10 @@ export default function JadwalTab({
                           <span
                             key={day}
                             className={`text-[10px] font-bold ${isPrestasiHeader
-                                ? "text-blue-700 font-black underline decoration-blue-400"
-                                : idx === 0 || idx === 6
-                                  ? "text-cyan-600"
-                                  : "text-slate-400"
+                              ? "text-blue-700 font-black underline decoration-blue-400"
+                              : idx === 0 || idx === 6
+                                ? "text-cyan-600"
+                                : "text-slate-400"
                               }`}
                           >
                             {day}
@@ -1782,14 +1781,14 @@ export default function JadwalTab({
                               disabled={isPast}
                               onClick={() => handleToggleDate(fullDateStr)}
                               className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${isPast
-                                  ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
-                                  : isSelected
-                                    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
-                                    : isToday
-                                      ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                      : isPrestasiDay
-                                        ? "bg-blue-50/70 hover:bg-blue-100 text-blue-800 border border-blue-200/80 font-black"
-                                        : "hover:bg-slate-100 text-slate-700"
+                                ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
+                                : isSelected
+                                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
+                                  : isToday
+                                    ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                    : isPrestasiDay
+                                      ? "bg-blue-50/70 hover:bg-blue-100 text-blue-800 border border-blue-200/80 font-black"
+                                      : "hover:bg-slate-100 text-slate-700"
                                 }`}
                             >
                               <span>{day}</span>
@@ -1834,10 +1833,11 @@ export default function JadwalTab({
                     Jam Sesi Latihan (WIB)
                   </label>
                   <span
-                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRequiredDurationBadge(formClass).badgeClass
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${getRequiredDurationBadge(formClass).badgeClass
                       }`}
                   >
-                    ⏱️ {getRequiredDurationBadge(formClass).text}
+                    <Clock size={11} />
+                    <span>{getRequiredDurationBadge(formClass).text}</span>
                   </span>
                 </div>
 
@@ -1871,28 +1871,10 @@ export default function JadwalTab({
                 {/* Validation message if duration mismatch */}
                 {validateDurationForClass(formClass, formTimeStart, formTimeEnd) && (
                   <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
-                    <span className="shrink-0 text-xs">⚠️</span>
+                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
                     <span>{validateDurationForClass(formClass, formTimeStart, formTimeEnd)}</span>
                   </div>
                 )}
-
-                {/* Presets */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] font-bold text-slate-400 mr-1">Preset:</span>
-                  {getClassTimePresets(formClass).map((tp) => (
-                    <button
-                      key={tp.label}
-                      type="button"
-                      onClick={() => {
-                        setFormTimeStart(tp.start);
-                        setFormTimeEnd(tp.end);
-                      }}
-                      className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-600 text-[10px] font-bold transition cursor-pointer"
-                    >
-                      {tp.label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* 5. Student Selection */}
@@ -1926,7 +1908,7 @@ export default function JadwalTab({
                         }}
                         className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
                       >
-                        <span>✓</span>
+                        <Check size={11} />
                         <span>
                           {(() => {
                             const filtered = students.filter((s) => {
@@ -1976,8 +1958,8 @@ export default function JadwalTab({
                         <label
                           key={student.id}
                           className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
-                              ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
-                              : "hover:bg-white border border-transparent"
+                            ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
+                            : "hover:bg-white border border-transparent"
                             }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -2019,17 +2001,22 @@ export default function JadwalTab({
                   type="submit"
                   disabled={conflictingSchedules.length > 0 || selectedDates.length === 0}
                   className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedules.length > 0 || selectedDates.length === 0
-                      ? "bg-slate-400 cursor-not-allowed opacity-75"
-                      : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
+                    ? "bg-slate-400 cursor-not-allowed opacity-75"
+                    : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
                     }`}
                 >
-                  {conflictingSchedules.length > 0
-                    ? `⚠️ ${conflictingSchedules.length} Jadwal Bentrok (Perbaiki Waktu)`
-                    : selectedDates.length === 0
-                      ? "Pilih Tanggal Pertemuan Terlebih Dahulu"
-                      : selectedDates.length > 1
-                        ? `Simpan & Tambahkan ${selectedDates.length} Jadwal Sekaligus`
-                        : "Simpan & Tambahkan Jadwal"}
+                  {conflictingSchedules.length > 0 ? (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <AlertTriangle size={14} className="shrink-0" />
+                      <span>{conflictingSchedules.length} Jadwal Bentrok (Perbaiki Waktu)</span>
+                    </span>
+                  ) : selectedDates.length === 0 ? (
+                    "Pilih Tanggal Pertemuan Terlebih Dahulu"
+                  ) : selectedDates.length > 1 ? (
+                    `Simpan`
+                  ) : (
+                    "Simpan & Tambahkan Jadwal"
+                  )}
                 </button>
                 <button
                   type="button"

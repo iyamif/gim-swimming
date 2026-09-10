@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { MessageCircle } from "lucide-react";
 
 export default function FloatingWA() {
   const pathname = usePathname();
@@ -25,8 +26,9 @@ export default function FloatingWA() {
       aria-label="Contact WhatsApp Admin"
     >
       {/* Tooltip / Label */}
-      <span className="absolute right-16 scale-0 bg-slate-900/90 text-white text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition-all duration-300 origin-right group-hover:scale-100 shadow-lg pointer-events-none">
-        Hubungi Kami via WA 💬
+      <span className="absolute right-16 scale-0 bg-slate-900/90 text-white text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition-all duration-300 origin-right group-hover:scale-100 shadow-lg pointer-events-none flex items-center gap-1.5">
+        <span>Hubungi Kami via WA</span>
+        <MessageCircle size={13} className="text-emerald-400" />
       </span>
 
       {/* Pulsing ring animation */}

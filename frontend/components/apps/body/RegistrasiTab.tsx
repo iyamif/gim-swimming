@@ -1,6 +1,13 @@
-"use client";
-
 import React, { useState } from "react";
+import {
+  Lock,
+  AlertCircle,
+  Award,
+  GraduationCap,
+  ClipboardList,
+  Users,
+  Check,
+} from "lucide-react";
 
 interface RegistrasiTabProps {
   onAddStudent: (data: {
@@ -92,8 +99,8 @@ export default function RegistrasiTab({
 
         <div className="max-w-md mx-auto px-4 -mt-8 relative z-10">
           <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-xl shadow-slate-200/50 text-center space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 text-2xl mx-auto border border-amber-100">
-              🔒
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 mx-auto border border-amber-100">
+              <Lock size={22} />
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900">Akses Khusus Admin</h3>
@@ -245,7 +252,7 @@ export default function RegistrasiTab({
         {/* Error Alert */}
         {errorMessage && (
           <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2 animate-fadeIn">
-            <span>⚠️</span>
+            <AlertCircle size={14} className="shrink-0 text-rose-600" />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -270,7 +277,7 @@ export default function RegistrasiTab({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <span>🏊‍♂️</span>
+                <Award size={15} />
                 <span>Pelatih</span>
               </button>
 
@@ -286,7 +293,7 @@ export default function RegistrasiTab({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <span>🎓</span>
+                <GraduationCap size={15} />
                 <span>Siswa</span>
               </button>
             </div>
@@ -565,19 +572,7 @@ export default function RegistrasiTab({
 
               {/* Main Green Check Badge */}
               <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-xl shadow-emerald-500/30">
-                <svg
-                  className="h-10 w-10 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                <Check size={36} className="text-white" strokeWidth={3.5} />
               </div>
             </div>
 
@@ -608,7 +603,7 @@ export default function RegistrasiTab({
                   }}
                   className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>📋</span>
+                  <ClipboardList size={15} />
                   <span>Buka Daftar Siswa</span>
                 </button>
               ) : (
@@ -620,7 +615,7 @@ export default function RegistrasiTab({
                   }}
                   className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>👥</span>
+                  <Users size={15} />
                   <span>Buka Daftar Pelatih</span>
                 </button>
               )}

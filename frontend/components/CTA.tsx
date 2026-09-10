@@ -1,3 +1,5 @@
+import { ArrowRight } from "lucide-react";
+
 export default function CTA() {
   return (
     <section className="relative bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 py-12 sm:py-16 overflow-hidden">
@@ -32,9 +34,10 @@ export default function CTA() {
         <div className="shrink-0">
           <a
             href="/pendaftaran"
-            className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-sm font-bold text-cyan-600 shadow-md transition-all duration-300 hover:bg-slate-50 hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-sm font-bold text-cyan-600 shadow-md transition-all duration-300 hover:bg-slate-50 hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
           >
-            Daftar Siswa Baru Sekarang →
+            <span>Daftar Siswa Baru Sekarang</span>
+            <ArrowRight className="h-4 w-4" />
           </a>
         </div>
       </div>

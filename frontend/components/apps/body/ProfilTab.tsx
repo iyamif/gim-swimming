@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect, useRef } from "react";
 import { Student, Coach, ScheduleSession } from "../types";
 import {
@@ -9,6 +7,19 @@ import {
   getAvatarImageUrl,
 } from "../../../lib/api";
 import PushNotificationCard from "../PushNotificationCard";
+import {
+  Camera,
+  Sparkles,
+  AlertTriangle,
+  Smile,
+  X,
+  MessageCircle,
+  Download,
+  LogOut,
+  ChevronRight,
+  Trash2,
+  User,
+} from "lucide-react";
 
 interface ProfilTabProps {
   sessionUser: string;
@@ -286,14 +297,14 @@ export default function ProfilTab({
         {/* Toast / Notification Alert */}
         {saveSuccess && (
           <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md animate-fadeIn">
-            <span>✨</span>
+            <Sparkles size={14} className="text-emerald-600" />
             <span>Foto profil berhasil diperbarui!</span>
           </div>
         )}
 
         {errorMessage && (
           <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md animate-fadeIn">
-            <span>⚠️</span>
+            <AlertTriangle size={14} className="text-rose-600" />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -344,7 +355,7 @@ export default function ProfilTab({
               className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center border-2 border-white shadow-lg cursor-pointer transition active:scale-90"
               title="Pilih Foto dari Galeri"
             >
-              📷
+              <Camera size={14} />
             </button>
           </div>
 
@@ -357,22 +368,23 @@ export default function ProfilTab({
               {isAdmin
                 ? "Administrator Utama - GIM Swimming"
                 : isCoach
-                ? "Senior Coach - Level 3"
-                : "Wali Murid - GIM Swimming"}
+                  ? "Senior Coach - Level 3"
+                  : "Wali Murid - GIM Swimming"}
             </p>
 
             {/* Instagram-style Gesture Guidance Pill */}
             <div className="pt-2 flex items-center justify-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100/90 text-slate-600 border border-slate-200/60">
-                <span>👆</span> Ketuk untuk ganti foto • Tahan untuk melihat
+                <Camera size={12} className="text-slate-500" />
+                <span>Ketuk untuk ganti foto • Tahan untuk melihat</span>
               </span>
 
               <button
                 type="button"
                 onClick={() => setShowEmojiDrawer((prev) => !prev)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200/80 transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200/80 transition cursor-pointer"
               >
-                <span>🎭</span>
+                <Smile size={12} />
                 <span>Pilih Karakter Emoji</span>
               </button>
             </div>
@@ -386,14 +398,16 @@ export default function ProfilTab({
           <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                <span>🎭</span> Pilih Karakter Emoji Avatar
+                <Smile size={14} className="text-cyan-600" />
+                <span>Pilih Karakter Emoji Avatar</span>
               </h4>
               <button
                 type="button"
                 onClick={() => setShowEmojiDrawer(false)}
-                className="text-xs text-slate-400 hover:text-slate-600 font-bold"
+                className="text-xs text-slate-400 hover:text-slate-600 font-bold flex items-center gap-1 cursor-pointer"
               >
-                Tutup ✕
+                <span>Tutup</span>
+                <X size={14} />
               </button>
             </div>
 
@@ -403,11 +417,10 @@ export default function ProfilTab({
                   key={emoji}
                   type="button"
                   onClick={() => handleSelectPreset(emoji)}
-                  className={`flex h-11 items-center justify-center rounded-2xl text-xl transition-all duration-150 cursor-pointer border ${
-                    previewAvatar === emoji && !isCustomImage
+                  className={`flex h-11 items-center justify-center rounded-2xl text-xl transition-all duration-150 cursor-pointer border ${previewAvatar === emoji && !isCustomImage
                       ? "bg-blue-50 border-blue-500 ring-2 ring-blue-400/30 scale-105"
                       : "bg-slate-50 hover:bg-slate-100 border-slate-200/80"
-                  }`}
+                    }`}
                 >
                   {emoji}
                 </button>
@@ -496,9 +509,10 @@ export default function ProfilTab({
               className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
             >
               <span className="flex items-center gap-2">
-                <span>💬</span> Hubungi Dukungan Teknis GIM
+                <MessageCircle size={15} className="text-emerald-600" />
+                <span>Hubungi Dukungan Teknis GIM</span>
               </span>
-              <span>›</span>
+              <ChevronRight size={15} className="text-slate-400" />
             </a>
 
             {showInstallBtn && onInstallClick && (
@@ -508,9 +522,10 @@ export default function ProfilTab({
                 className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  <span>📥</span> Pasang Aplikasi (Install PWA)
+                  <Download size={15} className="text-cyan-600" />
+                  <span>Pasang Aplikasi (Install PWA)</span>
                 </span>
-                <span>›</span>
+                <ChevronRight size={15} className="text-slate-400" />
               </button>
             )}
 
@@ -520,7 +535,8 @@ export default function ProfilTab({
                 onClick={onLogout}
                 className="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-100 flex items-center justify-center gap-2 mt-2"
               >
-                <span>🚪</span> Keluar dari Akun ({sessionUser})
+                <LogOut size={14} />
+                <span>Keluar dari Akun ({sessionUser})</span>
               </button>
             )}
           </div>
@@ -543,10 +559,10 @@ export default function ProfilTab({
             {/* Close Button Top Right */}
             <button
               onClick={() => setIsViewingFullPhoto(false)}
-              className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition cursor-pointer text-sm"
+              className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition cursor-pointer"
               title="Tutup"
             >
-              ✕
+              <X size={16} />
             </button>
 
             {/* User Title */}
@@ -593,7 +609,7 @@ export default function ProfilTab({
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>📷</span>
+                <Camera size={14} />
                 <span>Ganti Foto dari Galeri</span>
               </button>
 
@@ -605,7 +621,7 @@ export default function ProfilTab({
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 border border-white/10 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>🎭</span>
+                <Smile size={14} />
                 <span>Pilih Karakter Emoji</span>
               </button>
 
@@ -618,7 +634,7 @@ export default function ProfilTab({
                   }}
                   className="w-full py-2 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>🗑️</span>
+                  <Trash2 size={14} />
                   <span>Hapus Foto Profil</span>
                 </button>
               )}

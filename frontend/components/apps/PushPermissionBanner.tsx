@@ -5,6 +5,7 @@ import {
   subscribeToPushNotifications,
   isPushNotificationSupported,
 } from "../../lib/pushNotifications";
+import { Bell, RotateCw } from "lucide-react";
 
 interface PushPermissionBannerProps {
   sessionUser: string;
@@ -61,8 +62,8 @@ export default function PushPermissionBanner({
   return (
     <div className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 p-3.5 sm:p-4 text-white shadow-md shadow-blue-500/15 border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn relative z-20">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white text-base shadow-2xs border border-white/30">
-          🔔
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white shadow-2xs border border-white/30">
+          <Bell size={18} />
         </div>
         <div>
           <div className="flex items-center gap-2">
@@ -96,12 +97,12 @@ export default function PushPermissionBanner({
         >
           {isSubscribing ? (
             <>
-              <span className="animate-spin inline-block">🔄</span>
+              <RotateCw size={12} className="animate-spin" />
               <span>Mengaktifkan...</span>
             </>
           ) : (
             <>
-              <span>🔔</span>
+              <Bell size={12} />
               <span>Aktifkan Sekarang</span>
             </>
           )}

@@ -1,3 +1,5 @@
+import { Check, ArrowRight } from "lucide-react";
+
 const programs = [
   {
     title: "Baby Swimming",
@@ -113,16 +115,7 @@ export default function Programs() {
               <ul className="space-y-4 mb-8">
                 {program.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={3}
-                      stroke="currentColor"
-                      className="h-4.5 w-4.5 text-emerald-500 flex-shrink-0 mt-0.5"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
+                    <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span className="text-sm font-medium text-slate-600">{feature}</span>
                   </li>
                 ))}
@@ -131,12 +124,13 @@ export default function Programs() {
               {/* Action Button */}
               <a
                 href={`/pendaftaran?program=${encodeURIComponent(program.pendaftaranParam)}`}
-                className={`block w-full py-3 rounded-full text-center text-sm font-bold transition ${program.popular
+                className={`inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-center text-sm font-bold transition ${program.popular
                   ? "bg-cyan-400 text-white hover:bg-cyan-300 shadow-md hover:shadow-lg"
                   : "border border-cyan-400 bg-white text-cyan-500 hover:bg-cyan-50"
                   }`}
               >
-                Pilih Paket & Daftar →
+                <span>Pilih Paket & Daftar</span>
+                <ArrowRight className="h-4 w-4" />
               </a>
             </div>
           ))}

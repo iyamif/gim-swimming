@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import HeroCarousel from "./HeroCarousel";
 
 export default function Hero() {
@@ -26,9 +27,10 @@ export default function Hero() {
           <div className="mt-5 lg:mt-9 flex flex-col gap-3 sm:flex-row">
             <a
               href="/pendaftaran"
-              className="rounded-full bg-cyan-400 px-7 py-3.5 text-center font-bold text-white transition hover:bg-cyan-300 shadow-md hover:shadow-lg"
+              className="inline-flex items-center justify-center rounded-full bg-cyan-400 px-7 py-3.5 text-center font-bold text-white transition hover:bg-cyan-300 shadow-md hover:shadow-lg gap-2"
             >
-              Daftar Siswa Baru →
+              <span>Daftar Siswa Baru</span>
+              <ArrowRight className="h-4 w-4" />
             </a>
 
             <a

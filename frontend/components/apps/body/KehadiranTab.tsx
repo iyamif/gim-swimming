@@ -2,6 +2,17 @@
 
 import React, { useState, useMemo } from "react";
 import { ScheduleSession, Coach, AttendanceRecord } from "../types";
+import {
+  CalendarDays,
+  Calendar,
+  ClipboardList,
+  Search,
+  Clock,
+  MapPin,
+  User,
+  FileText,
+  AlertCircle,
+} from "lucide-react";
 
 interface KehadiranTabProps {
   schedules?: ScheduleSession[];
@@ -156,7 +167,7 @@ export default function KehadiranTab({
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>📅</span>
+              <CalendarDays size={14} className={activeSubTab === "jadwal" ? "text-blue-600" : "text-slate-500"} />
               <span>Jadwal ({filteredSchedules.length})</span>
             </button>
             <button
@@ -167,16 +178,14 @@ export default function KehadiranTab({
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>📋</span>
+              <ClipboardList size={14} className={activeSubTab === "history" ? "text-cyan-600" : "text-slate-500"} />
               <span>Riwayat ({coachAttendanceHistory.length})</span>
             </button>
           </div>
 
           {/* Search Box */}
           <div className="relative w-full sm:max-w-xs">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-              🔍
-            </span>
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
@@ -191,8 +200,10 @@ export default function KehadiranTab({
         {activeSubTab === "jadwal" && (
           <div className="space-y-3">
             {filteredSchedules.length === 0 ? (
-              <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-1.5">
-                <span className="text-3xl">📅</span>
+              <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-1.5 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 mb-1">
+                  <CalendarDays size={24} />
+                </div>
                 <p className="text-xs font-bold text-slate-700">Belum Ada Jadwal</p>
                 <p className="text-[11px] text-slate-400">
                   Tidak ada sesi latihan yang terdaftar untuk pelatih ini.
@@ -231,15 +242,22 @@ export default function KehadiranTab({
                       </div>
 
                       <div className="flex items-center gap-1.5 text-xs">
-                        <span className="px-3 py-1 rounded-xl bg-slate-100 font-mono font-bold text-slate-800">
-                          ⏰ {sched.timeStart} - {sched.timeEnd} WIB
+                        <span className="px-3 py-1 rounded-xl bg-slate-100 font-mono font-bold text-slate-800 flex items-center gap-1.5">
+                          <Clock size={12} className="text-slate-500" />
+                          <span>{sched.timeStart} - {sched.timeEnd} WIB</span>
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-slate-100">
-                      <span>📍 {sched.poolArea}</span>
-                      <span>🗓️ {sched.date || "Setiap Pekan"}</span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={12} className="text-slate-400" />
+                        <span>{sched.poolArea}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} className="text-slate-400" />
+                        <span>{sched.date || "Setiap Pekan"}</span>
+                      </span>
                     </div>
 
                     {studentList.length > 0 && (
@@ -248,9 +266,10 @@ export default function KehadiranTab({
                         {studentList.map((st, i) => (
                           <span
                             key={i}
-                            className="px-2.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700 font-medium"
+                            className="px-2.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700 font-medium flex items-center gap-1"
                           >
-                            👤 {st}
+                            <User size={11} className="text-slate-400" />
+                            <span>{st}</span>
                           </span>
                         ))}
                       </div>
@@ -259,7 +278,7 @@ export default function KehadiranTab({
                     {sched.notes && (
                       <div className="text-xs text-slate-700 bg-emerald-50/80 p-3 rounded-2xl border border-emerald-200/80 space-y-1">
                         <p className="font-bold text-emerald-900 flex items-center gap-1.5 text-[11px]">
-                          <span>📝</span>
+                          <FileText size={13} className="text-emerald-700" />
                           <span>Catatan Perkembangan Siswa &amp; Evaluasi Sesi:</span>
                         </p>
                         <p className="text-slate-700 whitespace-pre-line leading-relaxed pl-5 font-medium text-xs">
@@ -278,8 +297,10 @@ export default function KehadiranTab({
         {activeSubTab === "history" && (
           <div className="space-y-3">
             {coachAttendanceHistory.length === 0 ? (
-              <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-1.5">
-                <span className="text-3xl">📋</span>
+              <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-1.5 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-50 flex items-center justify-center text-cyan-600 mb-1">
+                  <ClipboardList size={24} />
+                </div>
                 <p className="text-xs font-bold text-slate-700">Belum Ada Riwayat</p>
                 <p className="text-[11px] text-slate-400">
                   Belum ada catatan riwayat latihan yang tersimpan.
@@ -336,14 +357,17 @@ export default function KehadiranTab({
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-slate-100">
-                      <span>📍 {att.pool_area || "Kolam Renang"}</span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={12} className="text-slate-400" />
+                        <span>{att.pool_area || "Kolam Renang"}</span>
+                      </span>
                       <span className="text-[11px] text-slate-400">Jarak GPS: {att.distance_km || 0.01} km</span>
                     </div>
 
                     {att.notes && (
                       <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1">
                         <p className="font-bold text-slate-800 flex items-center gap-1.5 text-[11px]">
-                          <span>📝</span>
+                          <FileText size={13} className="text-slate-600" />
                           <span>Catatan Evaluasi / Perkembangan Siswa:</span>
                         </p>
                         <p className="text-slate-600 whitespace-pre-line leading-relaxed pl-5 font-medium">
@@ -353,8 +377,9 @@ export default function KehadiranTab({
                     )}
 
                     {att.late_reason && (
-                      <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-2xl border border-amber-100">
-                        <strong>Alasan Terlambat:</strong> {att.late_reason}
+                      <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-2xl border border-amber-100 flex items-center gap-1.5">
+                        <AlertCircle size={13} className="text-amber-600 shrink-0" />
+                        <span><strong>Alasan Terlambat:</strong> {att.late_reason}</span>
                       </p>
                     )}
                   </div>

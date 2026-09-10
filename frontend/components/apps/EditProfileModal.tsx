@@ -8,6 +8,20 @@ import {
   getAvatarImageUrl,
 } from "../../lib/api";
 import PushNotificationCard from "./PushNotificationCard";
+import {
+  User,
+  X,
+  Camera,
+  Image as ImageIcon,
+  Upload,
+  AlertTriangle,
+  CheckCircle2,
+  RotateCw,
+  MessageCircle,
+  Download,
+  LogOut,
+  ChevronRight,
+} from "lucide-react";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -239,8 +253,10 @@ export default function EditProfileModal({
       <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">👤</span>
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600">
+              <User size={18} />
+            </div>
             <div>
               <h3 className="text-base font-black text-slate-900">
                 {isAdmin ? "Profil Administrator" : isCoach ? "Profil Pelatih" : "Profil Siswa / Wali Murid"}
@@ -254,7 +270,7 @@ export default function EditProfileModal({
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
@@ -282,7 +298,7 @@ export default function EditProfileModal({
               className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-bold flex items-center justify-center border-2 border-white shadow-md cursor-pointer transition"
               title="Ubah Foto"
             >
-              📷
+              <Camera size={13} />
             </button>
           </div>
 
@@ -307,7 +323,7 @@ export default function EditProfileModal({
             onClick={() => setShowPhotoEditor((prev) => !prev)}
             className="w-full py-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 font-bold text-xs transition cursor-pointer border border-cyan-100 flex items-center justify-center gap-2"
           >
-            <span>📷</span>
+            <Camera size={14} />
             <span>{showPhotoEditor ? "Tutup Editor Foto" : "Ubah Foto & Avatar Profil"}</span>
           </button>
         </div>
@@ -318,7 +334,8 @@ export default function EditProfileModal({
         {showPhotoEditor && (
           <div className="p-4 rounded-3xl bg-slate-50 border border-cyan-200/80 space-y-3.5 animate-fadeIn">
             <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-              <span>🖼️</span> Pilih Foto atau Emoji Avatar
+              <ImageIcon size={14} className="text-cyan-600" />
+              <span>Pilih Foto atau Emoji Avatar</span>
             </h4>
 
             {/* Upload Button */}
@@ -335,7 +352,7 @@ export default function EditProfileModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="flex-1 py-2.5 px-3 rounded-xl bg-white hover:bg-cyan-50 text-cyan-700 border border-cyan-200 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 shadow-2xs"
               >
-                <span>📁</span>
+                <Upload size={14} />
                 <span>Unggah Foto dari Perangkat</span>
               </button>
 
@@ -376,7 +393,7 @@ export default function EditProfileModal({
             {/* Error Alert */}
             {errorMessage && (
               <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-bold flex items-center gap-2">
-                <span>⚠️</span>
+                <AlertTriangle size={14} />
                 <span>{errorMessage}</span>
               </div>
             )}
@@ -384,7 +401,7 @@ export default function EditProfileModal({
             {/* Success Alert */}
             {saveSuccess && (
               <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold flex items-center justify-center gap-2">
-                <span>✅</span>
+                <CheckCircle2 size={14} />
                 <span>Foto profil berhasil disimpan ke database!</span>
               </div>
             )}
@@ -397,7 +414,7 @@ export default function EditProfileModal({
             >
               {isSaving ? (
                 <>
-                  <span className="animate-spin inline-block">🔄</span>
+                  <RotateCw size={14} className="animate-spin" />
                   <span>Menyimpan ke Database...</span>
                 </>
               ) : (
@@ -475,9 +492,10 @@ export default function EditProfileModal({
               className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
             >
               <span className="flex items-center gap-2">
-
+                <MessageCircle size={16} className="text-emerald-500" />
+                <span>Hubungi Dukungan Teknis (WhatsApp)</span>
               </span>
-              <span>›</span>
+              <ChevronRight size={16} className="text-slate-400" />
             </a>
 
             {showInstallBtn && onInstallClick && (
@@ -487,9 +505,10 @@ export default function EditProfileModal({
                 className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  Pasang Aplikasi (Install PWA)
+                  <Download size={16} className="text-cyan-500" />
+                  <span>Pasang Aplikasi (Install PWA)</span>
                 </span>
-                <span>›</span>
+                <ChevronRight size={16} className="text-slate-400" />
               </button>
             )}
 
@@ -502,7 +521,8 @@ export default function EditProfileModal({
                 }}
                 className="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-100 flex items-center justify-center gap-2 mt-2"
               >
-                <span>🚪</span> Keluar dari Akun ({sessionUser})
+                <LogOut size={14} />
+                <span>Keluar dari Akun ({sessionUser})</span>
               </button>
             )}
           </div>

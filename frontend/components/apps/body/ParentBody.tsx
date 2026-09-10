@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import PushNotificationCard from "../PushNotificationCard";
@@ -9,6 +9,38 @@ import {
   calculateDistanceKm,
   checkAttendanceTimeStatus,
 } from "../../../lib/api";
+import {
+  Home,
+  CalendarDays,
+  Calendar,
+  TrendingUp,
+  User,
+  Camera,
+  Bell,
+  AlertTriangle,
+  AlertCircle,
+  Clock,
+  CreditCard,
+  Copy,
+  Upload,
+  FileText,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  ChevronLeft,
+  ChevronUp,
+  ChevronDown,
+  MessageCircle,
+  Download,
+  LogOut,
+  X,
+  MapPin,
+  RotateCw,
+  Lightbulb,
+  Megaphone,
+  Send,
+  Star,
+} from "lucide-react";
 
 interface ParentBodyProps {
   sessionUser?: string;
@@ -390,28 +422,6 @@ export default function ParentBody({
   const todayFormatted = `${dayNamesFull[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
   const todayStudentSchedules = studentSchedules.filter((s) => s.date === todayISO);
 
-  const lastSession = student?.logs?.[0] || { date: "-", status: "-" };
-  const completedSessionsCount = student?.logs?.length || 0;
-  // Muncul setelah sesi ke-3 dilakukan (completedSessionsCount >= 3) dan jika memang belum lunas
-  const showSPPReminder = completedSessionsCount >= 3 && invoice && invoice.status !== "Lunas";
-
-  // Upcoming scheduled session
-  const upcomingScheduleObj =
-    studentSchedules.find((s) => !s.date || s.date >= todayISO) || studentSchedules[0];
-  const upcomingSession = upcomingScheduleObj
-    ? {
-        title: upcomingScheduleObj.title,
-        class: upcomingScheduleObj.class,
-        time: `${upcomingScheduleObj.timeStart} - ${upcomingScheduleObj.timeEnd} WIB`,
-        poolArea: upcomingScheduleObj.poolArea,
-        coach: {
-          name: upcomingScheduleObj.coachName || coach.name,
-          spec: upcomingScheduleObj.class || coach.spec,
-          phone: upcomingScheduleObj.coachPhone || coach.phone,
-        },
-      }
-    : null;
-
   // Student Attendances from DB
   const studentAttendances = attendances.filter(
     (a) =>
@@ -421,6 +431,97 @@ export default function ParentBody({
         a.person_name?.toLowerCase().includes(student.name.toLowerCase().trim()) ||
         student.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || ""))
   );
+
+  // Computed real session history from admin schedules & attendances (past and today)
+  const parentStudentHistory = useMemo(() => {
+    const pastAndTodaySchedules = studentSchedules.filter((s) => !s.date || s.date <= todayISO);
+
+    const scheduleItems = pastAndTodaySchedules.map((sch) => {
+      const att = attendances.find((a) => {
+        const isStudentMatch =
+          a.person_type === "student" &&
+          (String(a.person_id) === String(student.id) ||
+            a.person_name?.toLowerCase().trim() === student.name.toLowerCase().trim() ||
+            a.person_name?.toLowerCase().includes(student.name.toLowerCase().trim()) ||
+            student.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || ""));
+
+        const isScheduleMatch =
+          (a.schedule_id && String(a.schedule_id) === String(sch.id)) ||
+          (a.date && sch.date && a.date === sch.date);
+
+        return isStudentMatch && isScheduleMatch;
+      });
+
+      const status = att ? att.status : "Hadir";
+      const isLate = att?.is_late || status === "Terlambat";
+
+      return {
+        id: sch.id,
+        date: sch.date || todayISO,
+        title: sch.title || `${sch.class} Class`,
+        time: sch.timeStart ? `${sch.timeStart} - ${sch.timeEnd} WIB` : "Selesai",
+        poolArea: sch.poolArea || "Kolam Renang",
+        coachName: sch.coachName || coach.name,
+        status: status,
+        isLate: isLate,
+        lateReason: att?.late_reason || "",
+        distance_km: att?.distance_km,
+      };
+    });
+
+    const standalone = studentAttendances
+      .filter(
+        (a) =>
+          !pastAndTodaySchedules.some(
+            (sch) => String(sch.id) === String(a.schedule_id) || sch.date === a.date
+          )
+      )
+      .map((att) => ({
+        id: `att-${att.id}`,
+        date: att.date || todayISO,
+        title: att.schedule_title || att.class || `${student.class} Class`,
+        time:
+          att.time_recorded ||
+          (att.created_at
+            ? `${new Date(att.created_at).toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })} WIB`
+            : "Selesai"),
+        poolArea: att.pool_area || "Kolam Renang",
+        coachName: coach.name,
+        status: att.status || (att.is_late ? "Terlambat" : "Hadir"),
+        isLate: att.is_late || att.status === "Terlambat",
+        lateReason: att.late_reason || "",
+        distance_km: att.distance_km,
+      }));
+
+    return [...scheduleItems, ...standalone].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  }, [studentSchedules, studentAttendances, todayISO, coach.name, student.name, student.id, student.class, attendances]);
+
+  const lastSession = parentStudentHistory[0]
+    ? { date: parentStudentHistory[0].date, status: parentStudentHistory[0].status }
+    : { date: "-", status: "-" };
+  const completedSessionsCount = parentStudentHistory.length;
+  // Muncul setelah sesi ke-3 dilakukan (completedSessionsCount >= 3) dan jika memang belum lunas
+  const showSPPReminder = completedSessionsCount >= 3 && invoice && invoice.status !== "Lunas";
+
+  // Upcoming scheduled session
+  const upcomingScheduleObj =
+    studentSchedules.find((s) => !s.date || s.date >= todayISO) || studentSchedules[0];
+  const upcomingSession = upcomingScheduleObj
+    ? {
+      title: upcomingScheduleObj.title,
+      class: upcomingScheduleObj.class,
+      time: `${upcomingScheduleObj.timeStart} - ${upcomingScheduleObj.timeEnd} WIB`,
+      poolArea: upcomingScheduleObj.poolArea,
+      coach: {
+        name: upcomingScheduleObj.coachName || coach.name,
+        spec: upcomingScheduleObj.class || coach.spec,
+        phone: upcomingScheduleObj.coachPhone || coach.phone,
+      },
+    }
+    : null;
 
   const getVenueCoords = (poolArea?: string) => {
     const p = poolArea?.toLowerCase() || "";
@@ -524,10 +625,10 @@ export default function ParentBody({
 
   // Navigation items config
   const navTabs = [
-    { id: "home", label: "Home", icon: "🏠" },
-    { id: "jadwal", label: "Jadwal", icon: "📅" },
-    { id: "progres", label: "Progres Report", icon: "📈" },
-    { id: "profile", label: "Profile", icon: "👤" },
+    { id: "home", label: "Home", icon: Home },
+    { id: "jadwal", label: "Jadwal", icon: CalendarDays },
+    { id: "progres", label: "Progres Report", icon: TrendingUp },
+    { id: "profile", label: "Profile", icon: User },
   ] as const;
 
   return (
@@ -571,8 +672,8 @@ export default function ParentBody({
                 )}
               </div>
               <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-blue-700 shadow-2xs" />
-              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-500 text-[9px] text-white opacity-0 group-hover:opacity-100 transition shadow-xs border border-white">
-                📷
+              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-500 text-white opacity-0 group-hover:opacity-100 transition shadow-xs border border-white">
+                <Camera size={10} />
               </span>
             </button>
 
@@ -598,7 +699,7 @@ export default function ParentBody({
                 className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
                 title="Notifikasi"
               >
-                <span className="text-base sm:text-lg">🔔</span>
+                <Bell size={18} />
                 {notificationCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
                     {notificationCount > 99 ? "99+" : notificationCount}
@@ -646,8 +747,16 @@ export default function ParentBody({
                     {studentNotifications.map((notif) => {
                       const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
                       const isLate = notif.title?.includes("Terlambat");
-                      const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
-                      
+                      const notifIcon = isSchedule ? (
+                        <CalendarDays size={13} className="text-emerald-600 shrink-0" />
+                      ) : isLate ? (
+                        <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                      ) : notif.type?.includes("attendance") ? (
+                        <Clock size={13} className="text-cyan-600 shrink-0" />
+                      ) : (
+                        <Bell size={13} className="text-blue-600 shrink-0" />
+                      );
+
                       let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
                       if (!notif.is_read) {
                         if (isSchedule) {
@@ -675,7 +784,7 @@ export default function ParentBody({
                         >
                           <div className="flex items-center justify-between gap-1 mb-1">
                             <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                              <span>{icon}</span>
+                              {notifIcon}
                               <span className="truncate">{notif.title}</span>
                             </span>
                             {!notif.is_read && (
@@ -694,8 +803,9 @@ export default function ParentBody({
 
                     {invoice && invoice.status === "Belum Dibayar" && (
                       <div className="p-2.5 bg-rose-50/80 backdrop-blur-md rounded-2xl border border-rose-200/60 text-left">
-                        <p className="text-xs font-bold text-rose-800">
-                          ⚠️ Tagihan SPP Belum Dibayar
+                        <p className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                          <AlertCircle size={13} className="text-rose-600 shrink-0" />
+                          <span>Tagihan SPP Belum Dibayar</span>
                         </p>
                         <p className="text-[10px] text-rose-600 mt-0.5">
                           {invoice.desc} • Rp {invoice.amount.toLocaleString("id-ID")}
@@ -705,8 +815,9 @@ export default function ParentBody({
 
                     {invoice && invoice.status === "Menunggu Konfirmasi" && (
                       <div className="p-2.5 bg-amber-50/80 backdrop-blur-md rounded-2xl border border-amber-200/60 text-left">
-                        <p className="text-xs font-bold text-amber-800">
-                          ⏳ Bukti SPP Sedang Diverifikasi
+                        <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                          <Clock size={13} className="text-amber-600 shrink-0" />
+                          <span>Bukti SPP Sedang Diverifikasi</span>
                         </p>
                         <p className="text-[10px] text-amber-600 mt-0.5">
                           Admin sedang mengecek transfer pembayaran Anda.
@@ -716,8 +827,9 @@ export default function ParentBody({
 
                     {todayStudentSchedules.length > 0 && (
                       <div className="p-2.5 bg-blue-50/80 backdrop-blur-md rounded-2xl border border-blue-200/60 text-left">
-                        <p className="text-xs font-bold text-blue-800">
-                          🏊‍♂️ Ada Jadwal Latihan Hari Ini!
+                        <p className="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                          <CalendarDays size={13} className="text-blue-600 shrink-0" />
+                          <span>Ada Jadwal Latihan Hari Ini!</span>
                         </p>
                         <p className="text-[10px] text-blue-600 mt-0.5">
                           {todayStudentSchedules[0].timeStart} - {todayStudentSchedules[0].timeEnd} WIB di {todayStudentSchedules[0].poolArea}
@@ -752,7 +864,7 @@ export default function ParentBody({
               <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">📅</span>
+                    <CalendarDays size={16} className="text-cyan-600 shrink-0" />
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-xs sm:text-sm font-black text-slate-900">
@@ -777,14 +889,14 @@ export default function ParentBody({
                       className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
                       title={calendarViewMode === "week" ? "Minggu Sebelumnya" : "Bulan Sebelumnya"}
                     >
-                      ‹
+                      <ChevronLeft size={15} />
                     </button>
                     <button
                       onClick={handleNext}
                       className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
                       title={calendarViewMode === "week" ? "Minggu Berikutnya" : "Bulan Berikutnya"}
                     >
-                      ›
+                      <ChevronRight size={15} />
                     </button>
                   </div>
                 </div>
@@ -803,31 +915,30 @@ export default function ParentBody({
                       <button
                         key={dateObj.toISOString()}
                         onClick={() => handleDateClick(dateObj)}
-                        className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${
-                          today
-                            ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
-                            : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
-                        }`}
+                        className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
+                          ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
+                          : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
+                          }`}
                       >
                         <span
-                          className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${
-                            today
-                              ? "text-cyan-100"
-                              : dayOfWeek === 0 || dayOfWeek === 6
+                          className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${today
+                            ? "text-cyan-100"
+                            : dayOfWeek === 0 || dayOfWeek === 6
                               ? "text-cyan-600"
                               : "text-slate-400"
-                          }`}
+                            }`}
                         >
                           {dayName}
                         </span>
                         <span className="text-xs sm:text-sm font-black">
                           {dayNum}
                         </span>
-                        {hasSession && !today && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 mt-1" />
-                        )}
-                        {today && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-white mt-1" />
+                        {hasSession && (
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full mt-1 ${
+                              today ? "bg-white" : "bg-cyan-400"
+                            }`}
+                          />
                         )}
                       </button>
                     );
@@ -835,15 +946,16 @@ export default function ParentBody({
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100/80 pt-2.5">
-                  <span className="flex items-center gap-1">
-                    <span className="text-xs">💡</span>
+                  <span className="flex items-center gap-1.5">
+                    <Lightbulb size={12} className="text-amber-500 shrink-0" />
                     <span>Klik hari untuk rincian sesi</span>
                   </span>
                   <button
                     onClick={() => setParentActiveTab("jadwal")}
                     className="font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-xl transition cursor-pointer flex items-center gap-1"
                   >
-                    <span>Buka Jadwal Lengkap ›</span>
+                    <span>Buka Jadwal Lengkap</span>
+                    <ChevronRight size={12} />
                   </button>
                 </div>
               </div>
@@ -854,8 +966,8 @@ export default function ParentBody({
                 ========================================== */}
             <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 text-lg shrink-0 border border-blue-100/60 shadow-2xs">
-                  🏊‍♂️
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/60 shadow-2xs">
+                  <CalendarDays size={20} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -866,8 +978,12 @@ export default function ParentBody({
                       {upcomingSession?.time || "Sabtu, 15:00 - 17:00 WIB"}
                     </h4>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                    📍 {upcomingSession?.poolArea || "Kolam Nalendra"} • 👨‍🏫 {upcomingSession?.coach?.name || coach.name}
+                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5 flex items-center gap-1">
+                    <MapPin size={11} className="text-slate-400 shrink-0" />
+                    <span>{upcomingSession?.poolArea || "Kolam Nalendra"}</span>
+                    <span className="text-slate-300">•</span>
+                    <User size={11} className="text-slate-400 shrink-0" />
+                    <span>{upcomingSession?.coach?.name || coach.name}</span>
                   </p>
                 </div>
               </div>
@@ -879,7 +995,7 @@ export default function ParentBody({
                 className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 shrink-0 cursor-pointer shadow-2xs"
                 title="Hubungi Pelatih via WhatsApp"
               >
-                <span>💬</span>
+                <MessageCircle size={14} className="text-emerald-600" />
                 <span>Hubungi Pelatih</span>
               </a>
             </div>
@@ -891,7 +1007,7 @@ export default function ParentBody({
               <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-sm border border-slate-100 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">📢</span>
+                    <Megaphone size={16} className="text-cyan-600 shrink-0" />
                     <div>
                       <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                         <span>Pemberitahuan Pelatihan Siswa</span>
@@ -924,24 +1040,31 @@ export default function ParentBody({
                   {studentNotifications.slice(0, 3).map((notif) => {
                     const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
                     const isLate = notif.title?.includes("Terlambat");
-                    const icon = isSchedule ? "📅" : isLate ? "⚠️" : notif.type?.includes("attendance") ? "⏱️" : "🔔";
+                    const notifCardIcon = isSchedule ? (
+                      <CalendarDays size={14} className="text-emerald-600 shrink-0" />
+                    ) : isLate ? (
+                      <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                    ) : notif.type?.includes("attendance") ? (
+                      <Clock size={14} className="text-cyan-600 shrink-0" />
+                    ) : (
+                      <Bell size={14} className="text-blue-600 shrink-0" />
+                    );
 
                     return (
                       <div
                         key={notif.id}
-                        className={`p-3.5 rounded-2xl border transition text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          !notif.is_read
-                            ? isSchedule
-                              ? "bg-emerald-50/80 border-emerald-200/90 shadow-2xs"
-                              : isLate
+                        className={`p-3.5 rounded-2xl border transition text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${!notif.is_read
+                          ? isSchedule
+                            ? "bg-emerald-50/80 border-emerald-200/90 shadow-2xs"
+                            : isLate
                               ? "bg-amber-50/80 border-amber-200/90 shadow-2xs"
                               : "bg-blue-50/80 border-blue-200/90 shadow-2xs"
-                            : "bg-slate-50/70 border-slate-200/60 opacity-80"
-                        }`}
+                          : "bg-slate-50/70 border-slate-200/60 opacity-80"
+                          }`}
                       >
                         <div className="space-y-1 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-base">{icon}</span>
+                            {notifCardIcon}
                             <span className="text-xs font-black text-slate-900">{notif.title}</span>
                             {!notif.is_read && (
                               <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-500 text-white">
@@ -966,18 +1089,20 @@ export default function ParentBody({
                                 }
                                 setParentActiveTab("jadwal");
                               }}
-                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95"
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95 flex items-center gap-1"
                             >
-                              Lihat Jadwal →
+                              <span>Lihat Jadwal</span>
+                              <ChevronRight size={12} />
                             </button>
                           )}
                           {!notif.is_read && onMarkNotificationRead && (
                             <button
                               onClick={() => onMarkNotificationRead(notif.id)}
-                              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95"
+                              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95 flex items-center gap-1"
                               title="Tandai Sudah Dibaca"
                             >
-                              ✓ Dibaca
+                              <Check size={12} />
+                              <span>Dibaca</span>
                             </button>
                           )}
                         </div>
@@ -994,7 +1119,7 @@ export default function ParentBody({
                 <div className="flex items-center justify-between flex-wrap gap-2 relative z-10 border-b border-white/15 pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white text-base shadow-xs border border-white/30">
-                      🏊‍♂️
+                      <CalendarDays size={18} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -1014,14 +1139,23 @@ export default function ParentBody({
                   {/* Simulated GPS toggle for testing */}
                   <button
                     onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition cursor-pointer ${
-                      useSimulatedPoolLocation
-                        ? "bg-emerald-400 text-slate-950 border-emerald-300 font-black shadow-xs"
-                        : "bg-white/15 hover:bg-white/25 text-cyan-100 border-white/20"
-                    }`}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition cursor-pointer flex items-center gap-1 ${useSimulatedPoolLocation
+                      ? "bg-emerald-400 text-slate-950 border-emerald-300 font-black shadow-xs"
+                      : "bg-white/15 hover:bg-white/25 text-cyan-100 border-white/20"
+                      }`}
                     title="Simulasikan perangkat berada di titik kolam renang"
                   >
-                    {useSimulatedPoolLocation ? "✓ GPS: Di Kolam (Simulasi)" : "📍 Tes GPS Kolam"}
+                    {useSimulatedPoolLocation ? (
+                      <>
+                        <Check size={11} />
+                        <span>GPS: Di Kolam (Simulasi)</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin size={11} />
+                        <span>Tes GPS Kolam</span>
+                      </>
+                    )}
                   </button>
                 </div>
 
@@ -1043,12 +1177,17 @@ export default function ParentBody({
                             <span className="text-xs sm:text-sm font-black text-white block">
                               {schedule.title} ({schedule.class})
                             </span>
-                            <span className="text-[11px] text-cyan-100 font-medium">
-                              📍 {schedule.poolArea || "Hotel Nalendra Plaza Subang"} • Coach {schedule.coachName || coach.name}
+                            <span className="text-[11px] text-cyan-100 font-medium flex items-center gap-1">
+                              <MapPin size={11} className="text-cyan-200 shrink-0" />
+                              <span>{schedule.poolArea || "Hotel Nalendra Plaza Subang"}</span>
+                              <span className="text-cyan-300">•</span>
+                              <User size={11} className="text-cyan-200 shrink-0" />
+                              <span>Coach {schedule.coachName || coach.name}</span>
                             </span>
                           </div>
-                          <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white text-[11px] font-bold">
-                            ⏰ {schedule.timeStart} - {schedule.timeEnd} WIB
+                          <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white text-[11px] font-bold flex items-center gap-1">
+                            <Clock size={11} className="text-cyan-200" />
+                            <span>{schedule.timeStart} - {schedule.timeEnd} WIB</span>
                           </span>
                         </div>
 
@@ -1056,7 +1195,7 @@ export default function ParentBody({
                         {isCheckedIn ? (
                           <div className="p-3 rounded-xl bg-emerald-500/25 border border-emerald-300/40 flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-2">
-                              <span className="text-base">✅</span>
+                              <CheckCircle2 size={20} className="text-emerald-300 shrink-0" />
                               <div>
                                 <p className="text-xs font-black text-white">
                                   {existingAtt?.status === "Terlambat" ? "Presensi Masuk (Terlambat)" : "Presensi Masuk (Hadir)"}
@@ -1083,19 +1222,18 @@ export default function ParentBody({
                                 <span className={`h-2 w-2 rounded-full ${isWithinRadius ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
                                 <span>
                                   {dist !== null
-                                    ? `Jarak ke kolam: ${dist.toFixed(2)} km ${isWithinRadius ? "(✓ Radius ≤ 2.0 km)" : "(✕ Di luar radius 2.0 km)"}`
+                                    ? `Jarak ke kolam: ${dist.toFixed(2)} km ${isWithinRadius ? "(Radius ≤ 2.0 km)" : "(Di luar radius 2.0 km)"}`
                                     : isLocating
-                                    ? "🛰️ Mendeteksi GPS..."
-                                    : "GPS belum aktif"}
+                                      ? "Mendeteksi GPS..."
+                                      : "GPS belum aktif"}
                                 </span>
                               </div>
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                !timeStat.isOpen
-                                  ? "bg-slate-800/60 text-slate-300"
-                                  : timeStat.isLate
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${!timeStat.isOpen
+                                ? "bg-slate-800/60 text-slate-300"
+                                : timeStat.isLate
                                   ? "bg-amber-400 text-slate-950 font-black"
                                   : "bg-emerald-400 text-slate-950 font-black"
-                              }`}>
+                                }`}>
                                 {!timeStat.isOpen ? "Belum Dibuka" : timeStat.isLate ? "Terlambat (> 15m)" : "Bisa Presensi"}
                               </span>
                             </div>
@@ -1104,27 +1242,26 @@ export default function ParentBody({
                             <button
                               onClick={() => handlePerformCheckIn(schedule)}
                               disabled={isCheckingIn || !timeStat.isOpen || !isWithinRadius}
-                              className={`w-full py-2.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md ${
-                                !timeStat.isOpen
-                                  ? "bg-white/20 text-white/60 cursor-not-allowed"
-                                  : !isWithinRadius
+                              className={`w-full py-2.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md ${!timeStat.isOpen
+                                ? "bg-white/20 text-white/60 cursor-not-allowed"
+                                : !isWithinRadius
                                   ? "bg-rose-500/80 hover:bg-rose-600 text-white"
                                   : timeStat.isLate
-                                  ? "bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-slate-950"
-                                  : "bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 text-slate-950"
-                              }`}
+                                    ? "bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-slate-950"
+                                    : "bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 text-slate-950"
+                                }`}
                             >
-                              <span>⏱️</span>
+                              <Clock size={14} />
                               <span>
                                 {isCheckingIn
                                   ? "Memproses Presensi..."
                                   : !timeStat.isOpen
-                                  ? `Buka Presensi: ${timeStat.openTimeString} WIB`
-                                  : !isWithinRadius
-                                  ? "Mendekat ke Kolam Renang (< 2 km)"
-                                  : timeStat.isLate
-                                  ? "Presensi Terlambat (Isi Alasan)"
-                                  : "Presensi Siswa Hadir Sekarang"}
+                                    ? `Buka Presensi: ${timeStat.openTimeString} WIB`
+                                    : !isWithinRadius
+                                      ? "Mendekat ke Kolam Renang (< 2 km)"
+                                      : timeStat.isLate
+                                        ? "Presensi Terlambat (Isi Alasan)"
+                                        : "Presensi Siswa Hadir Sekarang"}
                               </span>
                             </button>
                           </div>
@@ -1143,7 +1280,9 @@ export default function ParentBody({
             {showSPPReminder && invoice && (
               <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50/80 border border-amber-200/90 shadow-2xs flex items-center justify-between gap-2.5 flex-wrap sm:flex-nowrap animate-fadeIn">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-lg shrink-0">💳</span>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700 shrink-0 border border-amber-200/80">
+                    <CreditCard size={18} />
+                  </div>
                   <div className="min-w-0">
                     <p className="text-xs font-black text-amber-950 truncate">
                       SPP Bulan Depan: Rp {invoice.amount.toLocaleString("id-ID")}
@@ -1157,10 +1296,20 @@ export default function ParentBody({
                 <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
                   <button
                     onClick={handleCopyBCA}
-                    className="text-[10px] font-bold text-amber-900 bg-white hover:bg-amber-100/60 px-2 py-1.5 rounded-lg border border-amber-200 transition cursor-pointer"
+                    className="text-[10px] font-bold text-amber-900 bg-white hover:bg-amber-100/60 px-2.5 py-1.5 rounded-lg border border-amber-200 transition cursor-pointer flex items-center gap-1"
                     title="Salin No. Rekening BCA"
                   >
-                    {copiedBank ? "✓ Tersalin!" : "📋 Salin"}
+                    {copiedBank ? (
+                      <>
+                        <Check size={12} className="text-emerald-600" />
+                        <span>Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>Salin</span>
+                      </>
+                    )}
                   </button>
 
                   {invoice.status === "Belum Dibayar" ? (
@@ -1168,7 +1317,7 @@ export default function ParentBody({
                       onClick={() => onUploadReceipt(invoice.id)}
                       className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold transition cursor-pointer shadow-xs flex items-center gap-1"
                     >
-                      <span>📤</span>
+                      <Upload size={12} />
                       <span>Bayar</span>
                     </button>
                   ) : (
@@ -1184,13 +1333,15 @@ export default function ParentBody({
             <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-                  <span>📈</span> Progres Evaluasi Kemampuan
+                  <TrendingUp size={16} className="text-cyan-600" />
+                  <span>Progres Evaluasi Kemampuan</span>
                 </h4>
                 <button
                   onClick={() => setParentActiveTab("progres")}
-                  className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 cursor-pointer"
+                  className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 cursor-pointer flex items-center gap-1"
                 >
-                  Detail Laporan ›
+                  <span>Detail Laporan</span>
+                  <ChevronRight size={11} />
                 </button>
               </div>
 
@@ -1220,7 +1371,7 @@ export default function ParentBody({
             <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">📝</span>
+                  <FileText size={16} className="text-blue-600" />
                   <div>
                     <h4 className="text-xs sm:text-sm font-black text-slate-900">
                       Catatan Pertemuan Siswa
@@ -1231,36 +1382,37 @@ export default function ParentBody({
                   </div>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black">
-                  {studentAttendances.length > 0 ? `${studentAttendances.length} Sesi Tercatat` : `${student.logs?.length || 0} Sesi`}
+                  {parentStudentHistory.length} Sesi Tercatat
                 </span>
               </div>
 
-              {studentAttendances.length === 0 && (!student.logs || student.logs.length === 0) ? (
+              {parentStudentHistory.length === 0 ? (
                 <div className="py-6 text-center text-slate-400 text-xs italic">
-                  Belum ada catatan presensi pertemuan yang terekam.
+                  Belum ada catatan presensi pertemuan dari jadwal yang terekam.
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {/* Real GPS Attendance records */}
-                  {studentAttendances.map((att, idx) => (
+                  {parentStudentHistory.map((sess, idx) => (
                     <div
-                      key={att.id || idx}
+                      key={sess.id || idx}
                       className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 text-xs font-black shrink-0">
-                          S{studentAttendances.length - idx}
+                          S{parentStudentHistory.length - idx}
                         </div>
                         <div>
                           <p className="text-xs font-black text-slate-900">
-                            Pertemuan ke-{studentAttendances.length - idx} • {att.date}
+                            Pertemuan ke-{parentStudentHistory.length - idx} • {sess.date}
                           </p>
                           <p className="text-[10px] text-slate-500 font-medium">
-                            {att.class || att.class_name || student.class} • {att.time_recorded || (att.created_at ? `${new Date(att.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB` : "Selesai")} • Radius: {att.distance_km !== undefined ? `${att.distance_km.toFixed(2)} km` : "≤ 2.0 km"}
+                            {sess.title} • {sess.time} • {sess.coachName} • {sess.poolArea}
+                            {sess.distance_km !== undefined ? ` • Radius: ${sess.distance_km.toFixed(2)} km` : ""}
                           </p>
-                          {att.late_reason && (
-                            <p className="text-[10px] text-amber-700 font-medium italic mt-0.5">
-                              ⚠️ Keterlambatan: &quot;{att.late_reason}&quot;
+                          {sess.lateReason && (
+                            <p className="text-[10px] text-amber-700 font-medium italic mt-0.5 flex items-center gap-1">
+                              <AlertTriangle size={11} className="shrink-0" />
+                              <span>Keterlambatan: &quot;{sess.lateReason}&quot;</span>
                             </p>
                           )}
                         </div>
@@ -1268,44 +1420,35 @@ export default function ParentBody({
 
                       <div className="shrink-0 ml-auto sm:ml-0">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black ${
-                            att.status === "Terlambat"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
+                            sess.status === "Terlambat"
                               ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : sess.status === "Terjadwal"
+                              ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                              : sess.status === "Sakit"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : sess.status === "Izin"
+                              ? "bg-purple-50 text-purple-700 border border-purple-200"
                               : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           }`}
                         >
-                          {att.status === "Terlambat" ? "⚠️ Terlambat" : "✓ Hadir"}
+                          {sess.status === "Terlambat" ? (
+                            <>
+                              <AlertTriangle size={11} />
+                              <span>Terlambat</span>
+                            </>
+                          ) : sess.status === "Terjadwal" ? (
+                            <span>Terjadwal</span>
+                          ) : (
+                            <>
+                              <Check size={11} />
+                              <span>{sess.status || "Hadir"}</span>
+                            </>
+                          )}
                         </span>
                       </div>
                     </div>
                   ))}
-
-                  {/* Fallback baseline logs if no new attendances recorded yet */}
-                  {studentAttendances.length === 0 &&
-                    student.logs?.map((log, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 text-xs font-black shrink-0">
-                            S{student.logs!.length - idx}
-                          </div>
-                          <div>
-                            <p className="text-xs font-black text-slate-900">
-                              Pertemuan ke-{student.logs!.length - idx} • {log.date}
-                            </p>
-                            <p className="text-[10px] text-slate-500 font-medium">
-                              {student.class} • Kolam Nalendra Plaza
-                            </p>
-                          </div>
-                        </div>
-
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {log.status || "Hadir"}
-                        </span>
-                      </div>
-                    ))}
                 </div>
               )}
             </div>
@@ -1313,7 +1456,8 @@ export default function ParentBody({
             {/* Announcements */}
             <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
               <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>📢</span> Pengumuman Akademik
+                <Megaphone size={16} className="text-cyan-600" />
+                <span>Pengumuman Akademik</span>
               </h3>
               <div className="p-4 rounded-2xl bg-cyan-50/40 border border-cyan-100/50 space-y-1">
                 <p className="text-xs font-bold text-slate-800">Ujian Naik Tingkatan Renang</p>
@@ -1334,7 +1478,7 @@ export default function ParentBody({
             <div className="rounded-3xl bg-white p-5 md:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-lg">📅</span>
+                  <CalendarDays size={18} className="text-cyan-600" />
                   <div>
                     <h3 className="text-sm font-black text-slate-900">
                       Kalender Jadwal Latihan Siswa
@@ -1354,13 +1498,13 @@ export default function ParentBody({
                     onClick={handlePrev}
                     className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
                   >
-                    ‹
+                    <ChevronLeft size={16} />
                   </button>
                   <button
                     onClick={handleNext}
                     className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition cursor-pointer"
                   >
-                    ›
+                    <ChevronRight size={16} />
                   </button>
                 </div>
               </div>
@@ -1374,7 +1518,17 @@ export default function ParentBody({
                   onClick={() => setCalendarViewMode(calendarViewMode === "week" ? "month" : "week")}
                   className="px-3 py-1.5 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer flex items-center gap-1.5"
                 >
-                  <span>{calendarViewMode === "week" ? "📅 Tampilan Bulan ›" : "‹ Tampilan Minggu"}</span>
+                  {calendarViewMode === "week" ? (
+                    <>
+                      <span>Tampilan Bulan</span>
+                      <ChevronRight size={13} />
+                    </>
+                  ) : (
+                    <>
+                      <ChevronLeft size={13} />
+                      <span>Tampilan Minggu</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -1393,28 +1547,29 @@ export default function ParentBody({
                       <button
                         key={dateObj.toISOString()}
                         onClick={() => handleDateClick(dateObj)}
-                        className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 ${
-                          today
-                            ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
-                            : "bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 border border-slate-100"
-                        }`}
+                        className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 ${today
+                          ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
+                          : "bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 border border-slate-100"
+                          }`}
                       >
                         <span
-                          className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${
-                            today
-                              ? "text-cyan-100"
-                              : dayOfWeek === 0 || dayOfWeek === 6
+                          className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${today
+                            ? "text-cyan-100"
+                            : dayOfWeek === 0 || dayOfWeek === 6
                               ? "text-cyan-600"
                               : "text-slate-400"
-                          }`}
+                            }`}
                         >
                           {dayName}
                         </span>
                         <span className="text-sm sm:text-base font-black">{dayNum}</span>
-                        {hasSession && !today && (
-                          <span className="h-2 w-2 rounded-full bg-cyan-500 mt-1.5" />
+                        {hasSession && (
+                          <span
+                            className={`h-2 w-2 rounded-full mt-1.5 ${
+                              today ? "bg-white" : "bg-cyan-500"
+                            }`}
+                          />
                         )}
-                        {today && <span className="h-2 w-2 rounded-full bg-white mt-1.5" />}
                       </button>
                     );
                   })}
@@ -1426,9 +1581,8 @@ export default function ParentBody({
                     {dayNamesShort.map((dayName, idx) => (
                       <span
                         key={dayName}
-                        className={`text-xs font-bold uppercase py-1 ${
-                          idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
-                        }`}
+                        className={`text-xs font-bold uppercase py-1 ${idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
+                          }`}
                       >
                         {dayName}
                       </span>
@@ -1446,21 +1600,23 @@ export default function ParentBody({
                         <button
                           key={`${dateObj.toISOString()}-${idx}`}
                           onClick={() => handleDateClick(dateObj)}
-                          className={`flex flex-col items-center justify-center py-2.5 rounded-xl transition cursor-pointer active:scale-95 ${
-                            today
-                              ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30"
-                              : isCurrentMonth
+                          className={`flex flex-col items-center justify-center py-2.5 rounded-xl transition cursor-pointer active:scale-95 ${today
+                            ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30"
+                            : isCurrentMonth
                               ? "bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 border border-slate-100"
                               : "bg-slate-50/30 text-slate-300 border border-transparent opacity-60"
-                          }`}
+                            }`}
                         >
                           <span className={`text-xs font-bold ${today ? "text-white" : ""}`}>
                             {dayNum}
                           </span>
-                          {hasSession && !today && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 mt-0.5" />
+                          {hasSession && (
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full mt-0.5 ${
+                                today ? "bg-white" : "bg-cyan-500"
+                              }`}
+                            />
                           )}
-                          {today && <span className="h-1.5 w-1.5 rounded-full bg-white mt-0.5" />}
                         </button>
                       );
                     })}
@@ -1478,12 +1634,13 @@ export default function ParentBody({
               return (
                 <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
                   <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                    <span>📋</span> Daftar Sesi Latihan Renang
+                    <CalendarDays size={16} className="text-cyan-600" />
+                    <span>Daftar Sesi Latihan Renang</span>
                   </h4>
 
                   {upcomingStudentSchedules.length === 0 ? (
                     <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                      <span className="text-3xl">🏊‍♂️</span>
+                      <Calendar size={32} className="text-slate-300 mx-auto" />
                       <p className="text-xs text-slate-500 font-medium">
                         Belum ada jadwal khusus yang akan datang.
                       </p>
@@ -1510,10 +1667,19 @@ export default function ParentBody({
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
-                            <span>⏰ {s.timeStart} - {s.timeEnd} WIB</span>
-                            <span>📍 {s.poolArea}</span>
-                            <span>👨‍🏫 {s.coachName || coach.name}</span>
+                          <div className="flex items-center justify-between text-xs text-slate-600 pt-1 flex-wrap gap-2">
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} className="text-slate-400" />
+                              <span>{s.timeStart} - {s.timeEnd} WIB</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin size={12} className="text-slate-400" />
+                              <span>{s.poolArea}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <User size={12} className="text-slate-400" />
+                              <span>{s.coachName || coach.name}</span>
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -1526,7 +1692,8 @@ export default function ParentBody({
             {/* Pool Area & Information Card */}
             <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3">
               <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>📍</span> Informasi Kolam Renang & Perlengkapan
+                <MapPin size={16} className="text-cyan-600" />
+                <span>Informasi Kolam Renang &amp; Perlengkapan</span>
               </h4>
               <div className="text-xs text-slate-600 leading-relaxed space-y-2">
                 <p>• <strong>Lokasi:</strong> Kolam Renang Nalendra (Jl. Sukajadi No. 12)</p>
@@ -1610,14 +1777,13 @@ export default function ParentBody({
                       {skill.name}
                     </span>
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-sm sm:text-base">
+                      <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
-                          <span
+                          <Star
                             key={star}
-                            className={star <= skill.rating ? "text-amber-400" : "text-slate-200"}
-                          >
-                            ★
-                          </span>
+                            size={14}
+                            className={star <= skill.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}
+                          />
                         ))}
                       </div>
                       <span className="text-xs font-bold text-slate-700 w-3 text-right">
@@ -1649,7 +1815,8 @@ export default function ParentBody({
                   onClick={() => setShowAllPastEvaluations(!showAllPastEvaluations)}
                   className="text-xs font-bold text-cyan-600 hover:text-cyan-700 cursor-pointer flex items-center gap-1"
                 >
-                  <span>{showAllPastEvaluations ? "↑ Hide" : "↓ View all"}</span>
+                  <span>{showAllPastEvaluations ? "Hide" : "View all"}</span>
+                  {showAllPastEvaluations ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                 </button>
               </div>
 
@@ -1684,7 +1851,7 @@ export default function ParentBody({
 
                       <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold">
                         <span>{past.period}</span>
-                        <span className="text-sm font-bold text-slate-400">›</span>
+                        <ChevronRight size={14} className="text-slate-400" />
                       </div>
                     </div>
                   )
@@ -1698,7 +1865,7 @@ export default function ParentBody({
                 onClick={handleDownloadPDF}
                 className="w-full py-3.5 rounded-2xl bg-white hover:bg-slate-50 text-blue-700 font-bold text-xs sm:text-sm border border-slate-200 shadow-sm hover:shadow transition cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>📥</span>
+                <Download size={15} />
                 <span>Download as PDF</span>
               </button>
             </div>
@@ -1732,7 +1899,7 @@ export default function ParentBody({
                   className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-bold flex items-center justify-center border-2 border-white shadow-md cursor-pointer transition"
                   title="Ubah Foto"
                 >
-                  📷
+                  <Camera size={13} />
                 </button>
               </div>
 
@@ -1755,7 +1922,8 @@ export default function ParentBody({
                 onClick={() => setShowProfileModal(true)}
                 className="w-full py-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 font-bold text-xs transition cursor-pointer border border-cyan-100 flex items-center justify-center gap-2"
               >
-                <span>📷</span> Ubah Foto & Avatar Siswa
+                <Camera size={14} />
+                <span>Ubah Foto &amp; Avatar Siswa</span>
               </button>
             </div>
 
@@ -1810,9 +1978,10 @@ export default function ParentBody({
                   className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
                 >
                   <span className="flex items-center gap-2">
-                    <span>💬</span> Hubungi Admin GIM Swimming
+                    <MessageCircle size={15} className="text-emerald-600" />
+                    <span>Hubungi Admin GIM Swimming</span>
                   </span>
-                  <span>›</span>
+                  <ChevronRight size={14} className="text-slate-400" />
                 </a>
 
                 {showInstallBtn && onInstallClick && (
@@ -1821,9 +1990,10 @@ export default function ParentBody({
                     className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
                   >
                     <span className="flex items-center gap-2">
-                      <span>📥</span> Pasang Aplikasi (Install PWA)
+                      <Download size={15} className="text-cyan-600" />
+                      <span>Pasang Aplikasi (Install PWA)</span>
                     </span>
-                    <span>›</span>
+                    <ChevronRight size={14} className="text-slate-400" />
                   </button>
                 )}
 
@@ -1832,7 +2002,8 @@ export default function ParentBody({
                     onClick={onLogout}
                     className="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-100 flex items-center justify-center gap-2 mt-2"
                   >
-                    <span>🚪</span> Keluar dari Akun
+                    <LogOut size={14} />
+                    <span>Keluar / Logout</span>
                   </button>
                 )}
               </div>
@@ -1848,6 +2019,7 @@ export default function ParentBody({
       <div className="fixed bottom-0 left-0 right-0 z-50 h-[calc(4.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-3 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] max-w-3xl mx-auto md:rounded-t-3xl">
         {navTabs.map((tab) => {
           const isActive = parentActiveTab === tab.id;
+          const TabIcon = tab.icon;
           return (
             <button
               key={tab.id}
@@ -1855,16 +2027,15 @@ export default function ParentBody({
                 setParentActiveTab(tab.id);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={`flex flex-col items-center justify-center flex-1 py-1.5 cursor-pointer transition-all duration-200 relative group active:scale-95 ${
-                isActive
-                  ? "text-blue-600 font-black scale-105"
-                  : "text-slate-400 hover:text-slate-600 font-semibold"
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1.5 cursor-pointer transition-all duration-200 relative group active:scale-95 ${isActive
+                ? "text-blue-600 font-black scale-105"
+                : "text-slate-400 hover:text-slate-600 font-semibold"
+                }`}
             >
               {isActive && (
                 <span className="absolute -top-2.5 h-1 w-8 rounded-full bg-blue-600 animate-fadeIn" />
               )}
-              <span className="text-xl mb-0.5">{tab.icon}</span>
+              <TabIcon size={20} className="mb-0.5" />
               <span className="text-[10px] tracking-tight truncate max-w-[70px] sm:max-w-none">
                 {tab.label}
               </span>
@@ -1896,7 +2067,7 @@ export default function ParentBody({
                 onClick={() => setSelectedDateDetails(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -1906,7 +2077,7 @@ export default function ParentBody({
               if (daySchedules.length === 0) {
                 return (
                   <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                    <span className="text-3xl">🏖️</span>
+                    <Calendar size={32} className="text-slate-300 mx-auto" />
                     <h4 className="text-xs font-bold text-slate-700">Tidak Ada Sesi Terjadwal</h4>
                     <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
                       Belum ada sesi latihan renang khusus untuk {student.name} pada tanggal ini.
@@ -1932,11 +2103,13 @@ export default function ParentBody({
                           </h4>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-black text-blue-600 block">
-                            ⏰ {schedule.time}
+                          <span className="text-xs font-black text-blue-600 block flex items-center justify-end gap-1">
+                            <Clock size={12} className="text-blue-500" />
+                            <span>{schedule.time}</span>
                           </span>
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            📍 {schedule.poolArea}
+                          <span className="text-[10px] text-slate-400 font-medium flex items-center justify-end gap-1">
+                            <MapPin size={11} />
+                            <span>{schedule.poolArea}</span>
                           </span>
                         </div>
                       </div>
@@ -1945,7 +2118,7 @@ export default function ParentBody({
                       <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 text-xs">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 font-black text-xs border border-cyan-100">
-                            🏊‍♂️
+                            <User size={16} className="text-cyan-600" />
                           </div>
                           <div>
                             <p className="text-[10px] text-slate-400 font-bold uppercase">Instruktur / Pelatih</p>
@@ -1960,7 +2133,8 @@ export default function ParentBody({
                             rel="noopener noreferrer"
                             className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
                           >
-                            <span>💬</span> Hubungi
+                            <MessageCircle size={12} />
+                            <span>Hubungi</span>
                           </a>
                         )}
                       </div>
@@ -2010,7 +2184,7 @@ export default function ParentBody({
                 onClick={() => setSelectedPastEval(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -2044,15 +2218,17 @@ export default function ParentBody({
                 <span className="text-xs font-black text-slate-900">Skill Progress</span>
                 <span className="text-[11px] font-bold text-slate-400">Out of 5</span>
               </div>
-              {selectedPastEval.skills.map((s, idx) => (
+              {selectedPastEval.skills.map((s: any, idx: number) => (
                 <div key={idx} className="flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-800">{s.name}</span>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-0.5 text-sm text-amber-400">
                       {[1, 2, 3, 4, 5].map((st) => (
-                        <span key={st} className={st <= s.stars ? "text-amber-400" : "text-slate-200"}>
-                          ★
-                        </span>
+                        <Star
+                          key={st}
+                          size={13}
+                          className={st <= s.stars ? "text-amber-400 fill-amber-400" : "text-slate-200"}
+                        />
                       ))}
                     </div>
                     <span className="font-bold text-slate-700 w-3 text-right">{s.stars}</span>
@@ -2074,7 +2250,8 @@ export default function ParentBody({
                 onClick={handleDownloadPDF}
                 className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <span>📥</span> Download PDF
+                <Download size={14} />
+                <span>Download PDF</span>
               </button>
               <button
                 onClick={() => setSelectedPastEval(null)}
@@ -2100,8 +2277,8 @@ export default function ParentBody({
           />
           <div className="relative z-10 w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 text-xl border border-amber-200">
-                ⚠️
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
+                <AlertTriangle size={20} className="text-amber-600" />
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900">

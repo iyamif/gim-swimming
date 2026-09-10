@@ -1,6 +1,21 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { 
+  Search, 
+  X, 
+  Filter, 
+  SlidersHorizontal, 
+  ChevronRight, 
+  Pencil, 
+  Save, 
+  CheckCircle2, 
+  MessageCircle, 
+  AlertCircle, 
+  Users, 
+  Clock, 
+  Calendar 
+} from "lucide-react";
 import { Student, Coach, ScheduleSession, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 
@@ -84,6 +99,134 @@ export default function DaftarHadirTab({
     return students.filter((s) => !isStudentActive(s)).length;
   }, [students]);
 
+  // Format ISO date "YYYY-MM-DD" or raw string to "DD MMM YYYY" (e.g. "09 Sep 2026")
+  const formatIndonesianDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    if (/^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(dateStr)) return dateStr;
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, "0");
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+      const month = monthNames[d.getMonth()];
+      const year = d.getFullYear();
+      return `${day} ${month} ${year}`;
+    }
+    return dateStr;
+  };
+
+  // Helper to compute student attendance history from real schedules & attendances
+  const getStudentHistoryFromSchedules = (student: Student) => {
+    const todayISO = new Date().toISOString().split("T")[0];
+    const sName = student.name.toLowerCase().trim();
+    const sId = String(student.id);
+
+    // 1. Filter schedules where this student is scheduled
+    const matchedSchedules = schedules.filter((s) => {
+      if (s.studentIds && s.studentIds.map(String).includes(sId)) return true;
+      if (
+        s.studentNames &&
+        s.studentNames.some((name) => {
+          const n = name.toLowerCase().trim();
+          return n === sName || n.includes(sName) || sName.includes(n);
+        })
+      ) {
+        return true;
+      }
+      // Fallback match by class only if no explicit student is assigned in schedule
+      if (
+        (!s.studentNames || s.studentNames.length === 0) &&
+        (!s.studentIds || s.studentIds.length === 0)
+      ) {
+        return s.class?.toLowerCase().trim() === student.class?.toLowerCase().trim();
+      }
+      return false;
+    });
+
+    // 2. Map matched schedules to history items
+    const scheduleItems = matchedSchedules.map((sch) => {
+      const att = attendances.find((a) => {
+        const isStudentMatch =
+          a.person_type === "student" &&
+          (String(a.person_id) === sId ||
+            a.person_name?.toLowerCase().trim() === sName ||
+            a.person_name?.toLowerCase().includes(sName) ||
+            sName.includes(a.person_name?.toLowerCase().trim() || ""));
+
+        const isScheduleMatch =
+          (a.schedule_id && String(a.schedule_id) === String(sch.id)) ||
+          (a.date && sch.date && a.date === sch.date);
+
+        return isStudentMatch && isScheduleMatch;
+      });
+
+      const isUpcoming = (sch.date || "") > todayISO;
+      let status = "Hadir";
+      if (att) {
+        status = att.status || (att.is_late ? "Terlambat" : "Hadir");
+      } else if (isUpcoming) {
+        status = "Terjadwal";
+      }
+
+      return {
+        id: sch.id,
+        date: formatIndonesianDate(sch.date),
+        rawDate: sch.date || "",
+        title: sch.title || `${sch.class} Class`,
+        time: sch.timeStart ? `${sch.timeStart} - ${sch.timeEnd} WIB` : "",
+        poolArea: sch.poolArea || "Kolam Renang",
+        coachName: sch.coachName || "Coach",
+        status: status,
+        isLate: att?.is_late || status === "Terlambat",
+        lateReason: att?.late_reason || "",
+        isUpcoming: isUpcoming,
+      };
+    });
+
+    // 3. Standalone attendances not in matchedSchedules
+    const standaloneAttendances = attendances
+      .filter((a) => {
+        if (a.person_type !== "student") return false;
+        const isStudentMatch =
+          String(a.person_id) === sId ||
+          a.person_name?.toLowerCase().trim() === sName ||
+          a.person_name?.toLowerCase().includes(sName) ||
+          sName.includes(a.person_name?.toLowerCase().trim() || "");
+        if (!isStudentMatch) return false;
+        return !matchedSchedules.some(
+          (sch) => String(sch.id) === String(a.schedule_id) || sch.date === a.date
+        );
+      })
+      .map((att) => ({
+        id: `att-${att.id}`,
+        date: formatIndonesianDate(att.date),
+        rawDate: att.date || "",
+        title: att.schedule_title || att.class || `${student.class} Class`,
+        time: att.time_start ? `${att.time_start} - ${att.time_end} WIB` : "",
+        poolArea: att.pool_area || "Kolam Renang",
+        coachName: "Coach",
+        status: att.status || (att.is_late ? "Terlambat" : "Hadir"),
+        isLate: att.is_late || att.status === "Terlambat",
+        lateReason: att.late_reason || "",
+        isUpcoming: false,
+      }));
+
+    return [...scheduleItems, ...standaloneAttendances].sort((a, b) =>
+      b.rawDate.localeCompare(a.rawDate)
+    );
+  };
+
+  // Helper to compute student attendance rate dynamically
+  const getStudentAttendanceRate = (student: Student) => {
+    const history = getStudentHistoryFromSchedules(student);
+    const todayISO = new Date().toISOString().split("T")[0];
+    const completedSessions = history.filter((h) => h.rawDate <= todayISO);
+    if (completedSessions.length === 0) return "100%";
+    const presentCount = completedSessions.filter(
+      (h) => h.status === "Hadir" || h.status === "Terlambat" || h.status === "Selesai"
+    ).length;
+    return `${Math.round((presentCount / completedSessions.length) * 100)}%`;
+  };
+
   // Filter and sort students
   const filteredStudents = useMemo(() => {
     return students
@@ -111,12 +254,12 @@ export default function DaftarHadirTab({
         if (sortBy === "name") {
           return a.name.localeCompare(b.name);
         } else {
-          const rateA = parseInt(a.attendanceRate) || 0;
-          const rateB = parseInt(b.attendanceRate) || 0;
+          const rateA = parseInt(getStudentAttendanceRate(a)) || 0;
+          const rateB = parseInt(getStudentAttendanceRate(b)) || 0;
           return rateB - rateA;
         }
       });
-  }, [students, searchQuery, selectedClass, statusFilter, sortBy]);
+  }, [students, searchQuery, selectedClass, statusFilter, sortBy, schedules, attendances]);
 
   // Featured student (first in the filtered list or first student)
   const featuredStudent = filteredStudents[0] || students[0];
@@ -124,13 +267,15 @@ export default function DaftarHadirTab({
   // Helper to find next upcoming class for a student
   const getNextClassForStudent = (studentName: string) => {
     const todayStr = new Date().toISOString().split("T")[0];
+    const sName = studentName.toLowerCase().trim();
     const upcoming = schedules
       .filter(
         (s) =>
           (!s.date || s.date >= todayStr) &&
-          s.studentNames?.some(
-            (name) => name.toLowerCase().trim() === studentName.toLowerCase().trim()
-          )
+          s.studentNames?.some((name) => {
+            const n = name.toLowerCase().trim();
+            return n === sName || n.includes(sName) || sName.includes(n);
+          })
       )
       .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
@@ -305,7 +450,7 @@ export default function DaftarHadirTab({
                   Lev: {featuredStudent.class || "Prestasi"}
                 </p>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  Wali: {featuredStudent.parent || "Orang Tua"} • Hadir {featuredStudent.attendanceRate || "100%"}
+                  Wali: {featuredStudent.parent || "Orang Tua"} • Hadir {getStudentAttendanceRate(featuredStudent)}
                 </p>
               </div>
             </div>
@@ -315,8 +460,8 @@ export default function DaftarHadirTab({
               <span className="px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100 text-[10px] font-black">
                 {getNextClassForStudent(featuredStudent.name)}
               </span>
-              <span className="text-slate-400 text-xs font-bold group-hover:text-blue-600 transition">
-                Detail ›
+              <span className="text-slate-400 text-xs font-bold group-hover:text-blue-600 transition flex items-center gap-0.5">
+                Detail <ChevronRight size={13} />
               </span>
             </div>
           </div>
@@ -332,13 +477,16 @@ export default function DaftarHadirTab({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 pl-10 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs transition"
             />
+            <span className="absolute left-3.5 top-3.5 text-slate-400 flex items-center justify-center">
+              <Search size={16} />
+            </span>
 
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3.5 top-3.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             )}
           </div>
@@ -350,7 +498,7 @@ export default function DaftarHadirTab({
               : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80"
               }`}
           >
-            <span>⇅</span>
+            <SlidersHorizontal size={14} />
             <span>Filter</span>
             {statusFilter !== "Active" && (
               <span className="h-2 w-2 rounded-full bg-amber-300"></span>
@@ -367,9 +515,9 @@ export default function DaftarHadirTab({
                 Status: {statusFilter === "Inactive" ? "Tidak Aktif" : "Semua"}
                 <button
                   onClick={() => setStatusFilter("Active")}
-                  className="hover:text-rose-600 font-bold ml-1 cursor-pointer"
+                  className="hover:text-rose-600 font-bold ml-1 cursor-pointer flex items-center"
                 >
-                  ✕
+                  <X size={12} />
                 </button>
               </span>
             )}
@@ -378,9 +526,9 @@ export default function DaftarHadirTab({
                 Kelas: {selectedClass}
                 <button
                   onClick={() => setSelectedClass("ALL")}
-                  className="hover:text-rose-600 font-bold ml-1 cursor-pointer"
+                  className="hover:text-rose-600 font-bold ml-1 cursor-pointer flex items-center"
                 >
-                  ✕
+                  <X size={12} />
                 </button>
               </span>
             )}
@@ -407,21 +555,23 @@ export default function DaftarHadirTab({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   onClick={() => setStatusFilter("Active")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${statusFilter === "Active"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${statusFilter === "Active"
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
                     : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
                     }`}
                 >
-                  🟢 Siswa Aktif ({activeCount})
+                  <span className={`h-2 w-2 rounded-full ${statusFilter === "Active" ? "bg-white" : "bg-emerald-500"}`} />
+                  <span>Siswa Aktif ({activeCount})</span>
                 </button>
                 <button
                   onClick={() => setStatusFilter("Inactive")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${statusFilter === "Inactive"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${statusFilter === "Inactive"
                     ? "bg-slate-700 text-white border-slate-700 shadow-sm"
                     : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
                     }`}
                 >
-                  ⚪ Siswa Tidak Aktif ({inactiveCount})
+                  <span className={`h-2 w-2 rounded-full ${statusFilter === "Inactive" ? "bg-white" : "bg-slate-400"}`} />
+                  <span>Siswa Tidak Aktif ({inactiveCount})</span>
                 </button>
                 <button
                   onClick={() => setStatusFilter("ALL")}
@@ -489,7 +639,7 @@ export default function DaftarHadirTab({
         <div className="space-y-2.5">
           {filteredStudents.length === 0 ? (
             <div className="p-10 rounded-3xl bg-white border border-slate-100 text-center space-y-2 shadow-sm">
-
+              <Users size={36} className="text-slate-300 mx-auto" />
               <h4 className="text-sm font-bold text-slate-700">Siswa Tidak Ditemukan</h4>
               <p className="text-xs text-slate-400">
                 {statusFilter === "Inactive"
@@ -568,16 +718,14 @@ export default function DaftarHadirTab({
                         Lev: {student.class || "Prestasi"}
                       </p>
                       <p className="text-[10px] text-slate-400 font-medium">
-                        Kehadiran: {student.attendanceRate} • {student.parent || "Wali Murid"}
+                        Kehadiran: {getStudentAttendanceRate(student)} • {student.parent || "Wali Murid"}
                       </p>
                     </div>
                   </div>
 
                   {/* Right: Chevron & Next Class Badge */}
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span className="text-slate-400 group-hover:text-cyan-600 font-bold text-sm transition">
-                      ›
-                    </span>
+                    <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
                     <span className="px-2.5 py-1 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black shadow-2xs">
                       {nextClass}
                     </span>
@@ -645,16 +793,17 @@ export default function DaftarHadirTab({
                 {!isEditing && sessionRole === "admin" && (
                   <button
                     onClick={handleStartEdit}
-                    className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer border border-blue-200/70"
+                    className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-blue-200/70"
                   >
-                    Edit
+                    <Pencil size={12} />
+                    <span>Edit</span>
                   </button>
                 )}
                 <button
                   onClick={() => setSelectedStudent(null)}
                   className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               </div>
             </div>
@@ -662,7 +811,7 @@ export default function DaftarHadirTab({
             {/* Status Feedback Toast */}
             {feedbackMsg && (
               <div className="p-3 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-bold animate-fadeIn flex items-center gap-2">
-                <span>✓</span>
+                <CheckCircle2 size={16} className="text-cyan-600 shrink-0" />
                 <span>{feedbackMsg}</span>
               </div>
             )}
@@ -788,7 +937,7 @@ export default function DaftarHadirTab({
                       <span>Menyimpan...</span>
                     ) : (
                       <>
-
+                        <Save size={13} />
                         <span>Simpan Perubahan</span>
                       </>
                     )}
@@ -836,43 +985,87 @@ export default function DaftarHadirTab({
                   </div>
                   <div className="flex justify-between py-2 border-b border-slate-100">
                     <span className="text-slate-500">Tingkat Kehadiran</span>
-                    <span className="font-bold text-emerald-600">{selectedStudent.attendanceRate}</span>
+                    <span className="font-bold text-emerald-600">{getStudentAttendanceRate(selectedStudent)}</span>
                   </div>
                 </div>
 
-                {/* Attendance Logs */}
+                {/* Attendance Logs Derived from Real Admin Schedules */}
                 <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Histori Presensi Terkini
-                  </h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {selectedStudent.logs.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic text-center py-3 bg-slate-50 rounded-2xl">
-                        Belum ada catatan presensi.
-                      </p>
-                    ) : (
-                      selectedStudent.logs.map((log, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center text-xs p-2.5 rounded-2xl bg-slate-50 border border-slate-100"
-                        >
-                          <span className="font-bold text-slate-700">{log.date}</span>
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${log.status === "Hadir"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : log.status === "Sakit"
-                                ? "bg-blue-50 text-blue-700 border border-blue-100"
-                                : log.status === "Izin"
-                                  ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                  : "bg-rose-50 text-rose-700 border border-rose-100"
-                              }`}
-                          >
-                            {log.status}
-                          </span>
-                        </div>
-                      ))
-                    )}
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Histori Presensi Terkini
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      Dari Jadwal &amp; Presensi Admin
+                    </span>
                   </div>
+                  
+                  {(() => {
+                    const studentHistory = getStudentHistoryFromSchedules(selectedStudent);
+                    if (studentHistory.length === 0) {
+                      return (
+                        <div className="py-5 px-4 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+                          <p className="text-xs font-bold text-slate-600">
+                            Belum ada riwayat presensi
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Jadwal yang dibuat Admin di menu Jadwal akan otomatis muncul di sini.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {studentHistory.map((item, idx) => (
+                          <div
+                            key={item.id || idx}
+                            className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1"
+                          >
+                            <div className="flex justify-between items-center text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-black text-slate-800">{item.date}</span>
+                                {item.time && (
+                                  <span className="text-[10px] text-slate-400 font-semibold">
+                                    • {item.time}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                  item.status === "Hadir"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : item.status === "Terlambat"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : item.status === "Terjadwal"
+                                    ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                    : item.status === "Sakit"
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : item.status === "Izin"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`}
+                              >
+                                {item.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                              <span className="font-semibold text-slate-700">{item.title}</span>
+                              <span className="text-[10px] text-slate-400">
+                                {item.coachName} • {item.poolArea}
+                              </span>
+                            </div>
+                            {item.lateReason && (
+                              <p className="text-[10px] text-amber-700 font-medium italic mt-0.5 flex items-center gap-1">
+                                <AlertCircle size={12} className="inline text-amber-600 shrink-0" />
+                                <span>Alasan Keterlambatan: &quot;{item.lateReason}&quot;</span>
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Actions */}
@@ -883,7 +1076,8 @@ export default function DaftarHadirTab({
                     rel="noopener noreferrer"
                     className="w-full py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-2 border border-emerald-200 cursor-pointer"
                   >
-                    Hubungi Wali Murid (WhatsApp)
+                    <MessageCircle size={15} />
+                    <span>Hubungi Wali Murid (WhatsApp)</span>
                   </a>
 
                   <button
