@@ -35,7 +35,6 @@ import {
   CheckInInput,
 } from "../../components/apps/types";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
-import NotificationToast from "../../components/apps/NotificationToast";
 import {
   playNotificationChime,
   triggerNotificationHaptic,
@@ -74,7 +73,6 @@ export default function AppsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Real-time Notification State & Tracking Refs
-  const [toastNotification, setToastNotification] = useState<AdminNotification | null>(null);
   const knownNotificationIdsRef = useRef<Set<number>>(new Set());
   const initialLoadDoneRef = useRef<boolean>(false);
 
@@ -223,16 +221,6 @@ export default function AppsPage() {
         const data = payload.data || {};
         const unreadCount = event.data.unread_count !== undefined ? Number(event.data.unread_count) : 1;
 
-        // Display in-app floating Toast banner
-        setToastNotification({
-          id: Date.now(),
-          title: title,
-          message: body,
-          type: data?.type || "schedule",
-          is_read: false,
-          created_at: new Date().toISOString(),
-        });
-
         // Audio chime & haptic feedback
         playNotificationChime();
         triggerNotificationHaptic();
@@ -306,19 +294,18 @@ export default function AppsPage() {
           // Update notifications state immediately
           setNotifications(latestNotifications);
 
-          // Pop the newest incoming notification into the in-app floating Toast banner
-          const newest = newUnreadItems[0];
-          setToastNotification(newest);
-
           // Sound chime & haptic feedback
           playNotificationChime();
           triggerNotificationHaptic();
 
           // Native browser Web Notification
-          showWebNotification(newest.title, {
-            body: newest.message,
-            icon: "/icon.png",
-          });
+          const newest = newUnreadItems[0];
+          if (newest) {
+            showWebNotification(newest.title, {
+              body: newest.message,
+              icon: "/icon.png",
+            });
+          }
 
           // Check if schedules or attendances need silent sync in the background
           const hasScheduleUpdate = newUnreadItems.some(
@@ -611,6 +598,7 @@ export default function AppsPage() {
       pelatih: ["admin", "pelatih"],
       absensi: ["admin", "pelatih"],
       kehadiran: ["admin", "pelatih"],
+      pengumuman: ["admin", "pelatih"],
       create: ["admin"],
       profile: ["admin", "pelatih"],
     };
@@ -626,6 +614,7 @@ export default function AppsPage() {
     { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
     { id: "pelatih", label: "Pelatih", fullLabel: "Daftar Pelatih & Instruktur", icon: "🏊‍♂️" },
     { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
+    { id: "pengumuman", label: "Pengumuman", fullLabel: "Pusat Pengumuman", icon: "📢" },
     { id: "create", label: "Registrasi", fullLabel: "Registrasi Pelatih/Siswa", icon: "👤+" },
     { id: "profile", label: "Profil", fullLabel: "Profil Akun", icon: "👤" },
   ].filter((item) => hasAccess(item.id));
@@ -815,36 +804,7 @@ export default function AppsPage() {
     }
   };
 
-  // Handler: Action on Toast notification click
-  const handleToastClick = async (notif: AdminNotification) => {
-    try {
-      if (!notif.is_read) {
-        await handleMarkNotificationRead(notif.id);
-      }
-    } catch (_) {}
 
-    const isSchedule =
-      notif.type?.includes("schedule") ||
-      notif.title?.toLowerCase().includes("jadwal") ||
-      notif.message?.toLowerCase().includes("jadwal");
-    const isAttendance =
-      notif.type?.includes("attendance") ||
-      notif.title?.toLowerCase().includes("absen") ||
-      notif.title?.toLowerCase().includes("hadir");
-
-    if (sessionRole === "orang tua") {
-      if (isSchedule) {
-        window.dispatchEvent(new CustomEvent("parent_switch_tab", { detail: "jadwal" }));
-      }
-    } else {
-      if (isSchedule) {
-        setActiveTab("jadwal");
-      } else if (isAttendance) {
-        setActiveTab("absensi");
-      }
-    }
-    setToastNotification(null);
-  };
 
   // Handler: Clear all notifications
   const handleClearAllNotifications = async () => {
@@ -865,7 +825,6 @@ export default function AppsPage() {
 
       await clearAllNotifications(sessionRole, queryName);
       setNotifications([]);
-      setToastNotification(null);
       clearAppBadge();
     } catch (err) {
       console.error("Clear notifications error:", err);
@@ -961,13 +920,6 @@ export default function AppsPage() {
 
     return (
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-10 flex flex-col">
-        {/* Real-time In-App Floating Notification Toast Alert */}
-        <NotificationToast
-          notification={toastNotification}
-          onDismiss={() => setToastNotification(null)}
-          onClickAction={handleToastClick}
-        />
-
         <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
           <ParentBody
             sessionUser={sessionUser}
@@ -1030,13 +982,6 @@ export default function AppsPage() {
           : "bg-[#f8fafc]"
       } md:bg-[#f8fafc] overflow-hidden text-slate-800 font-sans`}
     >
-      {/* Real-time In-App Floating Notification Toast Alert */}
-      <NotificationToast
-        notification={toastNotification}
-        onDismiss={() => setToastNotification(null)}
-        onClickAction={handleToastClick}
-      />
-
       <DesktopSidebar
         navItems={navItems}
         activeTab={activeTab}
@@ -1062,7 +1007,8 @@ export default function AppsPage() {
           activeTab === "dashboard" ||
           activeTab === "profile" ||
           activeTab === "daftar_hadir" ||
-          activeTab === "pelatih"
+          activeTab === "pelatih" ||
+          activeTab === "pengumuman"
             ? "bg-[#1d4ed8]"
             : "bg-[#f8fafc]"
         } md:bg-[#f8fafc]`}
@@ -1072,7 +1018,8 @@ export default function AppsPage() {
           activeTab !== "profile" &&
           activeTab !== "daftar_hadir" &&
           activeTab !== "pelatih" &&
-          activeTab !== "keuangan" && (
+          activeTab !== "keuangan" &&
+          activeTab !== "pengumuman" && (
           <div className="hidden md:block shrink-0">
             <AdminHeader
               title={currentTabTitle}

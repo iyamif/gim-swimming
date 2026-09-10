@@ -462,54 +462,9 @@ func (s *pushService) SendAttendancePushNotification(ctx context.Context, att *m
 	}(*att)
 }
 
-// SendTestPush sends a test push notification to devices matching the input criteria
+// SendTestPush is disabled and no longer sends test push messages
 func (s *pushService) SendTestPush(ctx context.Context, input *model.TestPushInput) (int, error) {
-	subs, err := s.pushRepo.FindForUser(ctx, input.Role, input.Username, input.StudentName, input.UserID)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(subs) == 0 {
-		return 0, fmt.Errorf("tidak ditemukan perangkat terdaftar untuk akun ini. Pastikan izin notifikasi sudah diizinkan di browser")
-	}
-
-	title := input.Title
-	if title == "" {
-		title = "GIM Swimming Push Test 🔔"
-	}
-
-	msg := input.Message
-	if msg == "" {
-		msg = fmt.Sprintf("Halo %s! Notifikasi push dan icon badge mobile berhasil terhubung dengan sukses.", input.Username)
-	}
-
-	unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, input.Role, input.StudentName, input.UserID)
-	if unreadCount <= 0 {
-		unreadCount = 1
-	}
-
-	payload := &model.WebPushPayload{
-		Title:       title,
-		Body:        msg,
-		Message:     msg,
-		Icon:        "/icon.png",
-		Badge:       "/icon.png",
-		Tag:         fmt.Sprintf("test-push-%d", time.Now().Unix()),
-		UnreadCount: unreadCount,
-		Data: map[string]interface{}{
-			"url":  "/apps",
-			"type": "test",
-		},
-	}
-
-	sentCount := 0
-	for _, sub := range subs {
-		if err := s.sendSinglePush(ctx, &sub, payload); err == nil {
-			sentCount++
-		}
-	}
-
-	return sentCount, nil
+	return 0, nil
 }
 
 // BroadcastPush broadcasts an announcement push notification to all subscribed devices and records it in notifications table

@@ -16,6 +16,7 @@ import JadwalTab from "./JadwalTab";
 import ProfilTab from "./ProfilTab";
 import PelatihTab from "./PelatihTab";
 import KehadiranTab from "./KehadiranTab";
+import PengumumanTab from "./PengumumanTab";
 import PullToRefresh from "../PullToRefresh";
 
 interface AppsBodyProps {
@@ -184,6 +185,18 @@ export default function AppsBody({
         />
       )}
 
+      {activeTab === "pengumuman" && (
+        <PengumumanTab
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          notifications={notifications}
+          onMarkNotificationRead={onMarkNotificationRead}
+          onClearAllNotifications={onClearAllNotifications}
+          onRefresh={onRefresh}
+          setActiveTab={setActiveTab}
+        />
+      )}
+
       {activeTab === "profile" && (
         <ProfilTab
           sessionUser={sessionUser}
@@ -209,7 +222,8 @@ export default function AppsBody({
         activeTab === "profile" ||
         activeTab === "daftar_hadir" ||
         activeTab === "pelatih" ||
-        activeTab === "kehadiran"
+        activeTab === "kehadiran" ||
+        activeTab === "pengumuman"
           ? "p-0"
           : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
       }`}

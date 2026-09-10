@@ -122,6 +122,7 @@ export function DesktopSidebar({
         ).map((item) => {
           const isActive = activeTab === item.id;
           const showScheduleBadge = item.id === "jadwal" && unreadSchedule > 0;
+          const showAnnouncementBadge = item.id === "pengumuman" && unreadTotal > 0;
           const showOverviewBadge = item.id === "dashboard" && unreadTotal > 0;
 
           return (
@@ -143,7 +144,13 @@ export function DesktopSidebar({
                 </span>
               )}
 
-              {showOverviewBadge && !showScheduleBadge && (
+              {showAnnouncementBadge && (
+                <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-xs">
+                  {unreadTotal > 99 ? "99+" : unreadTotal}
+                </span>
+              )}
+
+              {showOverviewBadge && !showScheduleBadge && !showAnnouncementBadge && (
                 <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-xs">
                   {unreadTotal > 99 ? "99+" : unreadTotal}
                 </span>
