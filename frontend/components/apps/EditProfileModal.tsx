@@ -24,17 +24,17 @@ const PRESET_AVATARS = [
   "🏊‍♂️", "🏊‍♀️", "🤽‍♂️", "🏄‍♂️", "🤿", "🐬", "🏆", "🥇", "⭐", "👤"
 ];
 
-// Helper to compress and convert any uploaded image (JPG, JPEG, PNG, etc.) to a lightweight high-res JPEG
-function compressImage(file: File, maxDimension = 1200, quality = 0.88): Promise<{ file: File; dataUrl: string }> {
+// Helper to compress and convert any uploaded image to an ultra-lightweight WebP/JPEG Base64 Data URL (~15-30KB)
+function compressImage(file: File, maxDimension = 300, quality = 0.82): Promise<{ file: File; dataUrl: string }> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onerror = () => {
-      resolve({ file, dataUrl: URL.createObjectURL(file) });
+      resolve({ file, dataUrl: "" });
     };
     reader.onload = (e) => {
       const img = new Image();
       img.onerror = () => {
-        resolve({ file, dataUrl: (e.target?.result as string) || URL.createObjectURL(file) });
+        resolve({ file, dataUrl: (e.target?.result as string) || "" });
       };
       img.onload = () => {
         let width = img.width;
@@ -55,28 +55,37 @@ function compressImage(file: File, maxDimension = 1200, quality = 0.88): Promise
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          return resolve({ file, dataUrl: e.target?.result as string });
+          return resolve({ file, dataUrl: (e.target?.result as string) || "" });
         }
 
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        // Prefer modern WebP format with JPEG fallback
+        let dataUrl = "";
+        try {
+          dataUrl = canvas.toDataURL("image/webp", quality);
+          if (!dataUrl.startsWith("data:image/webp")) {
+            dataUrl = canvas.toDataURL("image/jpeg", quality);
+          }
+        } catch {
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
 
         canvas.toBlob(
           (blob) => {
             if (!blob) {
               return resolve({ file, dataUrl });
             }
-            const cleanName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+            const cleanName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
             const optimizedFile = new File([blob], cleanName, {
-              type: "image/jpeg",
+              type: blob.type || "image/webp",
               lastModified: Date.now(),
             });
             resolve({ file: optimizedFile, dataUrl });
           },
-          "image/jpeg",
+          "image/webp",
           quality
         );
       };
@@ -168,7 +177,9 @@ export default function EditProfileModal({
 
       let finalAvatar = "";
 
-      if (selectedFile) {
+      if (previewAvatar && previewAvatar.startsWith("data:image")) {
+        finalAvatar = await updateAvatarPreset(previewAvatar);
+      } else if (selectedFile) {
         finalAvatar = await uploadAvatarFile(selectedFile);
       } else {
         finalAvatar = await updateAvatarPreset(previewAvatar);

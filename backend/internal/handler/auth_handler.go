@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -155,7 +157,7 @@ func copyUploadedFile(src, dst string) {
 	_ = os.WriteFile(dst, input, 0644)
 }
 
-// UploadAvatar handles file upload for user profile photo
+// UploadAvatar handles file upload for user profile photo (converts to persistent Base64 Data URL stored in DB)
 func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	usernameVal, exists := c.Get("username")
 	if !exists {
@@ -175,53 +177,56 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	// Normalize extension (support .jpg, .jpeg, .png, .webp, etc.)
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext == ".jpeg" || ext == "" {
-		ext = ".jpg"
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca file foto profil: " + err.Error()})
+		return
 	}
+	defer src.Close()
 
-	// Generate clean unique filename
-	filename := fmt.Sprintf("avatar_%s_%d%s", username, time.Now().Unix(), ext)
-
-	// Primary upload directory for production & dev
-	primaryDir := "./uploads/foto-profile"
-	_ = os.MkdirAll(primaryDir, 0755)
-	dst := filepath.Join(primaryDir, filename)
-
-	if err := c.SaveUploadedFile(file, dst); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file foto profil: " + err.Error()})
+	fileBytes, err := io.ReadAll(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses file foto profil: " + err.Error()})
 		return
 	}
 
-	// Also sync to other candidate directories (e.g. public or local frontend)
-	syncDirs := []string{
-		"./public/foto-profile",
-		"../frontend/public/foto-profile",
-		"frontend/public/foto-profile",
-	}
-	for _, dir := range syncDirs {
-		parent := filepath.Dir(dir)
-		if info, err := os.Stat(parent); err == nil && info.IsDir() {
-			_ = os.MkdirAll(dir, 0755)
-			syncDst := filepath.Join(dir, filename)
-			if syncDst != dst {
-				copyUploadedFile(dst, syncDst)
-			}
+	// Detect MIME type
+	mimeType := http.DetectContentType(fileBytes)
+	if !strings.HasPrefix(mimeType, "image/") {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if ext == ".webp" {
+			mimeType = "image/webp"
+		} else if ext == ".png" {
+			mimeType = "image/png"
+		} else {
+			mimeType = "image/jpeg"
 		}
 	}
 
-	avatarPath := fmt.Sprintf("/foto-profile/%s", filename)
+	// Convert to Base64 Data URL for persistent storage in PostgreSQL
+	encoded := base64.StdEncoding.EncodeToString(fileBytes)
+	avatarDataUrl := fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
 
-	// Update user and student records in database
-	if err := h.authService.UpdateAvatar(c.Request.Context(), username, avatarPath); err != nil {
+	// Save to local cache directory if available
+	primaryDir := "./uploads/foto-profile"
+	_ = os.MkdirAll(primaryDir, 0755)
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext == "" {
+		ext = ".jpg"
+	}
+	filename := fmt.Sprintf("avatar_%s_%d%s", username, time.Now().Unix(), ext)
+	dst := filepath.Join(primaryDir, filename)
+	_ = os.WriteFile(dst, fileBytes, 0644)
+
+	// Update user and student records in PostgreSQL database with Base64
+	if err := h.authService.UpdateAvatar(c.Request.Context(), username, avatarDataUrl); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan foto profil ke database: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Foto profil berhasil diunggah dan disimpan",
-		"avatar":  avatarPath,
+		"message": "Foto profil berhasil diunggah dan disimpan ke database",
+		"avatar":  avatarDataUrl,
 	})
 }
