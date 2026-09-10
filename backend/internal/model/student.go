@@ -42,3 +42,18 @@ type BulkAttendanceInput struct {
 	Date          string            `json:"date"` // Optional, defaults to today
 	AttendanceMap map[string]string `json:"attendanceMap" binding:"required"` // student_id -> status
 }
+
+// UpdateStudentStatusInput represents payload for updating student status
+type UpdateStudentStatusInput struct {
+	Status string `json:"status" binding:"required"`
+}
+
+// UpdateStudentInput represents payload for updating full student details
+type UpdateStudentInput struct {
+	Name   string `json:"name"`
+	Class  string `json:"class"`
+	Parent string `json:"parent"`
+	Phone  string `json:"phone"`
+	Age    string `json:"age"`
+	Status string `json:"status"`
+}

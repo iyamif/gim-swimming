@@ -75,7 +75,7 @@ export default function RegistrasiTab({
   // Access restriction for non-admin
   if (isCoachRole) {
     return (
-      <div className="space-y-4 pb-12 bg-[#f8fafc] min-h-full">
+      <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
         {/* Top Vibrant Blue Header */}
         <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 rounded-none">
           <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
@@ -211,7 +211,7 @@ export default function RegistrasiTab({
   };
 
   return (
-    <div className="space-y-4 pb-12 bg-[#f8fafc] min-h-full">
+    <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (MATCHING DASHBOARD)
           ========================================== */}

@@ -112,7 +112,7 @@ export default function PushNotificationCard({
             username: sessionUser,
             studentName: studentName || sessionUser,
             userPrompt: false,
-          }).catch(() => {});
+          }).catch(() => { });
 
           // 2. Dispatch test push notification
           const res = await sendTestPushToDevice({
@@ -187,23 +187,22 @@ export default function PushNotificationCard({
 
         {/* Status Pill */}
         <span
-          className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full border shadow-2xs ${
-            isGranted
-              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-              : isDenied
+          className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full border shadow-2xs ${isGranted
+            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+            : isDenied
               ? "bg-rose-50 text-rose-700 border-rose-300"
               : isUnsupported
-              ? "bg-slate-100 text-slate-600 border-slate-300"
-              : "bg-amber-50 text-amber-700 border-amber-300 animate-pulse"
-          }`}
+                ? "bg-slate-100 text-slate-600 border-slate-300"
+                : "bg-amber-50 text-amber-700 border-amber-300 animate-pulse"
+            }`}
         >
           {isGranted
             ? "🟢 Aktif (Siap)"
             : isDenied
-            ? "🔴 Diblokir"
-            : isUnsupported
-            ? "⚪ Tidak Didukung"
-            : "🟡 Belum Diaktifkan"}
+              ? "🔴 Diblokir"
+              : isUnsupported
+                ? "⚪ Tidak Didukung"
+                : "🟡 Belum Diaktifkan"}
         </span>
       </div>
 
@@ -270,7 +269,7 @@ export default function PushNotificationCard({
             className="py-2.5 px-3 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             title="Perbarui pendaftaran push token jika berganti perangkat"
           >
-            <span>🔄</span>
+
             <span>Sinkronkan Ulang</span>
           </button>
         )}
@@ -291,13 +290,12 @@ export default function PushNotificationCard({
       {/* Live Status Message Alert */}
       {statusMessage && (
         <div
-          className={`p-3 rounded-2xl text-xs font-bold relative z-10 animate-fadeIn ${
-            statusMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : statusMessage.type === "error"
+          className={`p-3 rounded-2xl text-xs font-bold relative z-10 animate-fadeIn ${statusMessage.type === "success"
+            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+            : statusMessage.type === "error"
               ? "bg-rose-50 text-rose-800 border border-rose-200"
               : "bg-blue-50 text-blue-800 border border-blue-200"
-          }`}
+            }`}
         >
           {statusMessage.text}
         </div>
@@ -311,7 +309,7 @@ export default function PushNotificationCard({
           className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 flex items-center justify-between w-full cursor-pointer py-1"
         >
           <span className="flex items-center gap-1.5">
-            <span>💡</span>
+
             <span>Tips agar notifikasi tidak tertunda oleh sistem Android / iOS</span>
           </span>
           <span>{showTips ? "▲ Sembunyikan" : "▼ Lihat Tips"}</span>

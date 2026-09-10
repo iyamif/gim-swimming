@@ -116,6 +116,8 @@ func SetupRoutes(
 		{
 			studentGroup.GET("", appHandler.GetStudents)
 			studentGroup.POST("", appHandler.CreateStudent)
+			studentGroup.PUT("/:id", appHandler.UpdateStudent)
+			studentGroup.PATCH("/:id/status", appHandler.UpdateStudentStatus)
 			studentGroup.POST("/attendance", appHandler.SubmitBulkAttendance)
 		}
 

@@ -16,6 +16,8 @@ type StudentRepository interface {
 	GetLogsByStudentID(ctx context.Context, studentID int64) ([]model.AttendanceLog, error)
 	AddAttendanceLog(ctx context.Context, log *model.AttendanceLog) error
 	UpdateAttendanceRate(ctx context.Context, studentID int64, rate string) error
+	UpdateStatus(ctx context.Context, studentID int64, status string) error
+	Update(ctx context.Context, student *model.Student) error
 }
 
 type pgStudentRepository struct {
@@ -199,3 +201,34 @@ func (r *pgStudentRepository) UpdateAttendanceRate(ctx context.Context, studentI
 	_, err := r.db.ExecContext(ctx, query, rate, studentID)
 	return err
 }
+
+func (r *pgStudentRepository) UpdateStatus(ctx context.Context, studentID int64, status string) error {
+	query := `
+		UPDATE students
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2;
+	`
+	_, err := r.db.ExecContext(ctx, query, status, studentID)
+	return err
+}
+
+func (r *pgStudentRepository) Update(ctx context.Context, student *model.Student) error {
+	query := `
+		UPDATE students
+		SET name = $1, class = $2, parent = $3, phone = $4, age = $5, status = $6, updated_at = NOW()
+		WHERE id = $7;
+	`
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		student.Name,
+		student.Class,
+		student.Parent,
+		student.Phone,
+		student.Age,
+		student.Status,
+		student.ID,
+	)
+	return err
+}
+

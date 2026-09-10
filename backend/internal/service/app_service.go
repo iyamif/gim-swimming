@@ -20,6 +20,8 @@ type AppService interface {
 	// Students & Attendance
 	GetStudents(ctx context.Context) ([]model.Student, error)
 	CreateStudent(ctx context.Context, input *model.CreateStudentInput) (*model.Student, error)
+	UpdateStudent(ctx context.Context, id int64, input *model.UpdateStudentInput) (*model.Student, error)
+	UpdateStudentStatus(ctx context.Context, id int64, status string) error
 	SubmitBulkAttendance(ctx context.Context, input *model.BulkAttendanceInput) error
 
 	// Coaches
@@ -152,6 +154,60 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 	_ = s.invoiceRepo.Create(ctx, inv)
 
 	return student, nil
+}
+
+// UpdateStudent updates student profile details (name, class, parent, phone, age, status)
+func (s *appService) UpdateStudent(ctx context.Context, id int64, input *model.UpdateStudentInput) (*model.Student, error) {
+	student, err := s.studentRepo.FindByID(ctx, id)
+	if err != nil || student == nil {
+		return nil, errors.New("siswa tidak ditemukan")
+	}
+
+	if strings.TrimSpace(input.Name) != "" {
+		student.Name = strings.TrimSpace(input.Name)
+	}
+	if strings.TrimSpace(input.Class) != "" {
+		student.Class = strings.TrimSpace(input.Class)
+	}
+	if strings.TrimSpace(input.Parent) != "" {
+		student.Parent = strings.TrimSpace(input.Parent)
+	}
+	if input.Phone != "" {
+		student.Phone = strings.TrimSpace(input.Phone)
+	}
+	if input.Age != "" {
+		student.Age = strings.TrimSpace(input.Age)
+	}
+	if strings.TrimSpace(input.Status) != "" {
+		norm := strings.TrimSpace(input.Status)
+		dbStatus := "Active"
+		if strings.EqualFold(norm, "inactive") || strings.EqualFold(norm, "tidak aktif") {
+			dbStatus = "Inactive"
+		}
+		student.Status = dbStatus
+	}
+
+	student.UpdatedAt = time.Now()
+	if err := s.studentRepo.Update(ctx, student); err != nil {
+		return nil, err
+	}
+
+	return student, nil
+}
+
+// UpdateStudentStatus updates a student's membership status (Active vs Inactive)
+func (s *appService) UpdateStudentStatus(ctx context.Context, id int64, status string) error {
+	norm := strings.TrimSpace(status)
+	if !strings.EqualFold(norm, "active") && !strings.EqualFold(norm, "inactive") && !strings.EqualFold(norm, "aktif") && !strings.EqualFold(norm, "tidak aktif") {
+		return errors.New("status siswa tidak valid (pilih Aktif atau Tidak Aktif)")
+	}
+
+	dbStatus := "Active"
+	if strings.EqualFold(norm, "inactive") || strings.EqualFold(norm, "tidak aktif") {
+		dbStatus = "Inactive"
+	}
+
+	return s.studentRepo.UpdateStatus(ctx, id, dbStatus)
 }
 
 // SubmitBulkAttendance processes attendance for all students in a class

@@ -7,6 +7,8 @@ import {
   getApiBaseUrl,
   fetchStudents,
   createStudent,
+  updateStudent,
+  updateStudentStatus,
   submitBulkAttendance,
   fetchCoaches,
   createCoach,
@@ -745,6 +747,30 @@ export default function AppsPage() {
     }
   };
 
+  // Handler: Update Student Membership Status (Active / Inactive)
+  const handleUpdateStudentStatus = async (studentId: string, status: string) => {
+    try {
+      await updateStudentStatus(studentId, status);
+      const updatedStudents = await fetchStudents();
+      setStudents(updatedStudents);
+    } catch (err) {
+      console.error("Failed to update student status:", err);
+      throw err;
+    }
+  };
+
+  // Handler: Update Full Student Profile Details (Admin)
+  const handleUpdateStudent = async (studentId: string, data: Partial<Student>) => {
+    try {
+      await updateStudent(studentId, data);
+      const updatedStudents = await fetchStudents();
+      setStudents(updatedStudents);
+    } catch (err) {
+      console.error("Failed to update student profile:", err);
+      throw err;
+    }
+  };
+
   // Handler: Upload tuition receipt (Orang Tua view) to PostgreSQL DB
   const handleParentUploadReceipt = async (invoiceId: string) => {
     try {
@@ -1041,6 +1067,8 @@ export default function AppsPage() {
             onMarkNotificationRead={handleMarkNotificationRead}
             onClearAllNotifications={handleClearAllNotifications}
             onSubmitAttendance={handleAbsensiSubmit}
+            onUpdateStudentStatus={handleUpdateStudentStatus}
+            onUpdateStudent={handleUpdateStudent}
             onAddStudent={handleAddSiswaSubmit}
             onAddCoach={handleAddPelatihSubmit}
           />

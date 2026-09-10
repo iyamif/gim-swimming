@@ -68,7 +68,7 @@ export function ParentHeader({
               className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 text-slate-600 hover:text-cyan-600 transition cursor-pointer disabled:opacity-60"
               title="Perbarui Data Database"
             >
-              <span className={`text-xs ${isRefreshingLocal ? "animate-spin" : ""}`}>🔄</span>
+              {/* <span className={`text-xs ${isRefreshingLocal ? "animate-spin" : ""}`}>🔄</span> */}
             </button>
           )}
 
@@ -254,15 +254,14 @@ export function AdminHeader({
                               setActiveTab("absensi");
                             }
                           }}
-                          className={`p-2.5 rounded-2xl border transition text-left cursor-pointer ${
-                            !notif.is_read
-                              ? isSchedule
-                                ? "bg-emerald-50/80 border-emerald-200"
-                                : isLate
+                          className={`p-2.5 rounded-2xl border transition text-left cursor-pointer ${!notif.is_read
+                            ? isSchedule
+                              ? "bg-emerald-50/80 border-emerald-200"
+                              : isLate
                                 ? "bg-amber-50/80 border-amber-200"
                                 : "bg-blue-50/80 border-blue-200"
-                              : "bg-slate-50/60 border-slate-100 opacity-80"
-                          }`}
+                            : "bg-slate-50/60 border-slate-100 opacity-80"
+                            }`}
                         >
                           <div className="flex items-center justify-between gap-1 mb-0.5">
                             <span className="text-xs font-black text-slate-900 flex items-center gap-1">
@@ -300,13 +299,12 @@ export function AdminHeader({
 
         {/* Dynamic Role Badge */}
         <span
-          className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-            sessionRole === "admin"
-              ? "bg-rose-50 text-rose-600 border-rose-100"
-              : sessionRole === "pelatih"
+          className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${sessionRole === "admin"
+            ? "bg-rose-50 text-rose-600 border-rose-100"
+            : sessionRole === "pelatih"
               ? "bg-pink-50 text-pink-600 border-pink-100"
               : "bg-purple-50 text-purple-600 border-purple-100"
-          }`}
+            }`}
         >
           {sessionRole}
         </span>
@@ -316,7 +314,8 @@ export function AdminHeader({
             onClick={onInstallClick}
             className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 px-3 py-2 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1 shadow-md shadow-rose-500/20 shrink-0"
           >
-            <span>📥</span> <span className="hidden sm:inline">Install App</span>
+
+            <span className="hidden sm:inline">Install App</span>
           </button>
         )}
 

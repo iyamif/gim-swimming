@@ -45,6 +45,8 @@ interface AppsBodyProps {
     className: string,
     attendanceMap: Record<string, "Hadir" | "Sakit" | "Izin" | "Alpa">
   ) => void;
+  onUpdateStudentStatus?: (studentId: string, status: string) => Promise<void> | void;
+  onUpdateStudent?: (studentId: string, data: Partial<Student>) => Promise<void> | void;
   onAddStudent: (data: {
     name: string;
     age: string;
@@ -92,6 +94,8 @@ export default function AppsBody({
   onMarkNotificationRead,
   onClearAllNotifications,
   onSubmitAttendance,
+  onUpdateStudentStatus,
+  onUpdateStudent,
   onAddStudent,
   onAddCoach,
 }: AppsBodyProps) {
@@ -146,6 +150,8 @@ export default function AppsBody({
           schedules={schedules}
           coaches={coaches}
           attendances={attendances}
+          onUpdateStudentStatus={onUpdateStudentStatus}
+          onUpdateStudent={onUpdateStudent}
           setActiveTab={setActiveTab}
         />
       )}

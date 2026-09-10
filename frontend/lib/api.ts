@@ -171,6 +171,69 @@ export async function submitBulkAttendance(payload: {
   }
 }
 
+export async function updateStudent(
+  id: string | number,
+  payload: {
+    name?: string;
+    class?: string;
+    parent?: string;
+    phone?: string;
+    age?: string;
+    status?: string;
+  }
+): Promise<Student | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/students/${id}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal memperbarui data siswa");
+    }
+    const json = await res.json();
+    const s = json.data;
+    if (!s) return null;
+    return {
+      id: String(s.id),
+      name: s.name,
+      class: s.class,
+      attendanceRate: s.attendanceRate || "100%",
+      parent: s.parent,
+      status: s.status || "Active",
+      avatar: s.avatar || "",
+      phone: s.phone || "",
+      age: s.age || "",
+      logs: (s.logs || []).map((l: any) => ({
+        date: l.date,
+        status: l.status,
+      })),
+    };
+  } catch (err) {
+    console.error("updateStudent error:", err);
+    throw err;
+  }
+}
+
+export async function updateStudentStatus(id: string | number, status: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/students/${id}/status`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal memperbarui status siswa");
+    }
+    return true;
+  } catch (err) {
+    console.error("updateStudentStatus error:", err);
+    throw err;
+  }
+}
+
 // ================= COACHES =================
 
 export async function fetchCoaches(): Promise<Coach[]> {

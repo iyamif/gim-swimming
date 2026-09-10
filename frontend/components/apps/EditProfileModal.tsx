@@ -362,11 +362,10 @@ export default function EditProfileModal({
                     key={emoji}
                     type="button"
                     onClick={() => handleSelectPreset(emoji)}
-                    className={`flex h-10 items-center justify-center rounded-xl text-lg transition-all duration-150 cursor-pointer border ${
-                      previewAvatar === emoji && !isCustomImage
+                    className={`flex h-10 items-center justify-center rounded-xl text-lg transition-all duration-150 cursor-pointer border ${previewAvatar === emoji && !isCustomImage
                         ? "bg-cyan-50 border-cyan-400 ring-2 ring-cyan-400/30 scale-105"
                         : "bg-white hover:bg-slate-100 border-slate-200/80"
-                    }`}
+                      }`}
                   >
                     {emoji}
                   </button>
@@ -427,8 +426,8 @@ export default function EditProfileModal({
                 {isAdmin
                   ? "Administrator Utama (Full Control)"
                   : isCoach
-                  ? "Instruktur Pelatih Renang"
-                  : "Wali Murid / Siswa"}
+                    ? "Instruktur Pelatih Renang"
+                    : "Wali Murid / Siswa"}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-100">
@@ -441,8 +440,8 @@ export default function EditProfileModal({
                 {isAdmin
                   ? "Jadwal, Siswa, Pelatih, Keuangan & Presensi"
                   : isCoach
-                  ? "Jadwal Sesi & Input Presensi Harian"
-                  : "Dashboard & Progres Report Siswa"}
+                    ? "Jadwal Sesi & Input Presensi Harian"
+                    : "Dashboard & Progres Report Siswa"}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-100">
@@ -476,7 +475,7 @@ export default function EditProfileModal({
               className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
             >
               <span className="flex items-center gap-2">
-                <span>💬</span> Hubungi Dukungan Teknis GIM
+
               </span>
               <span>›</span>
             </a>
@@ -488,7 +487,7 @@ export default function EditProfileModal({
                 className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  <span>📥</span> Pasang Aplikasi (Install PWA)
+                  Pasang Aplikasi (Install PWA)
                 </span>
                 <span>›</span>
               </button>

@@ -202,7 +202,7 @@ export default function PengumumanTab({
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
-    <div className="space-y-5 pb-16 bg-[#f8fafc] min-h-full animate-fadeIn">
+    <div className="space-y-5 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full animate-fadeIn">
       {/* ==========================================
           1. TOP VIBRANT BLUE BANNER (MATCHING THEME)
           ========================================== */}

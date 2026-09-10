@@ -108,9 +108,8 @@ export default function BroadcastAnnouncementModal({
         setFeedback({
           type: "success",
           text: "Pengumuman berhasil disiarkan!",
-          details: `Terkirim ke ${res.sent_count || 0} dari ${
-            res.total_recipients || 0
-          } perangkat PWA yang terpasang di HP siswa & pelatih.`,
+          details: `Terkirim ke ${res.sent_count || 0} dari ${res.total_recipients || 0
+            } perangkat PWA yang terpasang di HP siswa & pelatih.`,
         });
 
         if (onSuccess) {
@@ -184,11 +183,10 @@ export default function BroadcastAnnouncementModal({
           {/* Feedback Banner */}
           {feedback && (
             <div
-              className={`p-4 rounded-2xl text-xs font-semibold border flex items-start gap-2.5 animate-fadeIn ${
-                feedback.type === "success"
+              className={`p-4 rounded-2xl text-xs font-semibold border flex items-start gap-2.5 animate-fadeIn ${feedback.type === "success"
                   ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                   : "bg-rose-50 text-rose-800 border-rose-200"
-              }`}
+                }`}
             >
               <span className="text-base shrink-0">
                 {feedback.type === "success" ? "✅" : "⚠️"}
@@ -208,7 +206,7 @@ export default function BroadcastAnnouncementModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <span>⚡</span>
+                {/* <span>⚡</span> */}
                 <span>Pilih Template Cepat (1-Klik):</span>
               </span>
               <span className="text-[10px] text-slate-400 font-medium">

@@ -65,6 +65,78 @@ func (h *AppHandler) CreateStudent(c *gin.Context) {
 	})
 }
 
+// UpdateStudent handles PUT /api/v1/students/:id
+func (h *AppHandler) UpdateStudent(c *gin.Context) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "ID siswa tidak valid",
+		})
+		return
+	}
+
+	var input model.UpdateStudentInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	student, err := h.appService.UpdateStudent(c.Request.Context(), id, &input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Data siswa berhasil diperbarui",
+		"data":    student,
+	})
+}
+
+// UpdateStudentStatus handles PATCH /api/v1/students/:id/status
+func (h *AppHandler) UpdateStudentStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "ID siswa tidak valid",
+		})
+		return
+	}
+
+	var input model.UpdateStudentStatusInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if err := h.appService.UpdateStudentStatus(c.Request.Context(), id, input.Status); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Status siswa berhasil diperbarui",
+	})
+}
+
 // SubmitBulkAttendance handles POST /api/v1/students/attendance
 func (h *AppHandler) SubmitBulkAttendance(c *gin.Context) {
 	var input model.BulkAttendanceInput
