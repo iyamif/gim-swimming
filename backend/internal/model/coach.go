@@ -11,15 +11,17 @@ type Coach struct {
 	Phone     string    `json:"phone"`
 	Email     string    `json:"email"`
 	Class     string    `json:"class"`
+	Avatar    string    `json:"avatar"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // CreateCoachInput represents payload for registering a new coach
 type CreateCoachInput struct {
-	Name  string `json:"name" binding:"required"`
-	Spec  string `json:"spec"`
-	Phone string `json:"phone" binding:"required"`
-	Email string `json:"email" binding:"required,email"`
-	Class string `json:"class" binding:"required"`
+	Name   string `json:"name" binding:"required"`
+	Spec   string `json:"spec"`
+	Phone  string `json:"phone" binding:"required"`
+	Email  string `json:"email" binding:"required,email"`
+	Class  string `json:"class" binding:"required"`
+	Avatar string `json:"avatar"`
 }

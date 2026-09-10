@@ -94,6 +94,7 @@ func runMigrations() error {
 		phone VARCHAR(50) NOT NULL,
 		email VARCHAR(255) NOT NULL,
 		class VARCHAR(100) NOT NULL,
+		avatar TEXT DEFAULT '',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
@@ -192,8 +193,10 @@ func runMigrations() error {
 	-- Add column migrations if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
+	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 	ALTER TABLE students ALTER COLUMN avatar TYPE TEXT;
+	ALTER TABLE coaches ALTER COLUMN avatar TYPE TEXT;
 	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS is_late BOOLEAN DEFAULT false;
 	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS late_reason TEXT DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_role VARCHAR(50) DEFAULT '';

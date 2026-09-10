@@ -188,6 +188,7 @@ export async function fetchCoaches(): Promise<Coach[]> {
       phone: c.phone,
       email: c.email,
       class: c.class,
+      avatar: c.avatar || "",
     }));
   } catch (err) {
     console.error("fetchCoaches error:", err);

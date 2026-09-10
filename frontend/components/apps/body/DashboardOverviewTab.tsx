@@ -1229,17 +1229,36 @@ export default function DashboardOverviewTab({
             </div>
 
             <div className="space-y-2.5 max-h-60 overflow-y-auto">
-              {coaches.map((c) => (
-                <div key={c.id} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between text-xs">
-                  <div>
-                    <h5 className="font-bold text-slate-900">{c.name}</h5>
-                    <p className="text-[10px] text-slate-500">{c.spec} • {c.class}</p>
+              {coaches.map((c) => {
+                const isImg = isImageAvatar(c.avatar);
+                return (
+                  <div key={c.id} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-teal-500 to-cyan-500 text-white font-bold text-xs shrink-0 overflow-hidden shadow-2xs border border-white">
+                        {isImg && c.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={getAvatarImageUrl(c.avatar)}
+                            alt={c.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : c.avatar ? (
+                          <span className="text-sm">{c.avatar}</span>
+                        ) : (
+                          <span>{c.name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-slate-900">{c.name}</h5>
+                        <p className="text-[10px] text-slate-500">{c.spec} • {c.class}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-lg border border-cyan-100">
+                      {c.phone}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-lg border border-cyan-100">
-                    {c.phone}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <button
