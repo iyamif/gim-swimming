@@ -27,6 +27,7 @@ type AuthService interface {
 	Register(ctx context.Context, input model.RegisterInput) (*model.User, error)
 	Login(ctx context.Context, input model.LoginInput) (string, *model.User, error)
 	ValidateToken(tokenStr string) (*Claims, error)
+	SetupPassword(ctx context.Context, userID int64, newPassword string) (*model.User, error)
 	UpdateAvatar(ctx context.Context, username string, avatar string) error
 }
 
@@ -70,12 +71,13 @@ func (s *authService) Register(ctx context.Context, input model.RegisterInput) (
 	}
 
 	user := &model.User{
-		Username:  input.Username,
-		Email:     strings.ToLower(input.Email),
-		Password:  string(hashedPassword),
-		Role:      strings.ToLower(input.Role),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Username:           input.Username,
+		Email:              strings.ToLower(input.Email),
+		Password:           string(hashedPassword),
+		Role:               strings.ToLower(input.Role),
+		MustChangePassword: false,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
 
 	err = s.userRepo.Create(ctx, user)
@@ -91,11 +93,12 @@ func (s *authService) Login(ctx context.Context, input model.LoginInput) (string
 	var user *model.User
 	var err error
 
-	// Determine if input is email or username
-	if strings.Contains(input.UsernameOrEmail, "@") {
-		user, err = s.userRepo.FindByEmail(ctx, strings.ToLower(input.UsernameOrEmail))
+	// Determine if input is email, phone, or username
+	cleanInput := strings.TrimSpace(input.UsernameOrEmail)
+	if strings.Contains(cleanInput, "@") {
+		user, err = s.userRepo.FindByEmail(ctx, strings.ToLower(cleanInput))
 	} else {
-		user, err = s.userRepo.FindByUsername(ctx, input.UsernameOrEmail)
+		user, err = s.userRepo.FindByPhoneOrIdentifier(ctx, cleanInput)
 	}
 
 	if err != nil {
@@ -118,6 +121,29 @@ func (s *authService) Login(ctx context.Context, input model.LoginInput) (string
 	}
 
 	return token, user, nil
+}
+
+// SetupPassword updates initial password for user on first login and sets must_change_password to false
+func (s *authService) SetupPassword(ctx context.Context, userID int64, newPassword string) (*model.User, error) {
+	if len(newPassword) < 6 {
+		return nil, errors.New("kata sandi baru minimal harus 6 karakter")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengenkripsi kata sandi: %v", err)
+	}
+
+	if err := s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword)); err != nil {
+		return nil, fmt.Errorf("gagal menyimpan kata sandi baru: %v", err)
+	}
+
+	updatedUser, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
 }
 
 // generateToken generates a JWT token for a user

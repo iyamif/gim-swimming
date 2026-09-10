@@ -513,6 +513,21 @@ export async function updateAvatarPreset(avatar: string): Promise<string> {
   return data.avatar;
 }
 
+export async function setupInitialPassword(newPassword: string): Promise<{ success: boolean; message: string; data?: any }> {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/setup-password`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ new_password: newPassword }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error || "Gagal mengatur kata sandi baru");
+  }
+
+  return json;
+}
+
 // ================= ATTENDANCES & NOTIFICATIONS =================
 
 export async function fetchAttendances(): Promise<AttendanceRecord[]> {

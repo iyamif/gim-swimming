@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/iyamif/gim-swimming/internal/model"
 )
@@ -14,7 +15,9 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	FindByID(ctx context.Context, id int64) (*model.User, error)
+	FindByPhoneOrIdentifier(ctx context.Context, identifier string) (*model.User, error)
 	UpdateAvatar(ctx context.Context, username string, avatar string) error
+	UpdatePassword(ctx context.Context, userID int64, hashedPassword string) error
 }
 
 // pgUserRepository implements UserRepository for PostgreSQL
@@ -32,8 +35,8 @@ func NewUserRepository(db *sql.DB) UserRepository {
 // Create inserts a new user and populates the auto-generated ID
 func (r *pgUserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (username, email, password, role, avatar, created_at, updated_at) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7) 
+		INSERT INTO users (username, email, password, role, avatar, must_change_password, created_at, updated_at) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
 		RETURNING id`
 	
 	err := r.db.QueryRowContext(
@@ -44,6 +47,7 @@ func (r *pgUserRepository) Create(ctx context.Context, user *model.User) error {
 		user.Password, 
 		user.Role, 
 		user.Avatar,
+		user.MustChangePassword,
 		user.CreatedAt, 
 		user.UpdatedAt,
 	).Scan(&user.ID)
@@ -54,9 +58,9 @@ func (r *pgUserRepository) Create(ctx context.Context, user *model.User) error {
 // FindByEmail searches for a user by email
 func (r *pgUserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password, role, COALESCE(avatar, ''), created_at, updated_at 
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), COALESCE(must_change_password, false), created_at, updated_at 
 		FROM users 
-		WHERE email = $1`
+		WHERE LOWER(email) = LOWER($1)`
 
 	var user model.User
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
@@ -66,6 +70,7 @@ func (r *pgUserRepository) FindByEmail(ctx context.Context, email string) (*mode
 		&user.Password,
 		&user.Role,
 		&user.Avatar,
+		&user.MustChangePassword,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -83,9 +88,9 @@ func (r *pgUserRepository) FindByEmail(ctx context.Context, email string) (*mode
 // FindByUsername searches for a user by username
 func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password, role, COALESCE(avatar, ''), created_at, updated_at 
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), COALESCE(must_change_password, false), created_at, updated_at 
 		FROM users 
-		WHERE username = $1`
+		WHERE LOWER(username) = LOWER($1)`
 
 	var user model.User
 	err := r.db.QueryRowContext(ctx, query, username).Scan(
@@ -95,6 +100,7 @@ func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) 
 		&user.Password,
 		&user.Role,
 		&user.Avatar,
+		&user.MustChangePassword,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -112,7 +118,7 @@ func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) 
 // FindByID searches for a user by ID
 func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password, role, COALESCE(avatar, ''), created_at, updated_at 
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), COALESCE(must_change_password, false), created_at, updated_at 
 		FROM users 
 		WHERE id = $1`
 
@@ -124,6 +130,7 @@ func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User,
 		&user.Password,
 		&user.Role,
 		&user.Avatar,
+		&user.MustChangePassword,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -136,6 +143,89 @@ func (r *pgUserRepository) FindByID(ctx context.Context, id int64) (*model.User,
 	}
 
 	return &user, nil
+}
+
+// FindByPhoneOrIdentifier searches for user via username, email, or phone in students/coaches tables
+func (r *pgUserRepository) FindByPhoneOrIdentifier(ctx context.Context, identifier string) (*model.User, error) {
+	cleanIdentifier := strings.TrimSpace(identifier)
+
+	// 1. Direct username/email match
+	queryDirect := `
+		SELECT id, username, email, password, role, COALESCE(avatar, ''), COALESCE(must_change_password, false), created_at, updated_at 
+		FROM users 
+		WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)`
+
+	var user model.User
+	err := r.db.QueryRowContext(ctx, queryDirect, cleanIdentifier).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.Avatar,
+		&user.MustChangePassword,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err == nil {
+		return &user, nil
+	}
+
+	// 2. Search via coaches phone
+	queryCoach := `
+		SELECT u.id, u.username, u.email, u.password, u.role, COALESCE(u.avatar, ''), COALESCE(u.must_change_password, false), u.created_at, u.updated_at
+		FROM users u
+		JOIN coaches c ON u.id = c.user_id OR LOWER(u.username) = LOWER(SPLIT_PART(c.name, ' ', 1)) OR LOWER(u.email) = LOWER(c.email)
+		WHERE c.phone = $1 OR c.phone = $2
+		LIMIT 1`
+	err = r.db.QueryRowContext(ctx, queryCoach, cleanIdentifier, strings.TrimPrefix(cleanIdentifier, "0")).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.Avatar,
+		&user.MustChangePassword,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err == nil {
+		return &user, nil
+	}
+
+	// 3. Search via students phone
+	queryStudent := `
+		SELECT u.id, u.username, u.email, u.password, u.role, COALESCE(u.avatar, ''), COALESCE(u.must_change_password, false), u.created_at, u.updated_at
+		FROM users u
+		JOIN students s ON LOWER(u.username) = LOWER(SPLIT_PART(s.name, ' ', 1)) OR LOWER(u.username) = LOWER(REPLACE(s.name, ' ', ''))
+		WHERE s.phone = $1 OR s.phone = $2
+		LIMIT 1`
+	err = r.db.QueryRowContext(ctx, queryStudent, cleanIdentifier, strings.TrimPrefix(cleanIdentifier, "0")).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.Avatar,
+		&user.MustChangePassword,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err == nil {
+		return &user, nil
+	}
+
+	return nil, nil
+}
+
+// UpdatePassword updates user's password and resets must_change_password to false
+func (r *pgUserRepository) UpdatePassword(ctx context.Context, userID int64, hashedPassword string) error {
+	query := `
+		UPDATE users 
+		SET password = $1, must_change_password = false, updated_at = NOW() 
+		WHERE id = $2`
+	_, err := r.db.ExecContext(ctx, query, hashedPassword, userID)
+	return err
 }
 
 // UpdateAvatar updates user's profile avatar and syncs to students/coaches tables

@@ -505,7 +505,9 @@ export default function AppsPage() {
           activeTab === "profile" ||
           activeTab === "daftar_hadir" ||
           activeTab === "pelatih" ||
-          activeTab === "keuangan"
+          activeTab === "keuangan" ||
+          activeTab === "create" ||
+          activeTab === "pengumuman"
         ? "#1d4ed8"
         : "#f8fafc";
 
@@ -832,28 +834,7 @@ export default function AppsPage() {
   };
 
   if (!mounted || !sessionUser) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 text-slate-800 font-sans">
-        <div className="flex flex-col items-center justify-center space-y-4 max-w-sm text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icon.png"
-            alt="GIM Swimming Logo"
-            className="h-20 w-20 object-contain animate-float-movement drop-shadow-md"
-          />
-          <div>
-            <h2 className="text-base font-black text-slate-900 tracking-tight">GIM SWIMMING</h2>
-            <p className="text-xs text-slate-400 mt-1">Memuat data aplikasi...</p>
-          </div>
-          <button
-            onClick={() => router.push("/")}
-            className="mt-2 text-xs font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-4 py-2 rounded-xl transition cursor-pointer"
-          >
-            ← Kembali ke Beranda
-          </button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ==========================================
@@ -947,8 +928,8 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Floating Loading Screen Overlay during Initial Load or Refresh */}
-        {(isRefreshing || loadingData) && (
+        {/* Centered Floating Loading Screen Overlay only during Pull-to-Refresh */}
+        {isRefreshing && (
           <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
             <div className="flex flex-col items-center justify-center space-y-3 scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1071,8 +1052,8 @@ export default function AppsPage() {
         onClose={() => setShowIOSPrompt(false)}
       />
 
-      {/* Centered Floating Loading Screen Overlay during Initial Load or Refresh */}
-      {(isRefreshing || loadingData) && (
+      {/* Centered Floating Loading Screen Overlay only during Pull-to-Refresh */}
+      {isRefreshing && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
           <div className="flex flex-col items-center justify-center space-y-3 scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}

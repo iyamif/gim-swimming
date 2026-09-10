@@ -192,6 +192,7 @@ func runMigrations() error {
 
 	-- Add column migrations if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;

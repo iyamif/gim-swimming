@@ -86,6 +86,7 @@ func SetupRoutes(
 			authProtected.GET("/me", authHandler.Me)
 			authProtected.PATCH("/avatar", authHandler.UpdateAvatar)
 			authProtected.POST("/avatar", authHandler.UploadAvatar)
+			authProtected.POST("/setup-password", authHandler.SetupPassword)
 		}
 
 		// Static routes under /api/v1

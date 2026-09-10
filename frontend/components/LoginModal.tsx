@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { API_BASE_URL, getApiBaseUrl } from "../lib/api";
+import { API_BASE_URL, getApiBaseUrl, setupInitialPassword } from "../lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -20,15 +20,20 @@ const getRoleFromUsername = (name: string): string => {
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState<"login" | "face-scan" | "success">("login");
+  const [step, setStep] = useState<"login" | "face-scan" | "setup-password" | "success">("login");
+  const [currentUserData, setCurrentUserData] = useState<{ username: string; role: string; must_change_password?: boolean } | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [setupError, setSetupError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
 
   // Face ID Scan States
   const [scanStatus, setScanStatus] = useState("Menghubungkan ke sensor biometrik...");
@@ -46,8 +51,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setStep("login");
       setUsernameOrEmail("");
       setPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
       setError("");
+      setSetupError("");
+      setCurrentUserData(null);
       setLoading(false);
+      setSetupLoading(false);
       setScanProgress(0);
       setScanStatus("Menghubungkan ke sensor biometrik...");
       setIsScanning(false);
@@ -116,14 +126,58 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       if (user?.avatar) {
         localStorage.setItem(`gim_avatar_${user.username}`, user.avatar);
       }
-      setStep("success");
+      setCurrentUserData(user);
 
-      setTimeout(() => {
-        onLoginSuccess(user.username, user.role);
-      }, 1500);
+      if (user?.must_change_password) {
+        setStep("setup-password");
+      } else {
+        setStep("success");
+        setTimeout(() => {
+          onLoginSuccess(user.username, user.role);
+        }, 1500);
+      }
     } catch (err: any) {
       setLoading(false);
       setError(err.message || "Koneksi ke server gagal. Harap pastikan server backend menyala.");
+    }
+  };
+
+  // Password Setup Submit Handler for First Time Logins
+  const handleSetupPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSetupError("");
+
+    if (!newPassword || !confirmPassword) {
+      setSetupError("Silakan isi kata sandi baru dan konfirmasi kata sandi.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setSetupError("Kata sandi baru minimal harus 6 karakter.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setSetupError("Konfirmasi kata sandi tidak cocok. Harap periksa kembali.");
+      return;
+    }
+
+    setSetupLoading(true);
+    try {
+      await setupInitialPassword(newPassword);
+      setSetupLoading(false);
+      setStep("success");
+
+      setTimeout(() => {
+        if (currentUserData) {
+          onLoginSuccess(currentUserData.username, currentUserData.role);
+        } else {
+          onLoginSuccess(usernameOrEmail, getRoleFromUsername(usernameOrEmail));
+        }
+      }, 1500);
+    } catch (err: any) {
+      setSetupLoading(false);
+      setSetupError(err.message || "Gagal menyimpan kata sandi baru.");
     }
   };
 
@@ -221,13 +275,20 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           })
           .then((result) => {
             localStorage.setItem("gim_swimming_token", result.data.token);
-            if (result.data.user?.avatar) {
-              localStorage.setItem(`gim_avatar_${result.data.user.username}`, result.data.user.avatar);
+            const user = result.data.user;
+            if (user?.avatar) {
+              localStorage.setItem(`gim_avatar_${user.username}`, user.avatar);
             }
-            setStep("success");
-            setTimeout(() => {
-              onLoginSuccess(result.data.user.username, result.data.user.role);
-            }, 1500);
+            setCurrentUserData(user);
+
+            if (user?.must_change_password) {
+              setStep("setup-password");
+            } else {
+              setStep("success");
+              setTimeout(() => {
+                onLoginSuccess(user.username, user.role);
+              }, 1500);
+            }
           })
           .catch((err) => {
             setStep("login");
@@ -590,7 +651,98 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           </div>
         )}
 
-        {/* STEP 3: Verification Success */}
+        {/* STEP 3: Mandatory First-Time Password Setup */}
+        {step === "setup-password" && (
+          <div>
+            <div className="text-center mb-6">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="h-6 w-6 text-blue-600"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                  />
+                </svg>
+              </div>
+
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100 mb-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-ping" />
+                Aktivasi Akun Baru
+              </span>
+
+              <h3 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
+                Buat Kata Sandi Baru
+              </h3>
+              <p className="text-xs text-slate-500 mt-1.5 max-w-[290px] mx-auto">
+                Halo <span className="font-bold text-slate-800">{currentUserData?.username || "Pengguna"}</span>, akun Anda didaftarkan oleh admin. Silakan tentukan kata sandi baru untuk mengamankan akun Anda.
+              </p>
+            </div>
+
+            {setupError && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-650 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 shrink-0">
+                  <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                </svg>
+                <span>{setupError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSetupPasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Kata Sandi Baru
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Konfirmasi Kata Sandi Baru
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Ulangi kata sandi baru"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 focus:bg-white"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={setupLoading}
+                className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {setupLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Menyimpan Kata Sandi...
+                  </>
+                ) : (
+                  "Simpan & Masuk ke Dashboard"
+                )}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* STEP 4: Verification Success */}
         {step === "success" && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             {/* Animated Circular Success Container */}
@@ -620,7 +772,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               Verifikasi Sukses!
             </h3>
             <p className="text-sm text-emerald-600 font-bold mb-2">
-              Selamat datang kembali, <span className="text-cyan-500 font-black">{usernameOrEmail.includes("@") ? usernameOrEmail.split("@")[0] : usernameOrEmail}</span>!
+              Selamat datang, <span className="text-cyan-500 font-black">{currentUserData?.username || (usernameOrEmail.includes("@") ? usernameOrEmail.split("@")[0] : usernameOrEmail)}</span>!
             </p>
             <p className="text-xs text-slate-500 max-w-[280px]">
               Menghubungkan ke dasbor GIM Swimming. Mengarahkan halaman...

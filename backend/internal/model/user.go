@@ -13,14 +13,15 @@ const (
 
 // User represents the user schema in PostgreSQL
 type User struct {
-	ID        int64     `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"`
-	Role      string    `json:"role"`
-	Avatar    string    `json:"avatar"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                 int64     `json:"id"`
+	Username           string    `json:"username"`
+	Email              string    `json:"email"`
+	Password           string    `json:"-"`
+	Role               string    `json:"role"`
+	Avatar             string    `json:"avatar"`
+	MustChangePassword bool      `json:"must_change_password"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // RegisterInput represents registration payload
@@ -35,6 +36,11 @@ type RegisterInput struct {
 type LoginInput struct {
 	UsernameOrEmail string `json:"usernameOrEmail" binding:"required"`
 	Password        string `json:"password" binding:"required"`
+}
+
+// SetupPasswordInput represents payload for first-time password creation
+type SetupPasswordInput struct {
+	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
 // UpdateAvatarInput represents avatar update payload

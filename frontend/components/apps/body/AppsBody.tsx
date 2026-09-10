@@ -51,6 +51,10 @@ interface AppsBodyProps {
     parent: string;
     phone: string;
     class: string;
+    email?: string;
+    address?: string;
+    gender?: string;
+    notes?: string;
   }) => void;
   onAddCoach: (data: {
     name: string;
@@ -58,6 +62,10 @@ interface AppsBodyProps {
     phone: string;
     email: string;
     class: string;
+    age?: string;
+    address?: string;
+    gender?: string;
+    experience?: string;
   }) => void;
 }
 
@@ -182,6 +190,8 @@ export default function AppsBody({
         <RegistrasiTab
           onAddStudent={onAddStudent}
           onAddCoach={onAddCoach}
+          sessionRole={sessionRole}
+          setActiveTab={setActiveTab}
         />
       )}
 
@@ -223,7 +233,8 @@ export default function AppsBody({
         activeTab === "daftar_hadir" ||
         activeTab === "pelatih" ||
         activeTab === "kehadiran" ||
-        activeTab === "pengumuman"
+        activeTab === "pengumuman" ||
+        activeTab === "create"
           ? "p-0"
           : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
       }`}

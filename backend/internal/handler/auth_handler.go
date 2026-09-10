@@ -113,6 +113,45 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	})
 }
 
+// SetupPassword handles first-time password setup for newly provisioned user accounts
+func (h *AuthHandler) SetupPassword(c *gin.Context) {
+	userIdVal, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak terotentikasi"})
+		return
+	}
+
+	userIdStr, ok := userIdVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca ID pengguna"})
+		return
+	}
+
+	intId, err := strconv.ParseInt(userIdStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pengguna tidak valid"})
+		return
+	}
+
+	var input model.SetupPasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kata sandi baru minimal harus 6 karakter"})
+		return
+	}
+
+	updatedUser, err := h.authService.SetupPassword(c.Request.Context(), intId, input.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Kata sandi berhasil diperbarui. Selamat datang di GIM Swimming!",
+		"data":    updatedUser,
+	})
+}
+
 // UpdateAvatar handles JSON update for user avatar (emoji or preset)
 func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 	usernameVal, exists := c.Get("username")

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -105,21 +106,31 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 	}
 
 	// Auto-create user login account for the student/parent if not existing
-	username := strings.ToLower(strings.Fields(input.Name)[0])
-	email := fmt.Sprintf("%s@gimswimming.com", username)
+	rawUsername := strings.ToLower(strings.Fields(input.Name)[0])
+	reg := regexp.MustCompile("[^a-z0-9_]")
+	username := reg.ReplaceAllString(rawUsername, "")
+	if username == "" {
+		username = fmt.Sprintf("siswa%d", student.ID)
+	}
+
+	// Make username unique if already taken
 	existingUser, _ := s.userRepo.FindByUsername(ctx, username)
-	if existingUser == nil {
-		hashed, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-		if err == nil {
-			_ = s.userRepo.Create(ctx, &model.User{
-				Username:  username,
-				Email:     email,
-				Password:  string(hashed),
-				Role:      model.RoleOrangTua,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			})
-		}
+	if existingUser != nil {
+		username = fmt.Sprintf("%s%d", username, student.ID)
+	}
+
+	email := fmt.Sprintf("%s@gimswimming.com", username)
+	hashed, err := bcrypt.GenerateFromPassword([]byte("gim123"), bcrypt.DefaultCost)
+	if err == nil {
+		_ = s.userRepo.Create(ctx, &model.User{
+			Username:           username,
+			Email:              email,
+			Password:           string(hashed),
+			Role:               model.RoleOrangTua,
+			MustChangePassword: true,
+			CreatedAt:          time.Now(),
+			UpdatedAt:          time.Now(),
+		})
 	}
 
 	// Auto-create initial registration invoice
@@ -225,29 +236,61 @@ func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachIn
 	}
 
 	// Auto-create user login account for the coach if not existing
-	username := strings.ToLower(strings.Fields(input.Name)[0])
-	if strings.HasPrefix(strings.ToLower(input.Name), "coach ") {
-		parts := strings.Fields(input.Name)
-		if len(parts) > 1 {
-			username = strings.ToLower(parts[1])
-		}
+	nameParts := strings.Fields(input.Name)
+	rawUsername := strings.ToLower(nameParts[0])
+	if strings.HasPrefix(strings.ToLower(input.Name), "coach ") && len(nameParts) > 1 {
+		rawUsername = strings.ToLower(nameParts[1])
 	}
-	email := strings.ToLower(input.Email)
+	reg := regexp.MustCompile("[^a-z0-9_]")
+	username := reg.ReplaceAllString(rawUsername, "")
+	if username == "" {
+		username = "coach"
+	}
+
+	email := strings.TrimSpace(strings.ToLower(input.Email))
 	if email == "" {
 		email = fmt.Sprintf("%s@gimswimming.com", username)
 	}
 
 	existingUser, _ := s.userRepo.FindByUsername(ctx, username)
+	if existingUser != nil && !strings.EqualFold(existingUser.Email, email) {
+		// Username is taken by another user, try email prefix
+		emailPrefix := strings.Split(email, "@")[0]
+		emailClean := reg.ReplaceAllString(emailPrefix, "")
+		if emailClean != "" && emailClean != username {
+			if u2, _ := s.userRepo.FindByUsername(ctx, emailClean); u2 == nil {
+				username = emailClean
+				existingUser = nil
+			}
+		}
+	}
+	if existingUser != nil && !strings.EqualFold(existingUser.Email, email) {
+		// If still taken, append suffix
+		candidate := fmt.Sprintf("%s%d", username, time.Now().Unix()%10000)
+		if u3, _ := s.userRepo.FindByUsername(ctx, candidate); u3 == nil {
+			username = candidate
+			existingUser = nil
+		}
+	}
+
 	if existingUser == nil {
-		hashed, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+		existingByEmail, _ := s.userRepo.FindByEmail(ctx, email)
+		if existingByEmail != nil {
+			existingUser = existingByEmail
+		}
+	}
+
+	if existingUser == nil {
+		hashed, err := bcrypt.GenerateFromPassword([]byte("gim123"), bcrypt.DefaultCost)
 		if err == nil {
 			newUser := &model.User{
-				Username:  username,
-				Email:     email,
-				Password:  string(hashed),
-				Role:      model.RolePelatih,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				Username:           username,
+				Email:              email,
+				Password:           string(hashed),
+				Role:               model.RolePelatih,
+				MustChangePassword: true,
+				CreatedAt:          time.Now(),
+				UpdatedAt:          time.Now(),
 			}
 			_ = s.userRepo.Create(ctx, newUser)
 			coach.UserID = &newUser.ID

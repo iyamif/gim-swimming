@@ -293,7 +293,7 @@ export default function DashboardOverviewTab({
     });
   };
 
-  // 8 Feature Quick Menu Grid Items
+  // Quick Menu Grid Items (Registrasi is only available for Admin role)
   const menuItems = [
     {
       id: "kehadiran",
@@ -311,7 +311,7 @@ export default function DashboardOverviewTab({
     },
     {
       id: "gaji",
-      label: "Gaji / SPP",
+      label: isCoachRole ? "Honor Pelatih" : "Gaji / SPP",
       icon: "💵",
       bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-500",
       action: () => setActiveTab && setActiveTab("keuangan"),
@@ -344,13 +344,17 @@ export default function DashboardOverviewTab({
       bgCircle: "bg-teal-50 border-teal-100 text-teal-500",
       action: () => setActiveTab && setActiveTab("pelatih"),
     },
-    {
-      id: "kasbon",
-      label: "Registrasi",
-      icon: "👤+",
-      bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
-      action: () => setActiveTab && setActiveTab("create"),
-    },
+    ...(!isCoachRole
+      ? [
+          {
+            id: "kasbon",
+            label: "Registrasi",
+            icon: "👤+",
+            bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
+            action: () => setActiveTab && setActiveTab("create"),
+          },
+        ]
+      : []),
   ];
 
   const firstWeekMonth = monthNames[weekDays[0].getMonth()];
