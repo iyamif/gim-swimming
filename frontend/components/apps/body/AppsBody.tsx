@@ -251,18 +251,17 @@ export default function AppsBody({
 
   return (
     <div
-      className={`flex-1 overflow-y-auto ${
-        activeTab === "dashboard" ||
-        activeTab === "keuangan" ||
-        activeTab === "profile" ||
-        activeTab === "daftar_hadir" ||
-        activeTab === "pelatih" ||
-        activeTab === "kehadiran" ||
-        activeTab === "pengumuman" ||
-        activeTab === "create"
+      className={`flex-1 overflow-y-auto ${activeTab === "dashboard" ||
+          activeTab === "keuangan" ||
+          activeTab === "profile" ||
+          activeTab === "daftar_hadir" ||
+          activeTab === "pelatih" ||
+          activeTab === "kehadiran" ||
+          activeTab === "pengumuman" ||
+          activeTab === "create"
           ? "p-0"
           : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
-      }`}
+        }`}
     >
       {onRefresh ? (
         <PullToRefresh onRefresh={onRefresh} className="min-h-full">

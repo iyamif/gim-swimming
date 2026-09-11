@@ -484,9 +484,9 @@ export default function ParentBody({
           att.time_recorded ||
           (att.created_at
             ? `${new Date(att.created_at).toLocaleTimeString("id-ID", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })} WIB`
+              hour: "2-digit",
+              minute: "2-digit",
+            })} WIB`
             : "Selesai"),
         poolArea: att.pool_area || "Kolam Renang",
         coachName: coach.name,
@@ -935,9 +935,8 @@ export default function ParentBody({
                         </span>
                         {hasSession && (
                           <span
-                            className={`h-1.5 w-1.5 rounded-full mt-1 ${
-                              today ? "bg-white" : "bg-cyan-400"
-                            }`}
+                            className={`h-1.5 w-1.5 rounded-full mt-1 ${today ? "bg-white" : "bg-cyan-400"
+                              }`}
                           />
                         )}
                       </button>
@@ -1420,17 +1419,16 @@ export default function ParentBody({
 
                       <div className="shrink-0 ml-auto sm:ml-0">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
-                            sess.status === "Terlambat"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${sess.status === "Terlambat"
                               ? "bg-amber-50 text-amber-700 border border-amber-200"
                               : sess.status === "Terjadwal"
-                              ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                              : sess.status === "Sakit"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : sess.status === "Izin"
-                              ? "bg-purple-50 text-purple-700 border border-purple-200"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          }`}
+                                ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                : sess.status === "Sakit"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : sess.status === "Izin"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            }`}
                         >
                           {sess.status === "Terlambat" ? (
                             <>
@@ -1565,9 +1563,8 @@ export default function ParentBody({
                         <span className="text-sm sm:text-base font-black">{dayNum}</span>
                         {hasSession && (
                           <span
-                            className={`h-2 w-2 rounded-full mt-1.5 ${
-                              today ? "bg-white" : "bg-cyan-500"
-                            }`}
+                            className={`h-2 w-2 rounded-full mt-1.5 ${today ? "bg-white" : "bg-cyan-500"
+                              }`}
                           />
                         )}
                       </button>
@@ -1612,9 +1609,8 @@ export default function ParentBody({
                           </span>
                           {hasSession && (
                             <span
-                              className={`h-1.5 w-1.5 rounded-full mt-0.5 ${
-                                today ? "bg-white" : "bg-cyan-500"
-                              }`}
+                              className={`h-1.5 w-1.5 rounded-full mt-0.5 ${today ? "bg-white" : "bg-cyan-500"
+                                }`}
                             />
                           )}
                         </button>

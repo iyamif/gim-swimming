@@ -370,14 +370,14 @@ export default function DashboardOverviewTab({
     },
     ...(!isCoachRole
       ? [
-          {
-            id: "kasbon",
-            label: "Registrasi",
-            icon: <UserPlus size={22} />,
-            bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
-            action: () => setActiveTab && setActiveTab("create"),
-          },
-        ]
+        {
+          id: "kasbon",
+          label: "Registrasi",
+          icon: <UserPlus size={22} />,
+          bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
+          action: () => setActiveTab && setActiveTab("create"),
+        },
+      ]
       : []),
   ];
 
@@ -522,7 +522,7 @@ export default function DashboardOverviewTab({
                             const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
                             const isLate = notif.title?.includes("Terlambat");
                             const IconComponent = isSchedule ? CalendarDays : isLate ? AlertTriangle : notif.type?.includes("attendance") ? Clock : Bell;
-                            
+
                             let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
                             if (!notif.is_read) {
                               if (isSchedule) {
@@ -704,9 +704,8 @@ export default function DashboardOverviewTab({
                       {/* Active session indicator dot */}
                       {hasSession && (
                         <span
-                          className={`h-1 w-1 rounded-full mt-1 ${
-                            today ? "bg-white" : "bg-cyan-400"
-                          }`}
+                          className={`h-1 w-1 rounded-full mt-1 ${today ? "bg-white" : "bg-cyan-400"
+                            }`}
                         />
                       )}
                     </button>
@@ -765,13 +764,12 @@ export default function DashboardOverviewTab({
                         {/* Active session indicator dot */}
                         {hasSession && (
                           <span
-                            className={`h-1.5 w-1.5 rounded-full mt-0.5 ${
-                              today
+                            className={`h-1.5 w-1.5 rounded-full mt-0.5 ${today
                                 ? "bg-white"
                                 : isCurrentMonth
-                                ? "bg-cyan-500"
-                                : "bg-slate-300"
-                            }`}
+                                  ? "bg-cyan-500"
+                                  : "bg-slate-300"
+                              }`}
                           />
                         )}
                       </button>

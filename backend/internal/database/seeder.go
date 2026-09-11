@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"log"
 	"strings"
 	"time"
@@ -281,102 +280,9 @@ func SeedCoaches(db *sql.DB) {
 	}
 }
 
-// SeedSchedules populates initial schedules if schedules table is empty
+// SeedSchedules - Schedules are 100% user-driven and managed dynamically
 func SeedSchedules(db *sql.DB) {
-	if db == nil {
-		return
-	}
-
-	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM schedules").Scan(&count)
-	if err != nil {
-		log.Printf("Error checking schedules count: %v", err)
-		return
-	}
-
-	if count > 0 {
-		log.Println("Schedules table already seeded.")
-		return
-	}
-
-	log.Println("Seeding default schedules...")
-
-	schedules := []struct {
-		title        string
-		class        string
-		date         string
-		timeStart    string
-		timeEnd      string
-		poolArea     string
-		coachID      string
-		coachName    string
-		coachPhone   string
-		studentIDs   []string
-		studentNames []string
-		notes        string
-		status       string
-	}{
-		{
-			title:        "Prestasi Class (Sore)",
-			class:        "Prestasi",
-			date:         "2026-09-05",
-			timeStart:    "15:00",
-			timeEnd:      "17:30",
-			poolArea:     "312 Wera",
-			coachID:      "1",
-			coachName:    "Coach Adi",
-			coachPhone:   "085353333220",
-			studentIDs:   []string{"1"},
-			studentNames: []string{"Rian"},
-			notes:        "Fokus latihan intensif teknik & ketahanan fisik",
-			status:       "Active",
-		},
-		{
-			title:        "Kids Swimming Class",
-			class:        "Kids Swimming",
-			date:         "2026-09-06",
-			timeStart:    "10:00",
-			timeEnd:      "11:30",
-			poolArea:     "Kolam Anak B",
-			coachID:      "2",
-			coachName:    "Coach Linda",
-			coachPhone:   "08123456780",
-			studentIDs:   []string{"2"},
-			studentNames: []string{"Budi"},
-			notes:        "Latihan mengapung & gerakan kaki",
-			status:       "Active",
-		},
-		{
-			title:        "Private Class (1-on-1)",
-			class:        "Private Class",
-			date:         "2026-10-01",
-			timeStart:    "15:00",
-			timeEnd:      "17:00",
-			poolArea:     "Kolam Utama A",
-			coachID:      "3",
-			coachName:    "Coach Rendi",
-			coachPhone:   "081234567890",
-			studentIDs:   []string{"custom-1"},
-			studentNames: []string{"Andre"},
-			notes:        "Sesi les privat intensif teknik gaya dada & pernapasan",
-			status:       "Active",
-		},
-	}
-
-	for _, s := range schedules {
-		studentIDsJSON, _ := json.Marshal(s.studentIDs)
-		studentNamesJSON, _ := json.Marshal(s.studentNames)
-
-		_, err := db.Exec(`
-			INSERT INTO schedules (title, class, date, time_start, time_end, pool_area, coach_id, coach_name, coach_phone, student_ids, student_names, notes, status, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW());
-		`, s.title, s.class, s.date, s.timeStart, s.timeEnd, s.poolArea, s.coachID, s.coachName, s.coachPhone, string(studentIDsJSON), string(studentNamesJSON), s.notes, s.status)
-		if err != nil {
-			log.Printf("Failed to seed schedule %s: %v", s.title, err)
-		} else {
-			log.Printf("Seeded schedule: %s (%s)", s.title, s.date)
-		}
-	}
+	// Intentionally empty so schedule management is 100% user-driven
 }
 
 // SeedInvoices populates initial invoices if invoices table is empty

@@ -163,7 +163,7 @@ export default function AppsPage() {
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "default") {
-        requestNotificationPermission().catch(() => {});
+        requestNotificationPermission().catch(() => { });
       }
     }
   }, []);
@@ -333,7 +333,7 @@ export default function AppsPage() {
                   setSchedules(updatedSchedules);
                 }
               })
-              .catch(() => {});
+              .catch(() => { });
           }
 
           if (hasAttendanceUpdate) {
@@ -343,7 +343,7 @@ export default function AppsPage() {
                   setAttendances(updatedAttendances);
                 }
               })
-              .catch(() => {});
+              .catch(() => { });
           }
         } else {
           // Sync read status or deleted items smoothly without flickering
@@ -395,7 +395,7 @@ export default function AppsPage() {
       // Check Service Worker for new versions in the background
       if (typeof window !== "undefined" && "serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistration().then((reg) => {
-          if (reg) reg.update().catch(() => {});
+          if (reg) reg.update().catch(() => { });
         });
       }
 
@@ -452,7 +452,7 @@ export default function AppsPage() {
       handleVisibilityChange = () => {
         if (document.visibilityState === "visible") {
           navigator.serviceWorker.getRegistration().then((reg) => {
-            if (reg) reg.update().catch(() => {});
+            if (reg) reg.update().catch(() => { });
           });
         }
       };
@@ -513,8 +513,8 @@ export default function AppsPage() {
           activeTab === "keuangan" ||
           activeTab === "create" ||
           activeTab === "pengumuman"
-        ? "#1d4ed8"
-        : "#f8fafc";
+          ? "#1d4ed8"
+          : "#f8fafc";
 
     const existingMetas = document.querySelectorAll('meta[name="theme-color"]');
     if (existingMetas.length > 0) {
@@ -1069,21 +1069,21 @@ export default function AppsPage() {
           activeTab !== "pelatih" &&
           activeTab !== "keuangan" &&
           activeTab !== "pengumuman" && (
-          <div className="hidden md:block shrink-0">
-            <AdminHeader
-              title={currentTabTitle}
-              sessionRole={sessionRole}
-              showInstallBtn={showInstallBtn}
-              onInstallClick={handleInstallClick}
-              onLogout={handleLogout}
-              onRefresh={handlePullRefresh}
-              notifications={notifications}
-              onMarkNotificationRead={handleMarkNotificationRead}
-              onClearAllNotifications={handleClearAllNotifications}
-              setActiveTab={setActiveTab}
-            />
-          </div>
-        )}
+            <div className="hidden md:block shrink-0">
+              <AdminHeader
+                title={currentTabTitle}
+                sessionRole={sessionRole}
+                showInstallBtn={showInstallBtn}
+                onInstallClick={handleInstallClick}
+                onLogout={handleLogout}
+                onRefresh={handlePullRefresh}
+                notifications={notifications}
+                onMarkNotificationRead={handleMarkNotificationRead}
+                onClearAllNotifications={handleClearAllNotifications}
+                setActiveTab={setActiveTab}
+              />
+            </div>
+          )}
 
         <div className="flex-1 flex flex-col h-full overflow-hidden min-h-0 min-w-0">
           <AppsBody

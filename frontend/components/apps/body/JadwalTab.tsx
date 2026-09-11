@@ -779,19 +779,15 @@ export default function JadwalTab({
   };
 
   const filteredSchedules = schedules.filter((sch) => {
-    // Hanya memunculkan mulai dari hari ini sampai selanjutnya (jadwal yang sudah lewat tidak dimunculkan)
-    if (sch.date && sch.date < todayStr) {
-      return false;
-    }
-
     const matchClass = filterClass === "Semua" || sch.class === filterClass;
     const matchSearch =
-      sch.coachName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sch.studentNames.some((name) =>
+      (sch.coachName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sch.studentNames || []).some((name) =>
         name.toLowerCase().includes(searchQuery.toLowerCase())
       ) ||
-      sch.poolArea.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sch.date.includes(searchQuery);
+      (sch.poolArea || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sch.date || "").includes(searchQuery) ||
+      (sch.title || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchClass && matchSearch;
   });
