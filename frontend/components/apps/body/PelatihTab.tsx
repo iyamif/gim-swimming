@@ -226,6 +226,45 @@ export default function PelatihTab({
     );
   };
 
+  // Helper to count unique students handled by a coach across schedules & classes
+  const getCoachHandledStudentsCount = (coach: Coach) => {
+    if (!coach) return 0;
+    const coachSchedules = schedules.filter(
+      (s) =>
+        (s.coachId && String(s.coachId) === String(coach.id)) ||
+        (s.coachName && s.coachName.toLowerCase().trim() === coach.name.toLowerCase().trim())
+    );
+
+    const studentIdSet = new Set<string>();
+    const studentNameSet = new Set<string>();
+
+    coachSchedules.forEach((sch) => {
+      if (Array.isArray(sch.studentIds)) {
+        sch.studentIds.forEach((id) => {
+          if (id) studentIdSet.add(String(id));
+        });
+      }
+      if (Array.isArray(sch.studentNames)) {
+        sch.studentNames.forEach((name) => {
+          if (name) studentNameSet.add(name.toLowerCase().trim());
+        });
+      }
+    });
+
+    if (studentIdSet.size > 0) return studentIdSet.size;
+    if (studentNameSet.size > 0) return studentNameSet.size;
+
+    // Fallback: students in the coach's assigned primary class
+    if (coach.class && students.length > 0) {
+      const classStudents = students.filter(
+        (st) => st.class?.toLowerCase().trim() === coach.class.toLowerCase().trim()
+      );
+      if (classStudents.length > 0) return classStudents.length;
+    }
+
+    return 0;
+  };
+
   const handleConfirmDeleteCoach = async () => {
     if (!coachToDelete) return;
     try {
@@ -334,6 +373,9 @@ export default function PelatihTab({
                   <p className="text-xs text-slate-500 font-bold mt-0.5">
                     {featuredCoach.spec || "Lvl 3 FINA"}
                   </p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                    Siswa : {getCoachHandledStudentsCount(featuredCoach)} org
+                  </p>
 
                   {/* Specialty tags matching mockup */}
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -348,27 +390,11 @@ export default function PelatihTab({
               </div>
 
               {/* Badges on Right */}
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
-                    Available
-                  </span>
-                  {sessionRole === "admin" && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEdit(featuredCoach);
-                      }}
-                      className="p-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition cursor-pointer border border-slate-200/70"
-                      title="Edit Data Pelatih"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  )}
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200/80 text-[10px] font-black shadow-2xs">
-                  Rp {(featuredCoach.pay_per_session || featuredCoach.payPerSession || 100000).toLocaleString("id-ID")}/sesi
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
+                  Available
                 </span>
+                <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
               </div>
             </div>
           </SwipeableRow>
@@ -455,9 +481,7 @@ export default function PelatihTab({
               </p>
             </div>
           ) : (
-            filteredCoaches.map((coach) => {
-              const salaryInfo = getCoachSalaryEstimate(coach);
-              return (
+            filteredCoaches.map((coach) => (
                 <SwipeableRow
                   key={coach.id}
                   id={String(coach.id)}
@@ -505,40 +529,19 @@ export default function PelatihTab({
                         <p className="text-[11px] text-slate-500 font-bold mt-0.5 truncate">
                           {coach.spec || "Instruktur Renang"}
                         </p>
-
-                        {/* Small Status Pill & Pay Rate */}
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          <span className="px-2 py-0.2 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-[9px] font-black">
-                            Rp {salaryInfo.rate.toLocaleString("id-ID")}/sesi
-                          </span>
-                          <span className="px-2 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black">
-                            {salaryInfo.totalSessions} Sesi Bulan Ini
-                          </span>
-                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          Siswa : {getCoachHandledStudentsCount(coach)} org
+                        </p>
                       </div>
                     </div>
 
-                    {/* Right: Edit & Chevron */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {sessionRole === "admin" && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEdit(coach);
-                          }}
-                          className="p-2 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition cursor-pointer border border-slate-200/80"
-                          title="Edit Data Pelatih"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                      )}
+                    {/* Right: Chevron */}
+                    <div className="flex items-center gap-1 shrink-0">
                       <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
                     </div>
                   </div>
                 </SwipeableRow>
-              );
-            })
+              ))
           )}
         </div>
       </div>
@@ -588,47 +591,28 @@ export default function PelatihTab({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedCoach(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                {sessionRole === "admin" && (
+                  <button
+                    onClick={() => {
+                      const c = selectedCoach;
+                      setSelectedCoach(null);
+                      handleOpenEdit(c);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-blue-200/70"
+                  >
+                    <Pencil size={12} />
+                    <span>Edit</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedCoach(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-
-            {/* Coach Salary Benchmark Card */}
-            {(() => {
-              const salary = getCoachSalaryEstimate(selectedCoach);
-              return (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/80 to-cyan-50/80 border border-blue-100 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
-                      <Wallet size={14} className="text-blue-600" />
-                      Honor &amp; Kalkulasi Gaji Bulan Ini
-                    </span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-200/80 text-blue-900">
-                      Rp {salary.rate.toLocaleString("id-ID")} / Sesi
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-blue-200/50">
-                    <div>
-                      <p className="text-[10px] text-slate-500">Total Sesi Melatih:</p>
-                      <p className="font-black text-slate-800">{salary.totalSessions} Sesi</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-500">Estimasi Salary (Gaji):</p>
-                      <p className="font-black text-blue-700 text-sm">
-                        Rp {salary.totalGaji.toLocaleString("id-ID")}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic text-right">
-                    {salary.totalSessions} Sesi × Rp {salary.rate.toLocaleString("id-ID")} = Rp {salary.totalGaji.toLocaleString("id-ID")}
-                  </p>
-                </div>
-              );
-            })()}
 
             {/* Coach Details Grid */}
             <div className="space-y-2.5 text-xs">
@@ -645,8 +629,18 @@ export default function PelatihTab({
                 <span className="font-bold text-cyan-600">{selectedCoach.class || "Semua Kelas"}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500">Total Siswa</span>
+                <span className="font-bold text-slate-900">{getCoachHandledStudentsCount(selectedCoach)} org</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-500">Status Ketersediaan</span>
                 <span className="font-bold text-emerald-600">Available (Aktif Melatih)</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500">Pay Per Sesi</span>
+                <span className="font-bold text-blue-700">
+                  Rp {(selectedCoach.pay_per_session || selectedCoach.payPerSession || 100000).toLocaleString("id-ID")}
+                </span>
               </div>
             </div>
 
@@ -688,19 +682,6 @@ export default function PelatihTab({
 
             {/* Actions */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
-              {sessionRole === "admin" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const c = selectedCoach;
-                    setSelectedCoach(null);
-                    handleOpenEdit(c);
-                  }}
-                  className="w-full py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shadow-blue-600/20 cursor-pointer"
-                >
-                  <Pencil size={14} /> Edit Data Pelatih
-                </button>
-              )}
 
               {selectedCoach.phone && (
                 <a
@@ -842,15 +823,10 @@ export default function PelatihTab({
               </div>
 
               {/* Pay Per Session Input Field */}
-              <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-black text-blue-950">
-                    Nominal Pay Per Sesi (Rp)
-                  </label>
-                  <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                    Acuan Salary Akhir Bulan
-                  </span>
-                </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Pay Per Sesi (Rp)
+                </label>
                 <input
                   type="number"
                   step="5000"
@@ -859,12 +835,8 @@ export default function PelatihTab({
                   value={editPayPerSession}
                   onChange={(e) => setEditPayPerSession(e.target.value)}
                   placeholder="Contoh: 100000"
-                  className="w-full rounded-2xl border border-blue-300 bg-white px-3.5 py-2.5 text-xs text-blue-950 font-black outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
                 />
-                <p className="text-[10px] text-blue-800 font-medium leading-relaxed">
-                  Honor bulanan pelatih ini akan otomatis dihitung:{" "}
-                  <strong className="text-blue-950">[Total Sesi Melatih] × Rp {Number(editPayPerSession || 0).toLocaleString("id-ID")}</strong>
-                </p>
               </div>
 
               {/* Actions */}
