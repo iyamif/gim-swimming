@@ -28,6 +28,7 @@ type AppService interface {
 	// Coaches
 	GetCoaches(ctx context.Context) ([]model.Coach, error)
 	CreateCoach(ctx context.Context, input *model.CreateCoachInput) (*model.Coach, error)
+	UpdateCoach(ctx context.Context, id int64, input *model.UpdateCoachInput) (*model.Coach, error)
 	DeleteCoach(ctx context.Context, id int64) error
 
 	// Schedules
@@ -284,14 +285,21 @@ func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachIn
 		return nil, errors.New("name, phone, and email are required")
 	}
 
+	payPerSession := input.PayPerSession
+	if payPerSession <= 0 {
+		payPerSession = 100000
+	}
+
 	coach := &model.Coach{
-		Name:      input.Name,
-		Spec:      input.Spec,
-		Phone:     input.Phone,
-		Email:     input.Email,
-		Class:     input.Class,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Name:          input.Name,
+		Spec:          input.Spec,
+		Phone:         input.Phone,
+		Email:         input.Email,
+		Class:         input.Class,
+		Avatar:        input.Avatar,
+		PayPerSession: payPerSession,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 
 	if coach.Spec == "" {
@@ -367,6 +375,44 @@ func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachIn
 	}
 
 	return coach, nil
+}
+
+// UpdateCoach updates an existing coach's details
+func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.UpdateCoachInput) (*model.Coach, error) {
+	if input.Name == "" || input.Phone == "" || input.Email == "" {
+		return nil, errors.New("nama, nomor telepon, dan email wajib diisi")
+	}
+
+	existing, err := s.coachRepo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, errors.New("data pelatih tidak ditemukan")
+	}
+
+	existing.Name = input.Name
+	if input.Spec != "" {
+		existing.Spec = input.Spec
+	}
+	existing.Phone = input.Phone
+	existing.Email = input.Email
+	if input.Class != "" {
+		existing.Class = input.Class
+	}
+	if input.Avatar != "" {
+		existing.Avatar = input.Avatar
+	}
+	if input.PayPerSession > 0 {
+		existing.PayPerSession = input.PayPerSession
+	}
+	existing.UpdatedAt = time.Now()
+
+	if err := s.coachRepo.Update(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	return existing, nil
 }
 
 // DeleteCoach deletes a coach by ID

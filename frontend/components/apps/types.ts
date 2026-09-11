@@ -24,6 +24,8 @@ export interface Coach {
   email: string;
   class: string;
   avatar?: string;
+  pay_per_session?: number;
+  payPerSession?: number;
 }
 
 export interface Invoice {

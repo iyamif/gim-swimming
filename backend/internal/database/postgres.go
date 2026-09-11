@@ -95,6 +95,7 @@ func runMigrations() error {
 		email VARCHAR(255) NOT NULL,
 		class VARCHAR(100) NOT NULL,
 		avatar TEXT DEFAULT '',
+		pay_per_session NUMERIC(12,2) DEFAULT 100000,
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
@@ -205,6 +206,8 @@ func runMigrations() error {
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_name VARCHAR(255) DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS schedule_id VARCHAR(50) DEFAULT '';
 	ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS fcm_token TEXT DEFAULT '';
+	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS pay_per_session NUMERIC(12,2) DEFAULT 100000;
+	UPDATE coaches SET pay_per_session = 100000 WHERE pay_per_session IS NULL OR pay_per_session = 0;
 
 	-- Migrate legacy 'Beginner' classes to 'Prestasi'
 	UPDATE students SET class = 'Prestasi' WHERE class ILIKE 'beginner%';

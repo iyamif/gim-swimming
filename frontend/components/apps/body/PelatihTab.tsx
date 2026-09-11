@@ -1,7 +1,24 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, X, Filter, ChevronDown, ChevronRight, MessageCircle, Users, Award, Calendar, CheckCircle, Trash2 } from "lucide-react";
+import {
+  Search,
+  X,
+  Filter,
+  ChevronDown,
+  ChevronRight,
+  MessageCircle,
+  Users,
+  Award,
+  Calendar,
+  CheckCircle,
+  Trash2,
+  Edit2,
+  Pencil,
+  Wallet,
+  Coins,
+  Check,
+} from "lucide-react";
 import { Coach, ScheduleSession, Student, AttendanceRecord } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 import SwipeableRow from "../SwipeableRow";
@@ -13,6 +30,15 @@ interface PelatihTabProps {
   students?: Student[];
   attendances?: AttendanceRecord[];
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
+  onUpdateCoach?: (coachId: string, data: {
+    name: string;
+    spec?: string;
+    phone: string;
+    email: string;
+    class: string;
+    avatar?: string;
+    pay_per_session?: number;
+  }) => Promise<void> | void;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -23,6 +49,7 @@ export default function PelatihTab({
   students = [],
   attendances = [],
   onDeleteCoach,
+  onUpdateCoach,
   setActiveTab,
 }: PelatihTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,9 +57,121 @@ export default function PelatihTab({
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [coachToDelete, setCoachToDelete] = useState<Coach | null>(null);
+  const [coachToEdit, setCoachToEdit] = useState<Coach | null>(null);
   const [swipedCoachId, setSwipedCoachId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [avatarTick, setAvatarTick] = useState(0);
+
+  // Edit Coach Form States
+  const [editName, setEditName] = useState("");
+  const [editSpec, setEditSpec] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editClass, setEditClass] = useState("Prestasi");
+  const [editPayPerSession, setEditPayPerSession] = useState("100000");
+  const [editError, setEditError] = useState("");
+
+  const handleOpenEdit = (coach: Coach) => {
+    setCoachToEdit(coach);
+    setEditName(coach.name || "");
+    setEditSpec(coach.spec || "");
+    setEditPhone(coach.phone || "");
+    setEditEmail(coach.email || "");
+    setEditClass(coach.class || "Prestasi");
+    setEditPayPerSession(String(coach.pay_per_session || coach.payPerSession || 100000));
+    setEditError("");
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coachToEdit) return;
+
+    if (!editName.trim()) {
+      setEditError("Nama pelatih wajib diisi.");
+      return;
+    }
+    if (!editPhone.trim()) {
+      setEditError("Nomor WhatsApp wajib diisi.");
+      return;
+    }
+    if (!editEmail.trim()) {
+      setEditError("Email resmi pelatih wajib diisi.");
+      return;
+    }
+
+    try {
+      setIsSavingEdit(true);
+      setEditError("");
+      const numericPay = Number(editPayPerSession) || 100000;
+
+      if (onUpdateCoach) {
+        await onUpdateCoach(String(coachToEdit.id), {
+          name: editName.trim(),
+          spec: editSpec.trim() || "Instruktur Renang",
+          phone: editPhone.trim(),
+          email: editEmail.trim(),
+          class: editClass,
+          avatar: coachToEdit.avatar,
+          pay_per_session: numericPay,
+        });
+      }
+
+      // Update local selectedCoach if it's currently selected
+      if (selectedCoach && String(selectedCoach.id) === String(coachToEdit.id)) {
+        setSelectedCoach({
+          ...selectedCoach,
+          name: editName.trim(),
+          spec: editSpec.trim() || "Instruktur Renang",
+          phone: editPhone.trim(),
+          email: editEmail.trim(),
+          class: editClass,
+          pay_per_session: numericPay,
+          payPerSession: numericPay,
+        });
+      }
+
+      setCoachToEdit(null);
+    } catch (err: any) {
+      console.error("Gagal memperbarui pelatih:", err);
+      setEditError(err?.message || "Gagal menyimpan perubahan pelatih.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Helper to count verified attendances for a coach in month
+  const getCoachVerifiedAttendancesCount = (coach: Coach) => {
+    const verified = attendances.filter(
+      (a) =>
+        a.person_type === "coach" &&
+        (String(a.person_id) === String(coach.id) ||
+          a.person_name?.toLowerCase().trim() === coach.name.toLowerCase().trim() ||
+          a.person_name?.toLowerCase().includes(coach.name.toLowerCase().trim()) ||
+          coach.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || "")) &&
+        (a.status === "Hadir" || a.status === "Terlambat")
+    );
+    return verified.length;
+  };
+
+  // Helper to calculate total sessions & estimated salary for a coach
+  const getCoachSalaryEstimate = (coach: Coach) => {
+    const assignedSchedules = schedules.filter(
+      (s) =>
+        (s.coachId && s.coachId === coach.id) ||
+        (s.coachName && s.coachName.toLowerCase().trim() === coach.name.toLowerCase().trim())
+    );
+    const verifiedAtts = getCoachVerifiedAttendancesCount(coach);
+    const totalSessions = verifiedAtts > 0 ? verifiedAtts : assignedSchedules.length;
+    const rate = coach.pay_per_session || coach.payPerSession || 100000;
+    const totalGaji = totalSessions * rate;
+    return {
+      totalSessions,
+      rate,
+      totalGaji,
+      verifiedAtts,
+    };
+  };
 
   // Listen to avatar changes across app
   useEffect(() => {
@@ -210,11 +349,25 @@ export default function PelatihTab({
 
               {/* Badges on Right */}
               <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
-                  Available
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black shadow-2xs">
-                  In Class
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
+                    Available
+                  </span>
+                  {sessionRole === "admin" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEdit(featuredCoach);
+                      }}
+                      className="p-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition cursor-pointer border border-slate-200/70"
+                      title="Edit Data Pelatih"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200/80 text-[10px] font-black shadow-2xs">
+                  Rp {(featuredCoach.pay_per_session || featuredCoach.payPerSession || 100000).toLocaleString("id-ID")}/sesi
                 </span>
               </div>
             </div>
@@ -303,6 +456,7 @@ export default function PelatihTab({
             </div>
           ) : (
             filteredCoaches.map((coach) => {
+              const salaryInfo = getCoachSalaryEstimate(coach);
               return (
                 <SwipeableRow
                   key={coach.id}
@@ -319,7 +473,7 @@ export default function PelatihTab({
                     className="p-3.5 sm:p-4 rounded-3xl bg-white hover:bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md hover:border-cyan-200 flex items-center justify-between gap-3 cursor-pointer transition active:scale-98 group"
                   >
                     {/* Left: Avatar & Info */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       {(() => {
                         const avatar = getCoachAvatar(coach);
                         const isImg = isImageAvatar(avatar);
@@ -344,28 +498,41 @@ export default function PelatihTab({
                         );
                       })()}
 
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition capitalize">
+                      <div className="min-w-0">
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition capitalize truncate">
                           {coach.name}
                         </h4>
-                        <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                          {coach.spec || "Lvl 3 FINA"}
+                        <p className="text-[11px] text-slate-500 font-bold mt-0.5 truncate">
+                          {coach.spec || "Instruktur Renang"}
                         </p>
 
-                        {/* Small Status Pill under name (matching mockup) */}
+                        {/* Small Status Pill & Pay Rate */}
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          <span className="px-2 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black">
-                            Available
+                          <span className="px-2 py-0.2 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-[9px] font-black">
+                            Rp {salaryInfo.rate.toLocaleString("id-ID")}/sesi
                           </span>
-                          <span className="px-2 py-0.2 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 text-[9px] font-black">
-                            In Class
+                          <span className="px-2 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black">
+                            {salaryInfo.totalSessions} Sesi Bulan Ini
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Right: Chevron */}
+                    {/* Right: Edit & Chevron */}
                     <div className="flex items-center gap-2 shrink-0">
+                      {sessionRole === "admin" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(coach);
+                          }}
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition cursor-pointer border border-slate-200/80"
+                          title="Edit Data Pelatih"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
                       <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
                     </div>
                   </div>
@@ -429,6 +596,40 @@ export default function PelatihTab({
               </button>
             </div>
 
+            {/* Coach Salary Benchmark Card */}
+            {(() => {
+              const salary = getCoachSalaryEstimate(selectedCoach);
+              return (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/80 to-cyan-50/80 border border-blue-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
+                      <Wallet size={14} className="text-blue-600" />
+                      Honor &amp; Kalkulasi Gaji Bulan Ini
+                    </span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-200/80 text-blue-900">
+                      Rp {salary.rate.toLocaleString("id-ID")} / Sesi
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-blue-200/50">
+                    <div>
+                      <p className="text-[10px] text-slate-500">Total Sesi Melatih:</p>
+                      <p className="font-black text-slate-800">{salary.totalSessions} Sesi</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500">Estimasi Salary (Gaji):</p>
+                      <p className="font-black text-blue-700 text-sm">
+                        Rp {salary.totalGaji.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-slate-400 italic text-right">
+                    {salary.totalSessions} Sesi × Rp {salary.rate.toLocaleString("id-ID")} = Rp {salary.totalGaji.toLocaleString("id-ID")}
+                  </p>
+                </div>
+              );
+            })()}
+
             {/* Coach Details Grid */}
             <div className="space-y-2.5 text-xs">
               <div className="flex justify-between py-2 border-b border-slate-100">
@@ -457,7 +658,7 @@ export default function PelatihTab({
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                     Sesi Latihan Ditugaskan ({assigned.length})
                   </h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                     {assigned.length === 0 ? (
                       <p className="text-xs text-slate-400 italic text-center py-3 bg-slate-50 rounded-2xl">
                         Belum ada jadwal sesi yang ditugaskan.
@@ -487,6 +688,20 @@ export default function PelatihTab({
 
             {/* Actions */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
+              {sessionRole === "admin" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const c = selectedCoach;
+                    setSelectedCoach(null);
+                    handleOpenEdit(c);
+                  }}
+                  className="w-full py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shadow-blue-600/20 cursor-pointer"
+                >
+                  <Pencil size={14} /> Edit Data Pelatih
+                </button>
+              )}
+
               {selectedCoach.phone && (
                 <a
                   href={`https://wa.me/${selectedCoach.phone.replace(/[^0-9]/g, "")}?text=Halo%20Coach%20${selectedCoach.name},%20konfirmasi%20dari%20Akademi%20GIM%20Swimming`}
@@ -505,6 +720,172 @@ export default function PelatihTab({
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          EDIT COACH MODAL
+          ========================================== */}
+      {coachToEdit && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => !isSavingEdit && setCoachToEdit(null)}
+            className="absolute inset-0 bg-slate-950/65 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 my-auto max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
+                    Edit Data Pelatih
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Perbarui profil, kelas &amp; nominal pay per sesi
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => !isSavingEdit && setCoachToEdit(null)}
+                disabled={isSavingEdit}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveEdit} className="space-y-3.5">
+              {editError && (
+                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold animate-fadeIn">
+                  {editError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Nama Lengkap Pelatih <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Contoh: Coach Adi Pratama"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Nomor WhatsApp / HP <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="Contoh: 081234567890"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Email Resmi <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="Contoh: adi@gimswimming.com"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Keahlian / Spesialisasi
+                  </label>
+                  <input
+                    type="text"
+                    value={editSpec}
+                    onChange={(e) => setEditSpec(e.target.value)}
+                    placeholder="Contoh: Gaya Bebas & Gaya Dada"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Program Kelas Utama
+                  </label>
+                  <select
+                    value={editClass}
+                    onChange={(e) => setEditClass(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    <option value="Prestasi">Prestasi</option>
+                    <option value="Kids Swimming">Kids Swimming</option>
+                    <option value="Private Class">Private Class</option>
+                    <option value="Adult Beginner">Adult Beginner</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Pay Per Session Input Field */}
+              <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-black text-blue-950">
+                    Nominal Pay Per Sesi (Rp)
+                  </label>
+                  <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                    Acuan Salary Akhir Bulan
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  step="5000"
+                  min="0"
+                  required
+                  value={editPayPerSession}
+                  onChange={(e) => setEditPayPerSession(e.target.value)}
+                  placeholder="Contoh: 100000"
+                  className="w-full rounded-2xl border border-blue-300 bg-white px-3.5 py-2.5 text-xs text-blue-950 font-black outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition"
+                />
+                <p className="text-[10px] text-blue-800 font-medium leading-relaxed">
+                  Honor bulanan pelatih ini akan otomatis dihitung:{" "}
+                  <strong className="text-blue-950">[Total Sesi Melatih] × Rp {Number(editPayPerSession || 0).toLocaleString("id-ID")}</strong>
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isSavingEdit}
+                  onClick={() => setCoachToEdit(null)}
+                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-blue-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isSavingEdit ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

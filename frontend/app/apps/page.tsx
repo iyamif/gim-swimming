@@ -13,6 +13,7 @@ import {
   submitBulkAttendance,
   fetchCoaches,
   createCoach,
+  updateCoach,
   deleteCoach,
   fetchSchedules,
   createSchedule,
@@ -797,6 +798,31 @@ export default function AppsPage() {
     }
   };
 
+  // Handler: Update Coach (Admin)
+  const handleUpdateCoach = async (
+    coachId: string,
+    data: {
+      name: string;
+      spec?: string;
+      phone: string;
+      email: string;
+      class: string;
+      avatar?: string;
+      pay_per_session?: number;
+    }
+  ) => {
+    try {
+      const updated = await updateCoach(coachId, data);
+      if (updated) {
+        const updatedCoaches = await fetchCoaches();
+        setCoaches(updatedCoaches);
+      }
+    } catch (err) {
+      console.error("Failed to update coach:", err);
+      throw err;
+    }
+  };
+
   // Handler: Upload tuition receipt (Orang Tua view) to PostgreSQL DB
   const handleParentUploadReceipt = async (invoiceId: string) => {
     try {
@@ -1083,6 +1109,7 @@ export default function AppsPage() {
             onDeleteStudent={handleDeleteStudent}
             onAddStudent={handleAddSiswaSubmit}
             onAddCoach={handleAddPelatihSubmit}
+            onUpdateCoach={handleUpdateCoach}
             onDeleteCoach={handleDeleteCoach}
           />
         </div>

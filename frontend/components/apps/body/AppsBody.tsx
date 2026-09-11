@@ -69,7 +69,17 @@ interface AppsBodyProps {
     address?: string;
     gender?: string;
     experience?: string;
+    pay_per_session?: number;
   }) => void;
+  onUpdateCoach?: (coachId: string, data: {
+    name: string;
+    spec?: string;
+    phone: string;
+    email: string;
+    class: string;
+    avatar?: string;
+    pay_per_session?: number;
+  }) => Promise<void> | void;
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
 }
 
@@ -101,6 +111,7 @@ export default function AppsBody({
   onDeleteStudent,
   onAddStudent,
   onAddCoach,
+  onUpdateCoach,
   onDeleteCoach,
 }: AppsBodyProps) {
   const content = (
@@ -122,18 +133,6 @@ export default function AppsBody({
         />
       )}
 
-      {activeTab === "jadwal" && (
-        <JadwalTab
-          schedules={schedules}
-          students={students}
-          coaches={coaches}
-          onAddSchedule={onAddSchedule}
-          onUpdateSchedule={onUpdateSchedule}
-          onDeleteSchedule={onDeleteSchedule}
-          setActiveTab={setActiveTab}
-        />
-      )}
-
       {activeTab === "keuangan" && (
         <KeuanganTab
           invoices={invoices}
@@ -143,6 +142,18 @@ export default function AppsBody({
           attendances={attendances}
           sessionUser={sessionUser}
           onVerifyPayment={onVerifyPayment}
+          setActiveTab={setActiveTab}
+        />
+      )}
+
+      {activeTab === "jadwal" && (
+        <JadwalTab
+          schedules={schedules}
+          coaches={coaches}
+          students={students}
+          onAddSchedule={onAddSchedule}
+          onUpdateSchedule={onUpdateSchedule}
+          onDeleteSchedule={onDeleteSchedule}
           setActiveTab={setActiveTab}
         />
       )}
@@ -168,6 +179,7 @@ export default function AppsBody({
           schedules={schedules}
           students={students}
           attendances={attendances}
+          onUpdateCoach={onUpdateCoach}
           onDeleteCoach={onDeleteCoach}
           setActiveTab={setActiveTab}
         />

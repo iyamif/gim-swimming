@@ -1274,7 +1274,7 @@ export default function JadwalTab({
                 )}
               </div>
 
-              {/* 4. Jam Latihan & Preset */}
+              {/* 4. Jam Latihan */}
               <div className="w-full space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
@@ -1290,28 +1290,38 @@ export default function JadwalTab({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-slate-400 font-bold block mb-1">
-                      Jam Mulai
+                      Jam Masuk
                     </span>
                     <input
                       type="time"
                       required
                       value={editTimeStart}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker?.();
+                        } catch {}
+                      }}
                       onChange={(e) => handleEditTimeStartChange(e.target.value)}
-                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white"
+                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white min-w-0 cursor-pointer"
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-slate-400 font-bold block mb-1">
-                      Jam Selesai (Otomatis)
+                      Jam Keluar
                     </span>
                     <input
                       type="time"
                       required
                       value={editTimeEnd}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker?.();
+                        } catch {}
+                      }}
                       onChange={(e) => setEditTimeEnd(e.target.value)}
-                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white"
+                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white min-w-0 cursor-pointer"
                     />
                   </div>
                 </div>
@@ -1826,7 +1836,7 @@ export default function JadwalTab({
                 )}
               </div>
 
-              {/* 4. Jam Latihan & Preset */}
+              {/* 4. Jam Latihan */}
               <div className="w-full space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
@@ -1842,28 +1852,38 @@ export default function JadwalTab({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-slate-400 font-bold block mb-1">
-                      Jam Mulai
+                      Jam Masuk
                     </span>
                     <input
                       type="time"
                       required
                       value={formTimeStart}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker?.();
+                        } catch {}
+                      }}
                       onChange={(e) => handleFormTimeStartChange(e.target.value)}
-                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white"
+                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white min-w-0 cursor-pointer"
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-slate-400 font-bold block mb-1">
-                      Jam Selesai (Otomatis)
+                      Jam Keluar
                     </span>
                     <input
                       type="time"
                       required
                       value={formTimeEnd}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker?.();
+                        } catch {}
+                      }}
                       onChange={(e) => setFormTimeEnd(e.target.value)}
-                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white"
+                      className="w-full h-11 block rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white min-w-0 cursor-pointer"
                     />
                   </div>
                 </div>

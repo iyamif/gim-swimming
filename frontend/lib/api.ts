@@ -261,15 +261,20 @@ export async function fetchCoaches(): Promise<Coach[]> {
     });
     if (!res.ok) throw new Error("Gagal mengambil data pelatih");
     const json = await res.json();
-    return (json.data || []).map((c: any) => ({
-      id: String(c.id),
-      name: c.name,
-      spec: c.spec,
-      phone: c.phone,
-      email: c.email,
-      class: c.class,
-      avatar: c.avatar || "",
-    }));
+    return (json.data || []).map((c: any) => {
+      const payRate = Number(c.pay_per_session) || 100000;
+      return {
+        id: String(c.id),
+        name: c.name,
+        spec: c.spec,
+        phone: c.phone,
+        email: c.email,
+        class: c.class,
+        avatar: c.avatar || "",
+        pay_per_session: payRate,
+        payPerSession: payRate,
+      };
+    });
   } catch (err) {
     console.error("fetchCoaches error:", err);
     return [];
@@ -278,10 +283,12 @@ export async function fetchCoaches(): Promise<Coach[]> {
 
 export async function createCoach(payload: {
   name: string;
-  spec: string;
+  spec?: string;
   phone: string;
   email: string;
   class: string;
+  avatar?: string;
+  pay_per_session?: number;
 }): Promise<Coach | null> {
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/v1/coaches`, {
@@ -292,6 +299,7 @@ export async function createCoach(payload: {
     if (!res.ok) throw new Error("Gagal mendaftarkan pelatih");
     const json = await res.json();
     const c = json.data;
+    const payRate = Number(c.pay_per_session) || Number(payload.pay_per_session) || 100000;
     return {
       id: String(c.id),
       name: c.name,
@@ -299,9 +307,54 @@ export async function createCoach(payload: {
       phone: c.phone,
       email: c.email,
       class: c.class,
+      avatar: c.avatar || payload.avatar || "",
+      pay_per_session: payRate,
+      payPerSession: payRate,
     };
   } catch (err) {
     console.error("createCoach error:", err);
+    throw err;
+  }
+}
+
+export async function updateCoach(
+  id: string | number,
+  payload: {
+    name: string;
+    spec?: string;
+    phone: string;
+    email: string;
+    class: string;
+    avatar?: string;
+    pay_per_session?: number;
+  }
+): Promise<Coach | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/coaches/${id}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal memperbarui data pelatih");
+    }
+    const json = await res.json();
+    const c = json.data;
+    const payRate = Number(c.pay_per_session) || Number(payload.pay_per_session) || 100000;
+    return {
+      id: String(c.id),
+      name: c.name,
+      spec: c.spec,
+      phone: c.phone,
+      email: c.email,
+      class: c.class,
+      avatar: c.avatar || payload.avatar || "",
+      pay_per_session: payRate,
+      payPerSession: payRate,
+    };
+  } catch (err) {
+    console.error("updateCoach error:", err);
     throw err;
   }
 }

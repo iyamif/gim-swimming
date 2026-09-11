@@ -87,10 +87,10 @@ body {
 input[type="date"],
 input[type="time"],
 input[type="datetime-local"] {
-  -webkit-appearance: none;
-  appearance: none;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
 input[type="date"]::-webkit-date-and-time-value,
@@ -99,4 +99,9 @@ input[type="time"]::-webkit-date-and-time-value {
   min-height: 1.2em;
   margin: 0;
   padding: 0;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
 }

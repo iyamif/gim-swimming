@@ -57,7 +57,7 @@ export default function KeuanganTab({
   const totalIncomePaid = paidInvoices.reduce((acc, curr) => acc + curr.amount, 0);
   const totalPendingAmount = pendingInvoices.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Dynamic Coach Payments based on real verified attendances
+  // Dynamic Coach Payments based on real verified attendances and individual pay_per_session
   const coachPayrolls = coaches.map((c, idx) => {
     // Count real attendances recorded for this coach
     const verifiedCoachAttendances = attendances.filter(
@@ -72,7 +72,7 @@ export default function KeuanganTab({
 
     const baseSessions = 8 + (idx * 2);
     const sessionsCount = verifiedCoachAttendances.length > 0 ? verifiedCoachAttendances.length : baseSessions;
-    const ratePerSession = 75000;
+    const ratePerSession = c.pay_per_session || c.payPerSession || 100000;
     const totalHonor = sessionsCount * ratePerSession;
 
     return {
@@ -670,8 +670,8 @@ export default function KeuanganTab({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-black text-slate-900">{c.name}</p>
-                      <p className="text-[10px] text-slate-500">
-                        {c.spec} • {c.sessionsCount} Sesi (Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi)
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        {c.spec} • <span className="font-bold text-blue-700">Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi</span>
                       </p>
                     </div>
                     <div className="text-right">
@@ -684,12 +684,18 @@ export default function KeuanganTab({
                     </div>
                   </div>
 
+                  {/* Calculation Formula Pill */}
+                  <div className="p-2 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between text-[10px] font-bold text-blue-900">
+                    <span>Formula Gaji: {c.sessionsCount} Sesi × Rp {c.ratePerSession.toLocaleString("id-ID")}</span>
+                    <span className="font-black text-blue-700">{formatIDR(c.totalHonor)}</span>
+                  </div>
+
                   {/* Attendance Verification Benchmark Badge */}
-                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[10px]">
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-[10px]">
                     <div className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span className="text-slate-600 font-semibold">
-                        Basis Presensi: <span className="font-bold text-slate-900">{c.verifiedCount > 0 ? `${c.verifiedCount} Sesi Tervalidasi` : `${c.sessionsCount} Sesi (Standar Periode)`}</span>
+                        Basis: <span className="font-bold text-slate-900">{c.verifiedCount > 0 ? `${c.verifiedCount} Sesi Tervalidasi` : `${c.sessionsCount} Sesi Jadwal`}</span>
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-1">

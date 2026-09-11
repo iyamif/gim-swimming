@@ -11,6 +11,7 @@ import (
 // CoachRepository defines interface for coach storage operations
 type CoachRepository interface {
 	Create(ctx context.Context, coach *model.Coach) error
+	Update(ctx context.Context, coach *model.Coach) error
 	FindAll(ctx context.Context) ([]model.Coach, error)
 	FindByID(ctx context.Context, id int64) (*model.Coach, error)
 	Delete(ctx context.Context, id int64) error
@@ -26,9 +27,12 @@ func NewCoachRepository(db *sql.DB) CoachRepository {
 }
 
 func (r *pgCoachRepository) Create(ctx context.Context, coach *model.Coach) error {
+	if coach.PayPerSession <= 0 {
+		coach.PayPerSession = 100000
+	}
 	query := `
-		INSERT INTO coaches (name, spec, phone, email, class, avatar, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO coaches (name, spec, phone, email, class, avatar, pay_per_session, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id;
 	`
 	return r.db.QueryRowContext(
@@ -40,9 +44,35 @@ func (r *pgCoachRepository) Create(ctx context.Context, coach *model.Coach) erro
 		coach.Email,
 		coach.Class,
 		coach.Avatar,
+		coach.PayPerSession,
 		coach.CreatedAt,
 		coach.UpdatedAt,
 	).Scan(&coach.ID)
+}
+
+func (r *pgCoachRepository) Update(ctx context.Context, coach *model.Coach) error {
+	if coach.PayPerSession <= 0 {
+		coach.PayPerSession = 100000
+	}
+	query := `
+		UPDATE coaches
+		SET name = $1, spec = $2, phone = $3, email = $4, class = $5, avatar = $6, pay_per_session = $7, updated_at = $8
+		WHERE id = $9;
+	`
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		coach.Name,
+		coach.Spec,
+		coach.Phone,
+		coach.Email,
+		coach.Class,
+		coach.Avatar,
+		coach.PayPerSession,
+		coach.UpdatedAt,
+		coach.ID,
+	)
+	return err
 }
 
 func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) {
@@ -56,6 +86,7 @@ func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) 
 			c.email, 
 			c.class, 
 			COALESCE(NULLIF(c.avatar, ''), COALESCE(u.avatar, '')), 
+			COALESCE(c.pay_per_session, 100000),
 			c.created_at, 
 			c.updated_at
 		FROM coaches c
@@ -86,6 +117,7 @@ func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) 
 			&c.Email,
 			&c.Class,
 			&c.Avatar,
+			&c.PayPerSession,
 			&c.CreatedAt,
 			&c.UpdatedAt,
 		)
@@ -112,6 +144,7 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 			c.email, 
 			c.class, 
 			COALESCE(NULLIF(c.avatar, ''), COALESCE(u.avatar, '')), 
+			COALESCE(c.pay_per_session, 100000),
 			c.created_at, 
 			c.updated_at
 		FROM coaches c
@@ -134,6 +167,7 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 		&c.Email,
 		&c.Class,
 		&c.Avatar,
+		&c.PayPerSession,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)

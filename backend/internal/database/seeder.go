@@ -235,40 +235,44 @@ func SeedCoaches(db *sql.DB) {
 	log.Println("Seeding default coaches...")
 
 	coaches := []struct {
-		name  string
-		spec  string
-		phone string
-		email string
-		class string
+		name          string
+		spec          string
+		phone         string
+		email         string
+		class         string
+		payPerSession float64
 	}{
 		{
-			name:  "Coach Adi",
-			spec:  "Pelatih Prestasi & Gaya Bebas",
-			phone: "085353333220",
-			email: "adi@gimswimming.com",
-			class: "Prestasi",
+			name:          "Coach Adi",
+			spec:          "Pelatih Prestasi & Gaya Bebas",
+			phone:         "085353333220",
+			email:         "adi@gimswimming.com",
+			class:         "Prestasi",
+			payPerSession: 100000,
 		},
 		{
-			name:  "Coach Linda",
-			spec:  "Kids Coach Specialist",
-			phone: "08123456780",
-			email: "linda@gimswimming.com",
-			class: "Kids Swimming",
+			name:          "Coach Linda",
+			spec:          "Kids Coach Specialist",
+			phone:         "08123456780",
+			email:         "linda@gimswimming.com",
+			class:         "Kids Swimming",
+			payPerSession: 75000,
 		},
 		{
-			name:  "Coach Rendi",
-			spec:  "Private Instructor Specialist",
-			phone: "081234567890",
-			email: "rendi@gimswimming.com",
-			class: "Private Class",
+			name:          "Coach Rendi",
+			spec:          "Private Instructor Specialist",
+			phone:         "081234567890",
+			email:         "rendi@gimswimming.com",
+			class:         "Private Class",
+			payPerSession: 120000,
 		},
 	}
 
 	for _, c := range coaches {
 		_, err := db.Exec(`
-			INSERT INTO coaches (name, spec, phone, email, class, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, NOW(), NOW());
-		`, c.name, c.spec, c.phone, c.email, c.class)
+			INSERT INTO coaches (name, spec, phone, email, class, pay_per_session, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW());
+		`, c.name, c.spec, c.phone, c.email, c.class, c.payPerSession)
 		if err != nil {
 			log.Printf("Failed to seed coach %s: %v", c.name, err)
 		} else {

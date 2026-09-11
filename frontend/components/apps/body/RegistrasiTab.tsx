@@ -31,6 +31,7 @@ interface RegistrasiTabProps {
     address?: string;
     gender?: string;
     experience?: string;
+    pay_per_session?: number;
   }) => Promise<boolean | void> | boolean | void;
   sessionRole?: string;
   setActiveTab?: (tab: string) => void;
@@ -57,6 +58,7 @@ export default function RegistrasiTab({
   const [coachSpec, setCoachSpec] = useState("");
   const [coachClass, setCoachClass] = useState("Prestasi");
   const [coachExperience, setCoachExperience] = useState("");
+  const [coachPayPerSession, setCoachPayPerSession] = useState("100000");
 
   // Siswa (Student) Specific Fields
   const [studentParent, setStudentParent] = useState("");
@@ -83,35 +85,31 @@ export default function RegistrasiTab({
   if (isCoachRole) {
     return (
       <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
-        {/* Top Vibrant Blue Header */}
-        <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 rounded-none">
-          <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
-            <div>
-              <p className="text-xs font-medium text-cyan-100 leading-tight">
-                AKSES DIBATASI
-              </p>
-              <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug">
-                Registrasi Pengguna
-              </h2>
-            </div>
+        <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+          <div className="max-w-3xl mx-auto relative z-10">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Registrasi
+            </h2>
+            <p className="text-xs text-cyan-100 font-medium mt-1">
+              Pendaftaran Anggota &amp; Pelatih Baru
+            </p>
           </div>
         </div>
-
-        <div className="max-w-md mx-auto px-4 -mt-8 relative z-10">
-          <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-xl shadow-slate-200/50 text-center space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 mx-auto border border-amber-100">
-              <Lock size={22} />
+        <div className="max-w-xl mx-auto px-4 -mt-8 relative z-20">
+          <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-xl space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              !
             </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-900">Akses Khusus Admin</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Halaman registrasi hanya dapat diakses oleh Administrator.
+            <div className="space-y-1">
+              <h3 className="text-sm font-black text-slate-900">Akses Terbatas</h3>
+              <p className="text-xs text-slate-500">
+                Menu registrasi anggota baru hanya dapat diakses oleh Administrator Akademi.
               </p>
             </div>
             {setActiveTab && (
               <button
                 onClick={() => setActiveTab("dashboard")}
-                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer"
+                className="w-full py-3 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition"
               >
                 Kembali ke Dashboard
               </button>
@@ -132,6 +130,7 @@ export default function RegistrasiTab({
     setCoachSpec("");
     setCoachClass("Prestasi");
     setCoachExperience("");
+    setCoachPayPerSession("100000");
     setStudentParent("");
     setStudentAge("");
     setStudentClass("Prestasi");
@@ -169,6 +168,7 @@ export default function RegistrasiTab({
           address: address.trim(),
           gender,
           experience: coachExperience.trim(),
+          pay_per_session: Number(coachPayPerSession) || 100000,
         });
 
         const registeredName = name.trim();
@@ -455,6 +455,21 @@ export default function RegistrasiTab({
                       onChange={(e) => setCoachExperience(e.target.value)}
                       placeholder="Contoh: Lisensi Pelatih C"
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Nominal Pay Per Sesi (Rp) <span className="text-blue-600 font-normal">(Acuan Salary)</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="5000"
+                      min="0"
+                      value={coachPayPerSession}
+                      onChange={(e) => setCoachPayPerSession(e.target.value)}
+                      placeholder="Contoh: 100000"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-bold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                     />
                   </div>
                 </div>
