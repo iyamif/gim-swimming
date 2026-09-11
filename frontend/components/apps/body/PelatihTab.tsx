@@ -226,9 +226,24 @@ export default function PelatihTab({
     );
   };
 
-  // Helper to count unique students handled by a coach across schedules & classes
+  // Helper to count unique students handled by a coach across assigned students, schedules & classes
   const getCoachHandledStudentsCount = (coach: Coach) => {
     if (!coach) return 0;
+
+    // 1. Direct assignment: count students who have this coach as their pelatih penanggung jawab
+    const assignedStudents = students.filter(
+      (st) =>
+        (st.coach_id && String(st.coach_id) === String(coach.id)) ||
+        (st.coachId && String(st.coachId) === String(coach.id)) ||
+        (st.coach_name && st.coach_name.toLowerCase().trim() === coach.name.toLowerCase().trim()) ||
+        (st.coachName && st.coachName.toLowerCase().trim() === coach.name.toLowerCase().trim())
+    );
+
+    if (assignedStudents.length > 0) {
+      return assignedStudents.length;
+    }
+
+    // 2. Schedules matching
     const coachSchedules = schedules.filter(
       (s) =>
         (s.coachId && String(s.coachId) === String(coach.id)) ||
@@ -254,7 +269,7 @@ export default function PelatihTab({
     if (studentIdSet.size > 0) return studentIdSet.size;
     if (studentNameSet.size > 0) return studentNameSet.size;
 
-    // Fallback: students in the coach's assigned primary class
+    // 3. Fallback: students in the coach's assigned primary class
     if (coach.class && students.length > 0) {
       const classStudents = students.filter(
         (st) => st.class?.toLowerCase().trim() === coach.class.toLowerCase().trim()

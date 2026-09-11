@@ -62,6 +62,8 @@ export default function DaftarHadirTab({
   const [editParent, setEditParent] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editAge, setEditAge] = useState("");
+  const [editCoachName, setEditCoachName] = useState("");
+  const [editCoachId, setEditCoachId] = useState("");
   const [editStatus, setEditStatus] = useState<"Active" | "Inactive">("Active");
   const [isSaving, setIsSaving] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
@@ -302,6 +304,8 @@ export default function DaftarHadirTab({
     setEditParent(student.parent || "");
     setEditPhone(student.phone || "");
     setEditAge(student.age || "");
+    setEditCoachName(student.coach_name || student.coachName || (coaches?.[0]?.name || ""));
+    setEditCoachId(student.coach_id || student.coachId || (coaches?.[0]?.id ? String(coaches[0].id) : ""));
     setEditStatus(isStudentActive(student) ? "Active" : "Inactive");
     setFeedbackMsg(null);
   };
@@ -314,6 +318,8 @@ export default function DaftarHadirTab({
     setEditParent(selectedStudent.parent || "");
     setEditPhone(selectedStudent.phone || "");
     setEditAge(selectedStudent.age || "");
+    setEditCoachName(selectedStudent.coach_name || selectedStudent.coachName || (coaches?.[0]?.name || ""));
+    setEditCoachId(selectedStudent.coach_id || selectedStudent.coachId || (coaches?.[0]?.id ? String(coaches[0].id) : ""));
     setEditStatus(isStudentActive(selectedStudent) ? "Active" : "Inactive");
     setIsEditing(true);
     setFeedbackMsg(null);
@@ -330,12 +336,20 @@ export default function DaftarHadirTab({
     setIsSaving(true);
     setFeedbackMsg(null);
 
+    const selectedCoachObj = (coaches || []).find((c) => c.name === editCoachName);
+    const resolvedCoachId = editCoachId || (selectedCoachObj ? String(selectedCoachObj.id) : "");
+    const resolvedCoachName = editCoachName || (selectedCoachObj ? selectedCoachObj.name : "");
+
     const updatePayload: Partial<Student> = {
       name: editName.trim(),
       class: editClass.trim() || selectedStudent.class,
       parent: editParent.trim(),
       phone: editPhone.trim(),
       age: editAge.trim(),
+      coach_id: resolvedCoachId,
+      coach_name: resolvedCoachName,
+      coachId: resolvedCoachId,
+      coachName: resolvedCoachName,
       status: editStatus,
     };
 
@@ -761,6 +775,9 @@ export default function DaftarHadirTab({
                         </div>
                         <p className="text-[11px] text-slate-500 font-bold mt-0.5">
                           Lev: {student.class || "Prestasi"}
+                          {(student.coach_name || student.coachName) && (
+                            <span className="text-blue-600 font-bold"> • Coach {student.coach_name || student.coachName}</span>
+                          )}
                         </p>
                         <p className="text-[10px] text-slate-400 font-medium">
                           Kehadiran: {getStudentAttendanceRate(student)} • {student.parent || "Wali Murid"}
@@ -936,6 +953,33 @@ export default function DaftarHadirTab({
                   />
                 </div>
 
+                {/* Pelatih Penanggung Jawab */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">
+                    Pelatih Penanggung Jawab:
+                  </label>
+                  <select
+                    value={editCoachName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditCoachName(val);
+                      const c = (coaches || []).find((coach) => coach.name === val);
+                      setEditCoachId(c ? String(c.id) : "");
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                  >
+                    {coaches && coaches.length > 0 ? (
+                      coaches.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name} {c.spec ? `(${c.spec})` : ""}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">Belum ada data pelatih</option>
+                    )}
+                  </select>
+                </div>
+
                 {/* Grid Phone & Age */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
@@ -1020,6 +1064,10 @@ export default function DaftarHadirTab({
                   <div className="flex justify-between py-2 border-b border-slate-100">
                     <span className="text-slate-500">Orang Tua / Wali</span>
                     <span className="font-bold text-slate-900">{selectedStudent.parent || "-"}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-slate-100">
+                    <span className="text-slate-500">Pelatih Penanggung Jawab</span>
+                    <span className="font-bold text-blue-600">{selectedStudent.coach_name || selectedStudent.coachName || "-"}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-slate-100">
                     <span className="text-slate-500">Nomor Telepon</span>

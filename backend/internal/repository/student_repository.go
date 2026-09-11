@@ -32,8 +32,8 @@ func NewStudentRepository(db *sql.DB) StudentRepository {
 
 func (r *pgStudentRepository) Create(ctx context.Context, student *model.Student) error {
 	query := `
-		INSERT INTO students (name, class, attendance_rate, parent, phone, age, status, avatar, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO students (name, class, attendance_rate, parent, phone, age, coach_id, coach_name, status, avatar, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id;
 	`
 	return r.db.QueryRowContext(
@@ -45,6 +45,8 @@ func (r *pgStudentRepository) Create(ctx context.Context, student *model.Student
 		student.Parent,
 		student.Phone,
 		student.Age,
+		student.CoachID,
+		student.CoachName,
 		student.Status,
 		student.Avatar,
 		student.CreatedAt,
@@ -62,6 +64,8 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 			s.parent, 
 			COALESCE(s.phone, ''), 
 			COALESCE(s.age, ''), 
+			COALESCE(s.coach_id, ''),
+			COALESCE(s.coach_name, ''),
 			s.status, 
 			COALESCE(NULLIF(s.avatar, ''), COALESCE(u.avatar, '')), 
 			s.created_at, 
@@ -87,6 +91,8 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 			&s.Parent,
 			&s.Phone,
 			&s.Age,
+			&s.CoachID,
+			&s.CoachName,
 			&s.Status,
 			&s.Avatar,
 			&s.CreatedAt,
@@ -120,6 +126,8 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 			s.parent, 
 			COALESCE(s.phone, ''), 
 			COALESCE(s.age, ''), 
+			COALESCE(s.coach_id, ''),
+			COALESCE(s.coach_name, ''),
 			s.status, 
 			COALESCE(NULLIF(s.avatar, ''), COALESCE(u.avatar, '')), 
 			s.created_at, 
@@ -137,6 +145,8 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 		&s.Parent,
 		&s.Phone,
 		&s.Age,
+		&s.CoachID,
+		&s.CoachName,
 		&s.Status,
 		&s.Avatar,
 		&s.CreatedAt,
@@ -216,8 +226,8 @@ func (r *pgStudentRepository) UpdateStatus(ctx context.Context, studentID int64,
 func (r *pgStudentRepository) Update(ctx context.Context, student *model.Student) error {
 	query := `
 		UPDATE students
-		SET name = $1, class = $2, parent = $3, phone = $4, age = $5, status = $6, updated_at = NOW()
-		WHERE id = $7;
+		SET name = $1, class = $2, parent = $3, phone = $4, age = $5, coach_id = $6, coach_name = $7, status = $8, updated_at = NOW()
+		WHERE id = $9;
 	`
 	_, err := r.db.ExecContext(
 		ctx,
@@ -227,6 +237,8 @@ func (r *pgStudentRepository) Update(ctx context.Context, student *model.Student
 		student.Parent,
 		student.Phone,
 		student.Age,
+		student.CoachID,
+		student.CoachName,
 		student.Status,
 		student.ID,
 	)

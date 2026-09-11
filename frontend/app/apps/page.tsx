@@ -680,6 +680,11 @@ export default function AppsPage() {
     parent: string;
     phone: string;
     class: string;
+    coach_id?: string;
+    coach_name?: string;
+    coachId?: string;
+    coachName?: string;
+    [key: string]: any;
   }) => {
     if (!data.name || !data.parent || !data.phone) {
       return;

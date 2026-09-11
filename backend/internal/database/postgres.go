@@ -81,6 +81,8 @@ func runMigrations() error {
 		parent VARCHAR(255) NOT NULL,
 		phone VARCHAR(50),
 		age VARCHAR(50),
+		coach_id VARCHAR(50) DEFAULT '',
+		coach_name VARCHAR(255) DEFAULT '',
 		status VARCHAR(50) DEFAULT 'Active',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -195,6 +197,8 @@ func runMigrations() error {
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
+	ALTER TABLE students ADD COLUMN IF NOT EXISTS coach_id VARCHAR(50) DEFAULT '';
+	ALTER TABLE students ADD COLUMN IF NOT EXISTS coach_name VARCHAR(255) DEFAULT '';
 	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 	ALTER TABLE students ALTER COLUMN avatar TYPE TEXT;
@@ -208,6 +212,23 @@ func runMigrations() error {
 	ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS fcm_token TEXT DEFAULT '';
 	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS pay_per_session NUMERIC(12,2) DEFAULT 100000;
 	UPDATE coaches SET pay_per_session = 100000 WHERE pay_per_session IS NULL OR pay_per_session = 0;
+
+	-- Automatically assign a random existing coach to students who don't have coach_name assigned yet
+	DO $$
+	DECLARE
+		rec RECORD;
+		c_id INT;
+		c_name VARCHAR(255);
+	BEGIN
+		IF EXISTS (SELECT 1 FROM coaches) THEN
+			FOR rec IN SELECT id FROM students WHERE coach_name IS NULL OR coach_name = '' LOOP
+				SELECT id, name INTO c_id, c_name FROM coaches ORDER BY RANDOM() LIMIT 1;
+				IF c_name IS NOT NULL AND c_name <> '' THEN
+					UPDATE students SET coach_id = CAST(c_id AS VARCHAR), coach_name = c_name WHERE id = rec.id;
+				END IF;
+			END LOOP;
+		END IF;
+	END $$;
 
 	-- Migrate legacy 'Beginner' classes to 'Prestasi'
 	UPDATE students SET class = 'Prestasi' WHERE class ILIKE 'beginner%';

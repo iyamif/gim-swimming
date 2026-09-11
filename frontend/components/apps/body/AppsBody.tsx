@@ -212,6 +212,7 @@ export default function AppsBody({
 
       {activeTab === "create" && (
         <RegistrasiTab
+          coaches={coaches}
           onAddStudent={onAddStudent}
           onAddCoach={onAddCoach}
           sessionRole={sessionRole}

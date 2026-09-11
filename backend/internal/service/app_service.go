@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -93,6 +94,25 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 		return nil, errors.New("name, parent, and phone are required")
 	}
 
+	coachID := strings.TrimSpace(input.CoachID)
+	if coachID == "" {
+		coachID = strings.TrimSpace(input.CoachIdCamel)
+	}
+	coachName := strings.TrimSpace(input.CoachName)
+	if coachName == "" {
+		coachName = strings.TrimSpace(input.CoachNameCamel)
+	}
+
+	if coachName == "" {
+		// If coach is not specified, automatically assign an existing coach randomly
+		coaches, _ := s.coachRepo.FindAll(ctx)
+		if len(coaches) > 0 {
+			randIdx := rand.Intn(len(coaches))
+			coachID = fmt.Sprintf("%d", coaches[randIdx].ID)
+			coachName = coaches[randIdx].Name
+		}
+	}
+
 	student := &model.Student{
 		Name:           input.Name,
 		Class:          input.Class,
@@ -100,6 +120,8 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 		Parent:         input.Parent,
 		Phone:          input.Phone,
 		Age:            input.Age,
+		CoachID:        coachID,
+		CoachName:      coachName,
 		Status:         "Active",
 		Logs:           []model.AttendanceLog{},
 		CreatedAt:      time.Now(),
@@ -159,7 +181,7 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 	return student, nil
 }
 
-// UpdateStudent updates student profile details (name, class, parent, phone, age, status)
+// UpdateStudent updates student profile details (name, class, parent, phone, age, coach, status)
 func (s *appService) UpdateStudent(ctx context.Context, id int64, input *model.UpdateStudentInput) (*model.Student, error) {
 	student, err := s.studentRepo.FindByID(ctx, id)
 	if err != nil || student == nil {
@@ -180,6 +202,20 @@ func (s *appService) UpdateStudent(ctx context.Context, id int64, input *model.U
 	}
 	if input.Age != "" {
 		student.Age = strings.TrimSpace(input.Age)
+	}
+	coachName := strings.TrimSpace(input.CoachName)
+	if coachName == "" {
+		coachName = strings.TrimSpace(input.CoachNameCamel)
+	}
+	if coachName != "" {
+		student.CoachName = coachName
+	}
+	coachID := strings.TrimSpace(input.CoachID)
+	if coachID == "" {
+		coachID = strings.TrimSpace(input.CoachIdCamel)
+	}
+	if coachID != "" {
+		student.CoachID = coachID
 	}
 	if strings.TrimSpace(input.Status) != "" {
 		norm := strings.TrimSpace(input.Status)

@@ -20,6 +20,8 @@ type Student struct {
 	Parent         string          `json:"parent"`
 	Phone          string          `json:"phone,omitempty"`
 	Age            string          `json:"age,omitempty"`
+	CoachID        string          `json:"coach_id,omitempty"`
+	CoachName      string          `json:"coach_name,omitempty"`
 	Status         string          `json:"status"`
 	Avatar         string          `json:"avatar"`
 	Logs           []AttendanceLog `json:"logs"`
@@ -29,11 +31,15 @@ type Student struct {
 
 // CreateStudentInput represents payload for registering a new student
 type CreateStudentInput struct {
-	Name   string `json:"name" binding:"required"`
-	Class  string `json:"class" binding:"required"`
-	Parent string `json:"parent" binding:"required"`
-	Phone  string `json:"phone" binding:"required"`
-	Age    string `json:"age"`
+	Name           string `json:"name" binding:"required"`
+	Class          string `json:"class" binding:"required"`
+	Parent         string `json:"parent" binding:"required"`
+	Phone          string `json:"phone" binding:"required"`
+	Age            string `json:"age"`
+	CoachID        string `json:"coach_id"`
+	CoachName      string `json:"coach_name"`
+	CoachIdCamel   string `json:"coachId"`
+	CoachNameCamel string `json:"coachName"`
 }
 
 // BulkAttendanceInput represents attendance submission for a class session
@@ -50,10 +56,14 @@ type UpdateStudentStatusInput struct {
 
 // UpdateStudentInput represents payload for updating full student details
 type UpdateStudentInput struct {
-	Name   string `json:"name"`
-	Class  string `json:"class"`
-	Parent string `json:"parent"`
-	Phone  string `json:"phone"`
-	Age    string `json:"age"`
-	Status string `json:"status"`
+	Name           string `json:"name"`
+	Class          string `json:"class"`
+	Parent         string `json:"parent"`
+	Phone          string `json:"phone"`
+	Age            string `json:"age"`
+	CoachID        string `json:"coach_id"`
+	CoachName      string `json:"coach_name"`
+	CoachIdCamel   string `json:"coachId"`
+	CoachNameCamel string `json:"coachName"`
+	Status         string `json:"status"`
 }

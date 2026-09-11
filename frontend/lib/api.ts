@@ -106,6 +106,10 @@ export async function fetchStudents(): Promise<Student[]> {
       avatar: s.avatar || "",
       phone: s.phone || "",
       age: s.age || "",
+      coach_id: s.coach_id || s.coachId || "",
+      coach_name: s.coach_name || s.coachName || "",
+      coachId: s.coach_id || s.coachId || "",
+      coachName: s.coach_name || s.coachName || "",
       logs: (s.logs || []).map((l: any) => ({
         date: l.date,
         status: l.status,
@@ -123,13 +127,22 @@ export async function createStudent(payload: {
   parent: string;
   phone: string;
   age?: string;
+  coach_id?: string;
+  coach_name?: string;
+  coachId?: string;
+  coachName?: string;
   avatar?: string;
 }): Promise<Student | null> {
   try {
+    const bodyPayload = {
+      ...payload,
+      coach_id: payload.coach_id || payload.coachId || "",
+      coach_name: payload.coach_name || payload.coachName || "",
+    };
     const res = await fetch(`${getApiBaseUrl()}/api/v1/students`, {
       method: "POST",
       headers: getHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
     });
     if (!res.ok) throw new Error("Gagal mendaftarkan siswa");
     const json = await res.json();
@@ -144,6 +157,10 @@ export async function createStudent(payload: {
       avatar: s.avatar || "",
       phone: s.phone || "",
       age: s.age || "",
+      coach_id: s.coach_id || s.coachId || "",
+      coach_name: s.coach_name || s.coachName || "",
+      coachId: s.coach_id || s.coachId || "",
+      coachName: s.coach_name || s.coachName || "",
       logs: [],
     };
   } catch (err) {
@@ -179,14 +196,23 @@ export async function updateStudent(
     parent?: string;
     phone?: string;
     age?: string;
+    coach_id?: string;
+    coach_name?: string;
+    coachId?: string;
+    coachName?: string;
     status?: string;
   }
 ): Promise<Student | null> {
   try {
+    const bodyPayload = {
+      ...payload,
+      coach_id: payload.coach_id || payload.coachId || undefined,
+      coach_name: payload.coach_name || payload.coachName || undefined,
+    };
     const res = await fetch(`${getApiBaseUrl()}/api/v1/students/${id}`, {
       method: "PUT",
       headers: getHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(bodyPayload),
     });
     if (!res.ok) {
       const errJson = await res.json().catch(() => null);
@@ -205,6 +231,10 @@ export async function updateStudent(
       avatar: s.avatar || "",
       phone: s.phone || "",
       age: s.age || "",
+      coach_id: s.coach_id || s.coachId || "",
+      coach_name: s.coach_name || s.coachName || "",
+      coachId: s.coach_id || s.coachId || "",
+      coachName: s.coach_name || s.coachName || "",
       logs: (s.logs || []).map((l: any) => ({
         date: l.date,
         status: l.status,

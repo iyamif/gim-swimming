@@ -13,6 +13,10 @@ export interface Student {
   avatar?: string;
   phone?: string;
   age?: string;
+  coach_id?: string;
+  coach_name?: string;
+  coachId?: string;
+  coachName?: string;
   logs: AttendanceLog[];
 }
 

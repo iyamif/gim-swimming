@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Lock,
   AlertCircle,
@@ -8,14 +8,18 @@ import {
   Users,
   Check,
 } from "lucide-react";
+import { Coach } from "../types";
 
 interface RegistrasiTabProps {
+  coaches?: Coach[];
   onAddStudent: (data: {
     name: string;
     age: string;
     parent: string;
     phone: string;
     class: string;
+    coach_id?: string;
+    coach_name?: string;
     email?: string;
     address?: string;
     gender?: string;
@@ -38,6 +42,7 @@ interface RegistrasiTabProps {
 }
 
 export default function RegistrasiTab({
+  coaches = [],
   onAddStudent,
   onAddCoach,
   sessionRole = "admin",
@@ -64,7 +69,17 @@ export default function RegistrasiTab({
   const [studentParent, setStudentParent] = useState("");
   const [studentAge, setStudentAge] = useState("");
   const [studentClass, setStudentClass] = useState("Prestasi");
+  const [studentCoachName, setStudentCoachName] = useState("");
+  const [studentCoachId, setStudentCoachId] = useState("");
   const [studentNotes, setStudentNotes] = useState("");
+
+  // Set default coach when coaches list loads
+  useEffect(() => {
+    if (coaches && coaches.length > 0 && !studentCoachName) {
+      setStudentCoachName(coaches[0].name);
+      setStudentCoachId(String(coaches[0].id));
+    }
+  }, [coaches, studentCoachName]);
 
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,6 +149,8 @@ export default function RegistrasiTab({
     setStudentParent("");
     setStudentAge("");
     setStudentClass("Prestasi");
+    setStudentCoachName(coaches?.[0]?.name || "");
+    setStudentCoachId(coaches?.[0]?.id ? String(coaches[0].id) : "");
     setStudentNotes("");
     setErrorMessage("");
   };
@@ -190,12 +207,18 @@ export default function RegistrasiTab({
       }
       setIsSubmitting(true);
       try {
+        const selectedCoachObj = coaches.find((c) => c.name === studentCoachName);
+        const resolvedCoachId = studentCoachId || (selectedCoachObj ? String(selectedCoachObj.id) : "");
+        const resolvedCoachName = studentCoachName || (selectedCoachObj ? selectedCoachObj.name : "");
+
         await onAddStudent({
           name: name.trim(),
           age: studentAge.trim() || "8",
           parent: studentParent.trim(),
           phone: phone.trim(),
           class: studentClass,
+          coach_id: resolvedCoachId,
+          coach_name: resolvedCoachName,
           email: email.trim(),
           address: address.trim(),
           gender,
@@ -522,6 +545,32 @@ export default function RegistrasiTab({
                   </div>
 
                   <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Pelatih Penanggung Jawab
+                    </label>
+                    <select
+                      value={studentCoachName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setStudentCoachName(val);
+                        const c = (coaches || []).find((coach) => coach.name === val);
+                        setStudentCoachId(c ? String(c.id) : "");
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
+                    >
+                      {coaches && coaches.length > 0 ? (
+                        coaches.map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name} {c.spec ? `(${c.spec})` : ""}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">Belum ada pelatih terdaftar</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Catatan / Target (Opsional)
                     </label>
