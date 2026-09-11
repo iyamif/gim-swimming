@@ -25,6 +25,12 @@ We have successfully implemented the Role-Based Access Control (RBAC) authorizat
 Built a dashboard matching modern SaaS aesthetics, featuring:
 - **Authentication Guard**: Verifies role credentials on mount. Unauthorized direct navigation to `/apps` redirects the user back to the homepage.
 - **Role-Based Side Navigation**: Automatically filters links based on active role permissions.
+- **Pusat Pengumuman Lebih Simpel & Minimalis**:
+  - Dihilangkan: Tombol panah backspace kembali, tombol refresh atas, template pengumuman preset, selector kategori pengumuman, dan simulasi preview layar HP.
+  - Header banner diselaraskan dengan estetika Dashboard (ditambahkan pola garis melingkar konsentris dan ambient glow).
+  - Target penerima disederhanakan menjadi 3 opsi: **Semua**, **Siswa**, dan **Pelatih** (opsi Orang Tua telah dihapus).
+  - Tampilan form dibuat ringkas dan bersih (Target Penerima, Judul, Isi Pesan, Tombol Kirim).
+  - Tampilan riwayat pengumuman disederhanakan dengan kotak pencarian cepat dan aksi tandai dibaca / bersihkan riwayat.
 - **Shared In-Memory Database Simulation**: Allows actions taken on one tab to dynamically update another:
   1. **Dashboard Tab (All Roles)**: Shows custom stats (e.g. Admin sees monthly revenue, Pelatih sees assigned students, Orang Tua sees child metrics and ratings).
   2. **Keuangan Tab (Admin & Orang Tua)**:
