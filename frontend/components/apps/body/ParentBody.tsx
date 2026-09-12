@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import PushNotificationCard from "../PushNotificationCard";
 import {
   isImageAvatar,
   getAvatarImageUrl,
+  updateAvatarPreset,
   POOL_VENUES,
   calculateDistanceKm,
   checkAttendanceTimeStatus,
@@ -40,7 +41,80 @@ import {
   Megaphone,
   Send,
   Star,
+  Sparkles,
+  DollarSign,
+  Info,
 } from "lucide-react";
+
+// Helper to compress and convert any uploaded image to an ultra-lightweight WebP/JPEG Base64 Data URL (~15-30KB)
+function compressImage(file: File, maxDimension = 400, quality = 0.85): Promise<{ file: File; dataUrl: string }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => {
+      resolve({ file, dataUrl: "" });
+    };
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => {
+        resolve({ file, dataUrl: (e.target?.result as string) || "" });
+      };
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          return resolve({ file, dataUrl: (e.target?.result as string) || "" });
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let dataUrl = "";
+        try {
+          dataUrl = canvas.toDataURL("image/webp", quality);
+          if (!dataUrl.startsWith("data:image/webp")) {
+            dataUrl = canvas.toDataURL("image/jpeg", quality);
+          }
+        } catch {
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              return resolve({ file, dataUrl });
+            }
+            const cleanName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+            const optimizedFile = new File([blob], cleanName, {
+              type: blob.type || "image/webp",
+              lastModified: Date.now(),
+            });
+            resolve({ file: optimizedFile, dataUrl });
+          },
+          "image/webp",
+          quality
+        );
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface ParentBodyProps {
   sessionUser?: string;
@@ -81,12 +155,12 @@ export default function ParentBody({
   onLogout,
   onRefresh,
 }: ParentBodyProps) {
-  // Navigation tab state: home, jadwal, progres, profile
-  const [parentActiveTab, setParentActiveTab] = useState<"home" | "jadwal" | "progres" | "profile">("home");
+  // Navigation tab state: home, jadwal, presensi, progres, profile
+  const [parentActiveTab, setParentActiveTab] = useState<"home" | "jadwal" | "presensi" | "progres" | "profile">("home");
 
   React.useEffect(() => {
     const handleSwitchTab = (e: any) => {
-      if (e.detail && ["home", "jadwal", "progres", "profile"].includes(e.detail)) {
+      if (e.detail && ["home", "jadwal", "presensi", "progres", "profile"].includes(e.detail)) {
         setParentActiveTab(e.detail);
       }
     };
@@ -100,6 +174,24 @@ export default function ParentBody({
   const [isRefreshingLocal, setIsRefreshingLocal] = useState(false);
   const [copiedBank, setCopiedBank] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Direct Avatar Upload from Gallery States
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const [avatarSaveSuccess, setAvatarSaveSuccess] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+
+  // Student Dashboard Action Container Modals
+  const [showKeuanganModal, setShowKeuanganModal] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showPengumumanModal, setShowPengumumanModal] = useState(false);
+
+  // Reschedule Form States
+  const [rescheduleSessionId, setRescheduleSessionId] = useState("");
+  const [rescheduleTargetDate, setRescheduleTargetDate] = useState("");
+  const [rescheduleTargetTime, setRescheduleTargetTime] = useState("08:00");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [rescheduleSent, setRescheduleSent] = useState(false);
 
   // GPS Geolocation & Attendance States
   const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -199,6 +291,62 @@ export default function ParentBody({
 
   const initialLetter = effectiveUsername ? effectiveUsername.charAt(0).toUpperCase() : "S";
   const isCustomImage = isImageAvatar(userAvatar);
+
+  // Save new avatar directly to PostgreSQL database
+  const saveAvatarDirectly = async (avatarDataUrl: string) => {
+    if (!effectiveUsername) return;
+    try {
+      setIsSavingAvatar(true);
+      setAvatarError("");
+
+      const finalAvatar = await updateAvatarPreset(avatarDataUrl);
+
+      if (finalAvatar) {
+        localStorage.setItem(`gim_avatar_${effectiveUsername}`, finalAvatar);
+        localStorage.setItem(`gim_avatar_${effectiveUsername.toLowerCase()}`, finalAvatar);
+        localStorage.setItem(
+          `gim_avatar_${effectiveUsername.charAt(0).toUpperCase() + effectiveUsername.slice(1)}`,
+          finalAvatar
+        );
+        if (student.name && student.name !== effectiveUsername) {
+          localStorage.setItem(`gim_avatar_${student.name}`, finalAvatar);
+        }
+      } else {
+        localStorage.removeItem(`gim_avatar_${effectiveUsername}`);
+        localStorage.removeItem(`gim_avatar_${effectiveUsername.toLowerCase()}`);
+      }
+
+      setUserAvatar(finalAvatar);
+      window.dispatchEvent(new Event("avatar_updated"));
+
+      setAvatarSaveSuccess(true);
+      setTimeout(() => setAvatarSaveSuccess(false), 2500);
+    } catch (err: any) {
+      console.error("Save avatar error:", err);
+      setAvatarError(err.message || "Gagal memperbarui foto profil");
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
+  // Instant upload from gallery selection when user clicks avatar
+  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+
+    try {
+      setIsSavingAvatar(true);
+      setAvatarError("");
+      const { dataUrl } = await compressImage(rawFile, 400, 0.85);
+      await saveAvatarDirectly(dataUrl);
+    } catch (err: any) {
+      console.error("Error processing avatar image file:", err);
+      setAvatarError("Gagal memproses gambar foto");
+      setIsSavingAvatar(false);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // Manual Refresh Handler
   const handleManualRefresh = async () => {
@@ -627,12 +775,22 @@ export default function ParentBody({
   const navTabs = [
     { id: "home", label: "Home", icon: Home },
     { id: "jadwal", label: "Jadwal", icon: CalendarDays },
+    { id: "presensi", label: "Presensi", icon: CheckCircle2 },
     { id: "progres", label: "Progres Report", icon: TrendingUp },
     { id: "profile", label: "Profile", icon: User },
   ] as const;
 
   return (
     <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
+      {/* Hidden File Input for Instant Profile Avatar Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleAvatarFileUpload}
+        className="hidden"
+      />
+
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (FULL WIDTH)
           ========================================== */}
@@ -649,205 +807,232 @@ export default function ParentBody({
           <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
         </div>
 
-        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
-          {/* User Profile Capsule */}
-          <div className="flex items-center gap-3.5">
-            <button
-              onClick={() => setParentActiveTab("profile")}
-              className="relative shrink-0 group cursor-pointer text-left"
-              title="Lihat profil siswa"
-            >
-              <div className="flex h-13 w-13 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border-2 border-white text-white font-black text-lg shadow-md overflow-hidden group-hover:ring-2 group-hover:ring-cyan-300 transition">
-                {isCustomImage && userAvatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={getAvatarImageUrl(userAvatar)}
-                    alt={student.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : userAvatar ? (
-                  <span className="text-2xl">{userAvatar}</span>
-                ) : (
-                  <span>{initialLetter}</span>
-                )}
-              </div>
-              <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-blue-700 shadow-2xs" />
-              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-500 text-white opacity-0 group-hover:opacity-100 transition shadow-xs border border-white">
-                <Camera size={10} />
-              </span>
-            </button>
-
-            <div>
-              <p className="text-xs font-medium text-cyan-100 leading-tight flex items-center gap-1.5 flex-wrap">
-                <span>WALI MURID • Dashboard Siswa</span>
-                <span className="px-2 py-0.2 rounded-full bg-white/20 text-white font-bold text-[9px] border border-white/25">
-                  {student.class} Class
-                </span>
-              </p>
-              <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug capitalize">
-                {student.name}
-              </h2>
-            </div>
-          </div>
-
-          {/* Top Right Actions */}
-          <div className="flex items-center gap-2 relative z-50">
-            {/* Notification Bell */}
-            <div className="relative">
+        {parentActiveTab === "home" ? (
+          /* Main Dashboard Header (with Profile Capsule & Notification Bell) */
+          <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
+            {/* User Profile Capsule */}
+            <div className="flex items-center gap-3.5">
               <button
-                onClick={() => setShowNotificationPopup(!showNotificationPopup)}
-                className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
-                title="Notifikasi"
+                onClick={() => setParentActiveTab("profile")}
+                className="relative shrink-0 group cursor-pointer text-left"
+                title="Lihat profil siswa"
               >
-                <Bell size={18} />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
-                    {notificationCount > 99 ? "99+" : notificationCount}
-                  </span>
-                )}
+                <div className="flex h-13 w-13 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border-2 border-white text-white font-black text-lg shadow-md overflow-hidden group-hover:ring-2 group-hover:ring-cyan-300 transition">
+                  {isCustomImage && userAvatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={getAvatarImageUrl(userAvatar)}
+                      alt={student.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : userAvatar ? (
+                    <span className="text-2xl">{userAvatar}</span>
+                  ) : (
+                    <span>{initialLetter}</span>
+                  )}
+                </div>
+                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-blue-700 shadow-2xs" />
+                <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-500 text-white opacity-0 group-hover:opacity-100 transition shadow-xs border border-white">
+                  <Camera size={10} />
+                </span>
               </button>
 
-              {/* Backdrop for closing notification dropdown on click outside */}
-              {showNotificationPopup && (
-                <div
-                  className="fixed inset-0 z-40 bg-black/5"
-                  onClick={() => setShowNotificationPopup(false)}
-                />
-              )}
+              <div>
+                <p className="text-xs font-medium text-cyan-100 leading-tight flex items-center gap-1.5 flex-wrap">
+                  <span>WALI MURID • Dashboard Siswa</span>
+                  <span className="px-2 py-0.2 rounded-full bg-white/20 text-white font-bold text-[9px] border border-white/25">
+                    {student.class} Class
+                  </span>
+                </p>
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug capitalize">
+                  {student.name}
+                </h2>
+              </div>
+            </div>
 
-              {/* Notification Dropdown */}
-              {showNotificationPopup && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-white/75 backdrop-blur-2xl rounded-3xl p-4 shadow-2xl border border-white/60 text-slate-800 z-50 animate-fadeIn">
-                  <div className="flex items-center justify-between border-b border-slate-200/50 pb-2.5 mb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">Pemberitahuan</span>
-                      {notificationCount > 0 && (
-                        <span className="text-[10px] font-bold text-cyan-600">
-                          {notificationCount} Pengingat
-                        </span>
+            {/* Top Right Actions */}
+            <div className="flex items-center gap-2 relative z-50">
+              {/* Notification Bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotificationPopup(!showNotificationPopup)}
+                  className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
+                  title="Notifikasi"
+                >
+                  <Bell size={18} />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white shadow-sm">
+                      {notificationCount > 99 ? "99+" : notificationCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Backdrop for closing notification dropdown on click outside */}
+                {showNotificationPopup && (
+                  <div
+                    className="fixed inset-0 z-40 bg-black/5"
+                    onClick={() => setShowNotificationPopup(false)}
+                  />
+                )}
+
+                {/* Notification Dropdown */}
+                {showNotificationPopup && (
+                  <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto bg-white/75 backdrop-blur-2xl rounded-3xl p-4 shadow-2xl border border-white/60 text-slate-800 z-50 animate-fadeIn">
+                    <div className="flex items-center justify-between border-b border-slate-200/50 pb-2.5 mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">Pemberitahuan</span>
+                        {notificationCount > 0 && (
+                          <span className="text-[10px] font-bold text-cyan-600">
+                            {notificationCount} Pengingat
+                          </span>
+                        )}
+                      </div>
+                      {notificationCount > 0 && onClearAllNotifications && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await onClearAllNotifications();
+                          }}
+                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50/80 hover:bg-blue-100 text-blue-700 hover:text-blue-800 transition cursor-pointer active:scale-95 border border-blue-100/60 shadow-xs"
+                          title="Hapus Semua Pemberitahuan"
+                        >
+                          Clear All
+                        </button>
                       )}
                     </div>
-                    {notificationCount > 0 && onClearAllNotifications && (
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await onClearAllNotifications();
-                        }}
-                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50/80 hover:bg-blue-100 text-blue-700 hover:text-blue-800 transition cursor-pointer active:scale-95 border border-blue-100/60 shadow-xs"
-                        title="Hapus Semua Pemberitahuan"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
 
-                  <div className="space-y-2">
-                    {/* Real-time Targeted Notifications for Student */}
-                    {studentNotifications.map((notif) => {
-                      const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
-                      const isLate = notif.title?.includes("Terlambat");
-                      const notifIcon = isSchedule ? (
-                        <CalendarDays size={13} className="text-emerald-600 shrink-0" />
-                      ) : isLate ? (
-                        <AlertTriangle size={13} className="text-amber-600 shrink-0" />
-                      ) : notif.type?.includes("attendance") ? (
-                        <Clock size={13} className="text-cyan-600 shrink-0" />
-                      ) : (
-                        <Bell size={13} className="text-blue-600 shrink-0" />
-                      );
+                    <div className="space-y-2">
+                      {/* Real-time Targeted Notifications for Student */}
+                      {studentNotifications.map((notif) => {
+                        const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
+                        const isLate = notif.title?.includes("Terlambat");
+                        const notifIcon = isSchedule ? (
+                          <CalendarDays size={13} className="text-emerald-600 shrink-0" />
+                        ) : isLate ? (
+                          <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                        ) : notif.type?.includes("attendance") ? (
+                          <Clock size={13} className="text-cyan-600 shrink-0" />
+                        ) : (
+                          <Bell size={13} className="text-blue-600 shrink-0" />
+                        );
 
-                      let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
-                      if (!notif.is_read) {
-                        if (isSchedule) {
-                          cardBg = "bg-emerald-50/90 border-emerald-200/90 shadow-xs";
-                        } else if (isLate) {
-                          cardBg = "bg-amber-50/90 border-amber-200/90 shadow-xs";
-                        } else {
-                          cardBg = "bg-blue-50/90 border-blue-200/90 shadow-xs";
+                        let cardBg = "bg-white/60 border-slate-200/50 opacity-80";
+                        if (!notif.is_read) {
+                          if (isSchedule) {
+                            cardBg = "bg-emerald-50/90 border-emerald-200/90 shadow-xs";
+                          } else if (isLate) {
+                            cardBg = "bg-amber-50/90 border-amber-200/90 shadow-xs";
+                          } else {
+                            cardBg = "bg-blue-50/90 border-blue-200/90 shadow-xs";
+                          }
                         }
-                      }
 
-                      return (
-                        <div
-                          key={notif.id}
-                          onClick={async () => {
-                            if (onMarkNotificationRead && !notif.is_read) {
-                              await onMarkNotificationRead(notif.id);
-                            }
-                            setShowNotificationPopup(false);
-                            if (isSchedule) {
-                              setParentActiveTab("jadwal");
-                            }
-                          }}
-                          className={`p-2.5 rounded-2xl border transition text-left cursor-pointer backdrop-blur-md ${cardBg}`}
-                        >
-                          <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                              {notifIcon}
-                              <span className="truncate">{notif.title}</span>
-                            </span>
-                            {!notif.is_read && (
-                              <span className={`h-2 w-2 rounded-full shrink-0 ${isSchedule ? "bg-emerald-600" : isLate ? "bg-amber-600" : "bg-blue-600"}`} />
-                            )}
+                        return (
+                          <div
+                            key={notif.id}
+                            onClick={async () => {
+                              if (onMarkNotificationRead && !notif.is_read) {
+                                await onMarkNotificationRead(notif.id);
+                              }
+                              setShowNotificationPopup(false);
+                              if (isSchedule) {
+                                setParentActiveTab("jadwal");
+                              }
+                            }}
+                            className={`p-2.5 rounded-2xl border transition text-left cursor-pointer backdrop-blur-md ${cardBg}`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                {notifIcon}
+                                <span className="truncate">{notif.title}</span>
+                              </span>
+                              {!notif.is_read && (
+                                <span className={`h-2 w-2 rounded-full shrink-0 ${isSchedule ? "bg-emerald-600" : isLate ? "bg-amber-600" : "bg-blue-600"}`} />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-600 leading-snug">
+                              {notif.message}
+                            </p>
+                            <p className="text-[9px] text-slate-400 font-medium mt-1">
+                              {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                            </p>
                           </div>
-                          <p className="text-[11px] text-slate-600 leading-snug">
-                            {notif.message}
+                        );
+                      })}
+
+                      {invoice && invoice.status === "Belum Dibayar" && (
+                        <div className="p-2.5 bg-rose-50/80 backdrop-blur-md rounded-2xl border border-rose-200/60 text-left">
+                          <p className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                            <AlertCircle size={13} className="text-rose-600 shrink-0" />
+                            <span>Tagihan SPP Belum Dibayar</span>
                           </p>
-                          <p className="text-[9px] text-slate-400 font-medium mt-1">
-                            {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
+                          <p className="text-[10px] text-rose-600 mt-0.5">
+                            {invoice.desc} • Rp {invoice.amount.toLocaleString("id-ID")}
                           </p>
                         </div>
-                      );
-                    })}
+                      )}
 
-                    {invoice && invoice.status === "Belum Dibayar" && (
-                      <div className="p-2.5 bg-rose-50/80 backdrop-blur-md rounded-2xl border border-rose-200/60 text-left">
-                        <p className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                          <AlertCircle size={13} className="text-rose-600 shrink-0" />
-                          <span>Tagihan SPP Belum Dibayar</span>
-                        </p>
-                        <p className="text-[10px] text-rose-600 mt-0.5">
-                          {invoice.desc} • Rp {invoice.amount.toLocaleString("id-ID")}
-                        </p>
-                      </div>
-                    )}
+                      {invoice && invoice.status === "Menunggu Konfirmasi" && (
+                        <div className="p-2.5 bg-amber-50/80 backdrop-blur-md rounded-2xl border border-amber-200/60 text-left">
+                          <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                            <Clock size={13} className="text-amber-600 shrink-0" />
+                            <span>Bukti SPP Sedang Diverifikasi</span>
+                          </p>
+                          <p className="text-[10px] text-amber-600 mt-0.5">
+                            Admin sedang mengecek transfer pembayaran Anda.
+                          </p>
+                        </div>
+                      )}
 
-                    {invoice && invoice.status === "Menunggu Konfirmasi" && (
-                      <div className="p-2.5 bg-amber-50/80 backdrop-blur-md rounded-2xl border border-amber-200/60 text-left">
-                        <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                          <Clock size={13} className="text-amber-600 shrink-0" />
-                          <span>Bukti SPP Sedang Diverifikasi</span>
-                        </p>
-                        <p className="text-[10px] text-amber-600 mt-0.5">
-                          Admin sedang mengecek transfer pembayaran Anda.
-                        </p>
-                      </div>
-                    )}
+                      {todayStudentSchedules.length > 0 && (
+                        <div className="p-2.5 bg-blue-50/80 backdrop-blur-md rounded-2xl border border-blue-200/60 text-left">
+                          <p className="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                            <CalendarDays size={13} className="text-blue-600 shrink-0" />
+                            <span>Ada Jadwal Latihan Hari Ini!</span>
+                          </p>
+                          <p className="text-[10px] text-blue-600 mt-0.5">
+                            {todayStudentSchedules[0].timeStart} - {todayStudentSchedules[0].timeEnd} WIB di {todayStudentSchedules[0].poolArea}
+                          </p>
+                        </div>
+                      )}
 
-                    {todayStudentSchedules.length > 0 && (
-                      <div className="p-2.5 bg-blue-50/80 backdrop-blur-md rounded-2xl border border-blue-200/60 text-left">
-                        <p className="text-xs font-bold text-blue-800 flex items-center gap-1.5">
-                          <CalendarDays size={13} className="text-blue-600 shrink-0" />
-                          <span>Ada Jadwal Latihan Hari Ini!</span>
+                      {studentNotifications.length === 0 && !showSPPReminder && todayStudentSchedules.length === 0 && (
+                        <p className="text-xs text-slate-400 py-3 text-center italic">
+                          Tidak ada pemberitahuan baru.
                         </p>
-                        <p className="text-[10px] text-blue-600 mt-0.5">
-                          {todayStudentSchedules[0].timeStart} - {todayStudentSchedules[0].timeEnd} WIB di {todayStudentSchedules[0].poolArea}
-                        </p>
-                      </div>
-                    )}
-
-                    {studentNotifications.length === 0 && !showSPPReminder && todayStudentSchedules.length === 0 && (
-                      <p className="text-xs text-slate-400 py-3 text-center italic">
-                        Tidak ada pemberitahuan baru.
-                      </p>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Clean Sub-Menu Header (Avatar and Notification Bell Hidden) */
+          <div className="max-w-3xl mx-auto flex items-center justify-between relative z-30">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setParentActiveTab("home")}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white transition active:scale-95 cursor-pointer shadow-sm"
+                title="Kembali ke Beranda"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <div>
+                <p className="text-[10px] font-bold text-cyan-200 uppercase tracking-wider">
+                  Menu Siswa • GIM Swimming
+                </p>
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug">
+                  {parentActiveTab === "jadwal" && "Jadwal Latihan Renang"}
+                  {parentActiveTab === "presensi" && "Presensi Kehadiran Siswa"}
+                  {parentActiveTab === "progres" && "Progres Report Siswa"}
+                  {parentActiveTab === "profile" && "Profil & Akun Siswa"}
+                </h2>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ==========================================
@@ -957,6 +1142,73 @@ export default function ParentBody({
                     <ChevronRight size={12} />
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* ==========================================
+                PASTEL CONTAINER MENU: KEUANGAN, RESCHEDULE, PENGUMUMAN
+                ========================================== */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-1 rounded-full bg-blue-600" />
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                    Menu Akses Cepat Siswa
+                  </h3>
+                </div>
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                  Layanan Siswa
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                {/* 1. Keuangan */}
+                <button
+                  onClick={() => setShowKeuanganModal(true)}
+                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-blue-50/80 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer active:scale-95 text-center"
+                >
+                  <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/80 shadow-2xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-1.5">
+                    <CreditCard size={22} className="text-blue-600" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 group-hover:text-blue-700 transition">
+                    Keuangan
+                  </span>
+                  <span className="text-[10px] text-slate-400 group-hover:text-blue-600 font-medium truncate max-w-full mt-0.5">
+                    Riwayat &amp; SPP
+                  </span>
+                </button>
+
+                {/* 2. Reschedule */}
+                <button
+                  onClick={() => setShowRescheduleModal(true)}
+                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-teal-50/80 border border-slate-100 hover:border-teal-200 transition-all duration-200 group cursor-pointer active:scale-95 text-center"
+                >
+                  <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 border border-teal-100/80 shadow-2xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-1.5">
+                    <RotateCw size={22} className="text-teal-600" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 group-hover:text-teal-700 transition">
+                    Reschedule
+                  </span>
+                  <span className="text-[10px] text-slate-400 group-hover:text-teal-600 font-medium truncate max-w-full mt-0.5">
+                    Ajukan Jadwal
+                  </span>
+                </button>
+
+                {/* 3. Pengumuman */}
+                <button
+                  onClick={() => setShowPengumumanModal(true)}
+                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-amber-50/80 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer active:scale-95 text-center"
+                >
+                  <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/80 shadow-2xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-1.5">
+                    <Megaphone size={22} className="text-amber-600" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 group-hover:text-amber-700 transition">
+                    Pengumuman
+                  </span>
+                  <span className="text-[10px] text-slate-400 group-hover:text-amber-600 font-medium truncate max-w-full mt-0.5">
+                    Info &amp; Berita
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -1701,6 +1953,244 @@ export default function ParentBody({
         )}
 
         {/* ==========================================
+            TAB: PRESENSI KEHADIRAN SISWA
+            ========================================== */}
+        {parentActiveTab === "presensi" && (
+          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn">
+            {/* Header & Status Card */}
+            <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/80 shadow-2xs">
+                    <CheckCircle2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Presensi Siswa Hari Ini
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium">
+                      Verifikasi kehadiran latihan sesuai jadwal yang ditetapkan
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={requestDeviceLocation}
+                  disabled={isLocating}
+                  className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 border border-slate-200/80 cursor-pointer"
+                  title="Perbarui GPS Lokasi"
+                >
+                  <RotateCw size={12} className={isLocating ? "animate-spin text-blue-600" : "text-slate-500"} />
+                  <span>{isLocating ? "Mencari GPS..." : "Refresh GPS"}</span>
+                </button>
+              </div>
+
+              {/* Sesi Hari Ini Card */}
+              {(() => {
+                const targetSchedule = todayStudentSchedules[0] || upcomingScheduleObj;
+                if (!targetSchedule) {
+                  return (
+                    <div className="p-6 text-center text-slate-400 text-xs italic bg-slate-50/50 rounded-2xl border border-slate-100">
+                      Tidak ada jadwal latihan yang aktif untuk presensi saat ini.
+                    </div>
+                  );
+                }
+
+                const existingAtt = getScheduleAttendance(targetSchedule.id, targetSchedule.date);
+                const timeStat = checkAttendanceTimeStatus(targetSchedule.date || todayISO, targetSchedule.timeStart);
+                const distanceKm = calculateScheduleDistance(targetSchedule);
+                const isWithinRadius = distanceKm !== null && distanceKm <= 2.0;
+
+                return (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/70 to-cyan-50/40 border border-blue-100 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-black text-[10px]">
+                              {targetSchedule.class || student.class} Class
+                            </span>
+                            <span className="text-xs font-black text-slate-900">
+                              {targetSchedule.title}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 flex items-center gap-1 mt-1">
+                            <Clock size={13} className="text-blue-600 shrink-0" />
+                            <span className="font-bold">{targetSchedule.timeStart} - {targetSchedule.timeEnd} WIB</span>
+                            <span className="text-slate-400">({targetSchedule.date || "Hari Ini"})</span>
+                          </p>
+                          <p className="text-xs text-slate-600 flex items-center gap-1 mt-1">
+                            <MapPin size={13} className="text-rose-500 shrink-0" />
+                            <span>{targetSchedule.poolArea}</span>
+                            <span className="text-slate-300">•</span>
+                            <User size={13} className="text-slate-400 shrink-0" />
+                            <span>Pelatih: {targetSchedule.coachName || coach.name}</span>
+                          </p>
+                        </div>
+
+                        {existingAtt ? (
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${
+                            existingAtt.status === "Terlambat"
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          }`}>
+                            {existingAtt.status === "Terlambat" ? "✓ Hadir (Terlambat)" : "✓ Hadir Tepat Waktu"}
+                          </span>
+                        ) : (
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${
+                            !timeStat.isOpen
+                              ? "bg-slate-100 text-slate-600 border-slate-200"
+                              : timeStat.isLate
+                                ? "bg-amber-100 text-amber-800 border-amber-300"
+                                : "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          }`}>
+                            {!timeStat.isOpen
+                              ? `Buka: ${timeStat.openTimeString} WIB`
+                              : timeStat.isLate
+                                ? "Terlambat (> 15m)"
+                                : "Bisa Presensi"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* GPS & Distance Radius Simulator Pill */}
+                      <div className="pt-2 border-t border-blue-100/60 flex items-center justify-between flex-wrap gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${isWithinRadius ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                          <span className="text-slate-600 font-medium">
+                            Jarak GPS: <strong className={isWithinRadius ? "text-emerald-700" : "text-rose-600"}>{distanceKm !== null ? `${distanceKm.toFixed(2)} km` : "Mencari GPS..."}</strong> (Maks. 2.0 km)
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition cursor-pointer ${
+                            useSimulatedPoolLocation
+                              ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
+                              : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+                          }`}
+                        >
+                          {useSimulatedPoolLocation ? "✓ Simulasi Radius Aktif (< 2.0 km)" : "Mode Simulasi Kolam"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Check In Action Button */}
+                    {existingAtt ? (
+                      <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-3">
+                        <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="font-black">Presensi Berhasil Diverifikasi</p>
+                          <p className="text-[11px] text-emerald-700 mt-0.5">
+                            Kehadiran siswa {student.name} telah tersimpan di sistem GIM Swimming pada {existingAtt.created_at ? new Date(existingAtt.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "hari ini"} WIB.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handlePerformCheckIn(targetSchedule)}
+                        disabled={isCheckingIn || !timeStat.isOpen}
+                        className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all duration-200 flex items-center justify-center gap-2 shadow-md cursor-pointer ${
+                          !timeStat.isOpen
+                            ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none"
+                            : timeStat.isLate
+                              ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-500/25"
+                              : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-blue-600/25"
+                        }`}
+                      >
+                        {isCheckingIn ? (
+                          <>
+                            <RotateCw size={15} className="animate-spin" />
+                            <span>Memproses Presensi...</span>
+                          </>
+                        ) : !timeStat.isOpen ? (
+                          <>
+                            <Clock size={15} />
+                            <span>Presensi Belum Dibuka (Buka: {timeStat.openTimeString} WIB)</span>
+                          </>
+                        ) : timeStat.isLate ? (
+                          <>
+                            <AlertTriangle size={15} />
+                            <span>Presensi Terlambat (Isi Alasan)</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 size={15} />
+                            <span>Presensi Siswa Hadir Sekarang</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Riwayat Kehadiran Siswa */}
+            <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText size={16} className="text-blue-600" />
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                      Riwayat Presensi Siswa
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      Histori catatan kehadiran yang tervalidasi
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black">
+                  {parentStudentHistory.length} Sesi
+                </span>
+              </div>
+
+              {parentStudentHistory.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs italic">
+                  Belum ada catatan presensi tervalidasi untuk siswa ini.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {parentStudentHistory.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:border-blue-100 transition flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-black text-slate-900">
+                            {item.title}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
+                            item.status === "Terlambat"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}>
+                            {item.status}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {item.date} • {item.time} • {item.poolArea}
+                        </p>
+                        {item.lateReason && (
+                          <p className="text-[10px] text-amber-700 italic">
+                            Alasan: {item.lateReason}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                        Pelatih: {item.coachName}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
             TAB 3: PROGRES REPORT (RAPOR RENANG)
             ========================================== */}
         {parentActiveTab === "progres" && (
@@ -1876,28 +2366,66 @@ export default function ParentBody({
             {/* User Profile Card */}
             <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-5 text-center">
               <div className="relative inline-block mx-auto">
-                <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-3xl flex items-center justify-center border-4 border-white shadow-lg overflow-hidden mx-auto">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSavingAvatar}
+                  className="relative group h-24 w-24 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-3xl flex items-center justify-center border-4 border-white shadow-xl overflow-hidden mx-auto cursor-pointer transition-transform duration-200 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                  title="Klik untuk langsung ganti foto profil siswa dari galeri / kamera"
+                >
                   {isCustomImage && userAvatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={getAvatarImageUrl(userAvatar)}
                       alt={student.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
                     />
                   ) : userAvatar ? (
-                    <span>{userAvatar}</span>
+                    <span className="text-4xl">{userAvatar}</span>
                   ) : (
                     <span>{initialLetter}</span>
                   )}
-                </div>
+
+                  {/* Dark hover / active overlay with camera icon */}
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-2xs flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition duration-200">
+                    <Camera size={20} className="mb-0.5" />
+                    <span className="text-[9px] font-bold">Ganti Foto</span>
+                  </div>
+
+                  {/* Loading spinner during compression & upload */}
+                  {isSavingAvatar && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white animate-fadeIn">
+                      <RotateCw size={22} className="animate-spin text-cyan-400 mb-1" />
+                      <span className="text-[8px] font-bold">Menyimpan...</span>
+                    </div>
+                  )}
+                </button>
+
+                {/* Camera badge trigger */}
                 <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-bold flex items-center justify-center border-2 border-white shadow-md cursor-pointer transition"
-                  title="Ubah Foto"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSavingAvatar}
+                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold flex items-center justify-center border-2 border-white shadow-md cursor-pointer transition active:scale-90"
+                  title="Pilih foto dari galeri / kamera"
                 >
-                  <Camera size={13} />
+                  <Camera size={14} />
                 </button>
               </div>
+
+              {/* Avatar Save Feedback Toasts */}
+              {avatarSaveSuccess && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold animate-fadeIn">
+                  <CheckCircle2 size={13} className="text-emerald-600" />
+                  <span>Foto profil berhasil diperbarui!</span>
+                </div>
+              )}
+              {avatarError && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold animate-fadeIn">
+                  <AlertCircle size={13} className="text-rose-600" />
+                  <span>{avatarError}</span>
+                </div>
+              )}
 
               <div>
                 <h3 className="text-lg font-black text-slate-900 capitalize">{student.name}</h3>
@@ -1914,13 +2442,26 @@ export default function ParentBody({
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowProfileModal(true)}
-                className="w-full py-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 font-bold text-xs transition cursor-pointer border border-cyan-100 flex items-center justify-center gap-2"
-              >
-                <Camera size={14} />
-                <span>Ubah Foto &amp; Avatar Siswa</span>
-              </button>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSavingAvatar}
+                  className="flex-1 py-2.5 rounded-2xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition cursor-pointer border border-blue-100 flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <Camera size={14} />
+                  <span>{isSavingAvatar ? "Mengunggah..." : "Pilih Foto Baru"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(true)}
+                  className="px-3 py-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs transition cursor-pointer border border-slate-200 flex items-center justify-center gap-1 active:scale-98"
+                  title="Pilihan Avatar Karakter & Emoji"
+                >
+                  <Sparkles size={14} className="text-amber-500" />
+                  <span>Emoji</span>
+                </button>
+              </div>
             </div>
 
             {/* Detail Information */}
@@ -2328,6 +2869,412 @@ export default function ParentBody({
         </div>
       )}
 
+      {/* ==========================================
+          FLOATING WHATSAPP BUTTON (DIRECT TO ADMIN WA)
+          ========================================== */}
+      {parentActiveTab === "home" && (
+        <a
+          href={`https://wa.me/628973180423?text=Halo%20Admin%20GIM%20Swimming,%20saya%20orang%20tua%20dari%20${encodeURIComponent(student.name)}%20ingin%20bertanya.`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xl shadow-emerald-600/35 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group"
+          title="Chat Admin via WhatsApp"
+        >
+          <MessageCircle size={20} className="shrink-0" />
+          <span className="hidden sm:inline font-black">Chat Admin WA</span>
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+          </span>
+        </a>
+      )}
+
+      {/* ==========================================
+          MODAL: STATUS & RIWAYAT KEUANGAN SISWA
+          ========================================== */}
+      {showKeuanganModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => setShowKeuanganModal(false)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-200">
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">
+                    Status &amp; Riwayat Keuangan Siswa
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Siswa: <strong className="text-slate-800 capitalize">{student.name}</strong> • Kelas {student.class}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowKeuanganModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Tagihan Saat Ini Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 text-white space-y-3 shadow-md shadow-blue-500/20">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-cyan-100 uppercase tracking-wider">
+                    Tagihan SPP Aktif
+                  </span>
+                  <h3 className="text-xl font-black mt-0.5">
+                    Rp {(invoice?.amount || 350000).toLocaleString("id-ID")}
+                  </h3>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                  invoice?.status === "Lunas"
+                    ? "bg-emerald-400 text-emerald-950 border-emerald-300"
+                    : invoice?.status === "Menunggu Konfirmasi"
+                      ? "bg-amber-400 text-amber-950 border-amber-300"
+                      : "bg-rose-400 text-rose-950 border-rose-300"
+                }`}>
+                  {invoice?.status || "Belum Dibayar"}
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-white/20 text-xs flex items-center justify-between text-cyan-100">
+                <span>Paket: Kursus Renang 4 Sesi / Bulan</span>
+                <span>Jatuh Tempo: 10 Tiap Bulan</span>
+              </div>
+            </div>
+
+            {/* Rekening Transfer Bank BCA */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Rekening Resmi Pembayaran:</span>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                  Bank BCA
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                <div>
+                  <p className="text-base font-mono font-black text-slate-900 tracking-wider select-all">
+                    88921-2291
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    a.n GIM Swimming Club
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyBCA}
+                  className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer border border-blue-100"
+                >
+                  {copiedBank ? (
+                    <>
+                      <Check size={13} className="text-emerald-600" />
+                      <span>Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={13} />
+                      <span>Salin No. Rek</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {invoice?.status !== "Lunas" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowKeuanganModal(false);
+                    onUploadReceipt(invoice?.id || "inv-1");
+                  }}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Upload size={14} />
+                  <span>Unggah Bukti Transfer SPP</span>
+                </button>
+              )}
+            </div>
+
+            {/* Riwayat Pembayaran Tervalidasi */}
+            <div className="space-y-2">
+              <h5 className="text-xs font-bold text-slate-700">Riwayat Pembayaran Terdahulu:</h5>
+              <div className="space-y-2">
+                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-slate-900">SPP Bulan Agustus 2026</p>
+                    <p className="text-[10px] text-slate-500">Diverifikasi Admin • 08 Agustus 2026</p>
+                  </div>
+                  <span className="font-bold text-emerald-700">Lunas (Rp 350.000)</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-slate-900">SPP Bulan Juli 2026</p>
+                    <p className="text-[10px] text-slate-500">Diverifikasi Admin • 05 Juli 2026</p>
+                  </div>
+                  <span className="font-bold text-emerald-700">Lunas (Rp 350.000)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowKeuanganModal(false)}
+                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: PERMOHONAN RESCHEDULE JADWAL SISWA
+          ========================================== */}
+      {showRescheduleModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => setShowRescheduleModal(false)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 border border-teal-200">
+                  <RotateCw size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">
+                    Permohonan Reschedule Jadwal
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Ajukan perubahan jadwal sesi latihan {student.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRescheduleModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {rescheduleSent ? (
+              <div className="p-6 text-center space-y-3 bg-emerald-50 rounded-2xl border border-emerald-200 animate-fadeIn">
+                <div className="h-12 w-12 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-md">
+                  <Check size={24} />
+                </div>
+                <h4 className="text-sm font-black text-emerald-950">Permohonan Berhasil Dikirim!</h4>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  Permohonan reschedule untuk siswa <strong>{student.name}</strong> telah diteruskan ke Admin &amp; Pelatih via WhatsApp untuk persetujuan.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRescheduleSent(false);
+                    setShowRescheduleModal(false);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition"
+                >
+                  Selesai
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Pilih Sesi Latihan yang Ingin Di-reschedule <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={rescheduleSessionId}
+                    onChange={(e) => setRescheduleSessionId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                  >
+                    <option value="">-- Pilih Sesi Latihan --</option>
+                    {studentSchedules.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title} ({s.date || "Jadwal"} • {s.timeStart}-{s.timeEnd} WIB di {s.poolArea})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Usulan Tanggal Baru <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      min={todayISO}
+                      value={rescheduleTargetDate}
+                      onChange={(e) => setRescheduleTargetDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Usulan Jam Baru <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={rescheduleTargetTime}
+                      onChange={(e) => setRescheduleTargetTime(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Alasan Reschedule <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    placeholder="Contoh: Siswa ada agenda sekolah mendadak, sakit / pemulihan stamina, dll."
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition resize-none"
+                  />
+                </div>
+
+                <div className="p-3 bg-teal-50/80 rounded-2xl border border-teal-100 text-xs text-teal-900 space-y-1">
+                  <p className="font-bold">Ketentuan Reschedule:</p>
+                  <p className="text-[11px] text-teal-800 leading-relaxed">
+                    Pengajuan reschedule harap dilakukan paling lambat 6 jam sebelum sesi dimulai agar pelatih dapat menyesuaikan alokasi waktu dan jalur kolam renang.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowRescheduleModal(false)}
+                    className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!rescheduleTargetDate || !rescheduleReason.trim()}
+                    onClick={() => {
+                      const msg = `Halo Admin GIM Swimming,%0ASaya orang tua dari ${student.name} ingin mengajukan permohonan reschedule sesi latihan:%0A- Usulan Tanggal Baru: ${rescheduleTargetDate}%0A- Usulan Jam: ${rescheduleTargetTime} WIB%0A- Alasan: ${rescheduleReason}%0AMohon konfirmasinya. Terima kasih!`;
+                      window.open(`https://wa.me/628973180423?text=${msg}`, "_blank");
+                      setRescheduleSent(true);
+                    }}
+                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    <Send size={14} />
+                    <span>Kirim ke Admin (WA)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: PENGUMUMAN RESMI KLUB RENANG
+          ========================================== */}
+      {showPengumumanModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => setShowPengumumanModal(false)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
+                  <Megaphone size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">
+                    Pengumuman &amp; Berita Klub
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Informasi resmi GIM Swimming Club untuk orang tua &amp; siswa
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPengumumanModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Pengumuman 1 */}
+              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
+                    Penting • Ujian Naik Tingkat
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold">14 Sep 2026</span>
+                </div>
+                <h5 className="text-xs font-black text-slate-900">
+                  Pelaksanaan Ujian Kenaikan Tingkatan &amp; Sertifikasi Renang
+                </h5>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Ujian evaluasi tingkatan renang periode September akan dilaksanakan serentak di Kolam Utama A. Mohon orang tua memastikan kesiapan fisik siswa dan pakaian renang sesuai standar.
+                </p>
+              </div>
+
+              {/* Pengumuman 2 */}
+              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-[10px] font-black uppercase">
+                    Jadwal Kolam
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold">01 Sep 2026</span>
+                </div>
+                <h5 className="text-xs font-black text-slate-900">
+                  Penggunaan Fasilitas Kolam Renang Nalendra &amp; Wera 312
+                </h5>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Semua sesi renang tetap berlangsung sesuai jadwal yang telah ditentukan pada aplikasi. Presensi GPS dibuka 2 jam sebelum sesi latihan dimulai.
+                </p>
+              </div>
+
+              {/* Pengumuman 3 */}
+              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                    Tips &amp; Kesehatan
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold">Terbaru</span>
+                </div>
+                <h5 className="text-xs font-black text-slate-900">
+                  Panduan Pemanasan &amp; Perlengkapan Wajib Siswa
+                </h5>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Wajib membawa kacamata renang (goggles), pakaian renang resmi, dan handuk pribadi untuk menjaga kebersihan dan kenyamanan selama sesi berlangsung.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowPengumumanModal(false)}
+                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Profile Edit Modal */}
       <EditProfileModal
         isOpen={showProfileModal}
@@ -2340,3 +3287,4 @@ export default function ParentBody({
     </div>
   );
 }
+

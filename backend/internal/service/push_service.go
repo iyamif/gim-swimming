@@ -29,6 +29,7 @@ type PushService interface {
 	SendAttendancePushNotification(ctx context.Context, att *model.AttendanceRecord, session *model.ScheduleSession)
 	SendTestPush(ctx context.Context, input *model.TestPushInput) (int, error)
 	BroadcastPush(ctx context.Context, input *model.BroadcastPushInput) (sentCount int, totalCount int, err error)
+	CheckAndSendPreSessionReminders(ctx context.Context, scheduleRepo repository.ScheduleRepository)
 }
 
 type pushService struct {
@@ -552,5 +553,153 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// CheckAndSendPreSessionReminders scans today's active schedules and dispatches in-app & push reminders 30 mins before session starts
+func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, scheduleRepo repository.ScheduleRepository) {
+	if scheduleRepo == nil {
+		return
+	}
+
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+	now := time.Now().In(loc)
+	todayStr := now.Format("2006-01-02")
+
+	schedules, err := scheduleRepo.FindAll(ctx)
+	if err != nil {
+		log.Printf("[ReminderWorker] Error fetching schedules: %v", err)
+		return
+	}
+
+	for _, sess := range schedules {
+		// Filter only active schedules for today
+		if sess.Date != todayStr || sess.Status == "Selesai" || sess.Status == "Dibatalkan" {
+			continue
+		}
+
+		cleanStart := strings.TrimSpace(strings.TrimSuffix(sess.TimeStart, "WIB"))
+		cleanStart = strings.TrimSpace(cleanStart)
+		if len(cleanStart) > 5 {
+			cleanStart = cleanStart[:5]
+		}
+
+		sessStartTime, err := time.ParseInLocation("2006-01-02 15:04", todayStr+" "+cleanStart, loc)
+		if err != nil {
+			continue
+		}
+
+		// Calculate remaining time until session starts
+		diff := sessStartTime.Sub(now)
+
+		// Target window: 30 minutes before session (diff between 0 and 35 minutes)
+		if diff >= -2*time.Minute && diff <= 35*time.Minute {
+			// 1. Notify Coach if not already notified
+			if sess.CoachName != "" && s.attRepo != nil {
+				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_30m", sess.ID, "pelatih", sess.CoachName)
+				if !alreadyNotified {
+					coachNotif := &model.AdminNotification{
+						Title:        "Pengingat Sesi Pelatihan (30 Menit Lagi) ⏱️🏊‍♂️",
+						Message:      fmt.Sprintf("Halo Pelatih %s, sesi latihan '%s' di %s akan dimulai pukul %s (30 menit lagi). Silakan bersiap-siap menuju lokasi.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
+						Type:         "schedule_reminder_30m",
+						TargetRole:   "pelatih",
+						TargetUserID: sess.CoachID,
+						TargetName:   sess.CoachName,
+						ScheduleID:   sess.ID,
+						IsRead:       false,
+						CreatedAt:    now,
+					}
+					_ = s.attRepo.CreateNotification(ctx, coachNotif)
+
+					// Dispatch Web Push to Coach
+					coachSubs, err := s.pushRepo.FindForCoach(ctx, sess.CoachName, sess.CoachID)
+					if err == nil && len(coachSubs) > 0 {
+						unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, "pelatih", sess.CoachName, sess.CoachID)
+						if unreadCount <= 0 {
+							unreadCount = 1
+						}
+						coachPayload := &model.WebPushPayload{
+							Title:       coachNotif.Title,
+							Body:        coachNotif.Message,
+							Message:     coachNotif.Message,
+							Icon:        "/icon.png",
+							Badge:       "/icon.png",
+							Tag:         fmt.Sprintf("reminder-30m-%s-coach", sess.ID),
+							UnreadCount: unreadCount,
+							Data: map[string]interface{}{
+								"url":         "/apps",
+								"type":        "schedule_reminder",
+								"schedule_id": sess.ID,
+								"role":        "pelatih",
+								"tab":         "jadwal",
+							},
+						}
+						for _, sub := range coachSubs {
+							_ = s.sendSinglePush(ctx, &sub, coachPayload)
+						}
+					}
+					log.Printf("[ReminderWorker] Sent 30m pre-session reminder to coach %s for schedule %s (%s)", sess.CoachName, sess.ID, sess.Title)
+				}
+			}
+
+			// 2. Notify Students / Parents if not already notified
+			for _, studentName := range sess.StudentNames {
+				studentName = strings.TrimSpace(studentName)
+				if studentName == "" || s.attRepo == nil {
+					continue
+				}
+
+				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_30m", sess.ID, "orang tua", studentName)
+				if !alreadyNotified {
+					studentNotif := &model.AdminNotification{
+						Title:        "Pengingat Sesi Renang (30 Menit Lagi) ⏱️🏊‍♂️",
+						Message:      fmt.Sprintf("Halo %s, sesi latihan renang '%s' bersama Pelatih %s di %s akan dimulai pukul %s (30 menit lagi). Jangan lupa persiapkan perlengkapan renang!", studentName, sess.Title, sess.CoachName, sess.PoolArea, sess.TimeStart),
+						Type:         "schedule_reminder_30m",
+						TargetRole:   "orang tua",
+						TargetName:   studentName,
+						ScheduleID:   sess.ID,
+						IsRead:       false,
+						CreatedAt:    now,
+					}
+					_ = s.attRepo.CreateNotification(ctx, studentNotif)
+
+					// Dispatch Web Push to Student/Parent
+					studentSubs, err := s.pushRepo.FindForStudents(ctx, []string{studentName}, nil)
+					if err == nil && len(studentSubs) > 0 {
+						for _, sub := range studentSubs {
+							subStudentName := sub.StudentName
+							if subStudentName == "" {
+								subStudentName = sub.Username
+							}
+							unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, "orang tua", subStudentName, sub.UserID)
+							if unreadCount <= 0 {
+								unreadCount = 1
+							}
+							studentPayload := &model.WebPushPayload{
+								Title:       studentNotif.Title,
+								Body:        studentNotif.Message,
+								Message:     studentNotif.Message,
+								Icon:        "/icon.png",
+								Badge:       "/icon.png",
+								Tag:         fmt.Sprintf("reminder-30m-%s-%s", sess.ID, studentName),
+								UnreadCount: unreadCount,
+								Data: map[string]interface{}{
+									"url":         "/apps",
+									"type":        "schedule_reminder",
+									"schedule_id": sess.ID,
+									"role":        "orang tua",
+									"tab":         "jadwal",
+								},
+							}
+							_ = s.sendSinglePush(ctx, &sub, studentPayload)
+						}
+					}
+					log.Printf("[ReminderWorker] Sent 30m pre-session reminder to student %s for schedule %s (%s)", studentName, sess.ID, sess.Title)
+				}
+			}
+		}
+	}
 }
 

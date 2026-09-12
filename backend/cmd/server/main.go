@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iyamif/gim-swimming/internal/config"
@@ -78,7 +80,19 @@ func main() {
 	// 5. Setup routes
 	routes.SetupRoutes(router, authHandler, appHandler, pushHandler, authService)
 
-	// 6. Start server
+	// 6. Start Background Worker for 30-Minute Pre-Session Reminders
+	go func() {
+		log.Println("[ReminderWorker] Pre-session notification worker started (ticking every 1 minute).")
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			workerCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+			pushService.CheckAndSendPreSessionReminders(workerCtx, scheduleRepo)
+			cancel()
+		}
+	}()
+
+	// 7. Start server
 	log.Printf("Starting GIM Swimming Server on port %s...", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Critical: Server failed to start: %v", err)

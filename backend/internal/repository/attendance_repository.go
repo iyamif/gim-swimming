@@ -22,6 +22,7 @@ type AttendanceRepository interface {
 	GetNotifications(ctx context.Context, role, name, userId string, limit int) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
 	ClearAllNotifications(ctx context.Context, role, name, userId string) error
+	HasNotification(ctx context.Context, notifType, scheduleID, targetRole, targetName string) (bool, error)
 }
 
 type attendanceRepository struct {
@@ -531,4 +532,25 @@ func (r *attendanceRepository) ClearAllNotifications(ctx context.Context, role, 
 	`
 	_, err := r.db.ExecContext(ctx, query, normalizedName, trimmedUserId)
 	return err
+}
+
+// HasNotification checks if a notification of a given type and schedule already exists for role/target
+func (r *attendanceRepository) HasNotification(ctx context.Context, notifType, scheduleID, targetRole, targetName string) (bool, error) {
+	var count int
+	var err error
+	if targetName != "" {
+		query := `SELECT COUNT(*) FROM notifications WHERE type = $1 AND schedule_id = $2 AND target_role = $3 AND target_name = $4`
+		err = r.db.QueryRowContext(ctx, query, notifType, scheduleID, targetRole, targetName).Scan(&count)
+	} else if targetRole != "" {
+		query := `SELECT COUNT(*) FROM notifications WHERE type = $1 AND schedule_id = $2 AND target_role = $3`
+		err = r.db.QueryRowContext(ctx, query, notifType, scheduleID, targetRole).Scan(&count)
+	} else {
+		query := `SELECT COUNT(*) FROM notifications WHERE type = $1 AND schedule_id = $2`
+		err = r.db.QueryRowContext(ctx, query, notifType, scheduleID).Scan(&count)
+	}
+
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
