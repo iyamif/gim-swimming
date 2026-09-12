@@ -200,22 +200,37 @@ export default function CoachCameraPresensi({
     );
   }, [attendances, activeSchedule]);
 
-  // Geolocation states
+  // Geolocation & Radius Simulation states
   const [currentLat, setCurrentLat] = useState<number | null>(null);
   const [currentLon, setCurrentLon] = useState<number | null>(null);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
-  const [isSimulatedGPS, setIsSimulatedGPS] = useState<boolean>(false);
+  const [isSimulatedGPS, setIsSimulatedGPS] = useState<boolean>(true);
+  const [radiusSimPreset, setRadiusSimPreset] = useState<
+    "device" | "at_pool" | "near_pool" | "radius_limit" | "out_of_radius" | "custom"
+  >("at_pool");
+  const [customRadiusMeters, setCustomRadiusMeters] = useState<number>(15);
+  const [showRadiusPanel, setShowRadiusPanel] = useState<boolean>(true);
 
   const targetPoolInfo = useMemo(() => {
     return getPoolCoordinates(activeSchedule?.poolArea || "Nalendra");
   }, [activeSchedule?.poolArea]);
 
+  // Calculate coordinates based on desired distance in meters
+  const setCoordinatesFromMeters = useCallback(
+    (meters: number, pool = targetPoolInfo) => {
+      // 1 deg latitude ≈ 111,139 meters
+      const offsetLat = meters / 111139;
+      setCurrentLat(pool.latitude + offsetLat);
+      setCurrentLon(pool.longitude);
+      setIsSimulatedGPS(true);
+    },
+    [targetPoolInfo]
+  );
+
   const requestGPSLocation = useCallback(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
-      // Fallback simulate pool coordinate
-      setCurrentLat(targetPoolInfo.latitude + 0.0001);
-      setCurrentLon(targetPoolInfo.longitude + 0.0001);
-      setIsSimulatedGPS(true);
+      setRadiusSimPreset("at_pool");
+      setCoordinatesFromMeters(15);
       return;
     }
 
@@ -229,22 +244,53 @@ export default function CoachCameraPresensi({
       },
       (err) => {
         console.warn("GPS error, fallback to pool radius simulation:", err);
-        setCurrentLat(targetPoolInfo.latitude + 0.00012);
-        setCurrentLon(targetPoolInfo.longitude + 0.00012);
-        setIsSimulatedGPS(true);
+        setRadiusSimPreset("at_pool");
+        setCoordinatesFromMeters(15);
         setLocationLoading(false);
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
-  }, [targetPoolInfo]);
+  }, [setCoordinatesFromMeters]);
 
+  const applyRadiusPreset = useCallback(
+    (
+      preset: "device" | "at_pool" | "near_pool" | "radius_limit" | "out_of_radius" | "custom",
+      customVal?: number
+    ) => {
+      setRadiusSimPreset(preset);
+      if (preset === "device") {
+        requestGPSLocation();
+      } else if (preset === "at_pool") {
+        setCustomRadiusMeters(15);
+        setCoordinatesFromMeters(15);
+      } else if (preset === "near_pool") {
+        setCustomRadiusMeters(150);
+        setCoordinatesFromMeters(150);
+      } else if (preset === "radius_limit") {
+        setCustomRadiusMeters(1800);
+        setCoordinatesFromMeters(1800);
+      } else if (preset === "out_of_radius") {
+        setCustomRadiusMeters(3500);
+        setCoordinatesFromMeters(3500);
+      } else if (preset === "custom") {
+        const val = customVal !== undefined ? customVal : customRadiusMeters;
+        setCustomRadiusMeters(val);
+        setCoordinatesFromMeters(val);
+      }
+    },
+    [requestGPSLocation, setCoordinatesFromMeters, customRadiusMeters]
+  );
+
+  // Initialize default location (at pool ~15m)
   useEffect(() => {
-    requestGPSLocation();
-  }, [requestGPSLocation]);
+    if (radiusSimPreset !== "device") {
+      setCoordinatesFromMeters(customRadiusMeters);
+    }
+  }, [targetPoolInfo, setCoordinatesFromMeters]);
 
   // Distance calculation
   const distanceKm = useMemo(() => {
-    if (currentLat === null || currentLon === null) return 0.014;
+    if (currentLat === null || currentLon === null) return 0.015;
     return calculateDistanceKm(
       currentLat,
       currentLon,
@@ -406,6 +452,13 @@ export default function CoachCameraPresensi({
   const handleShutterPress = () => {
     if (!activeSchedule) return;
 
+    if (!isLocationValid) {
+      alert(
+        `⚠️ PRESENSI DITOLAK (DI LUAR RADIUS)!\n\nJarak Anda saat ini: ${distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters} meter`} dari ${targetPoolInfo.name}.\n\nPresensi wajib berada dalam radius maksimal 2.0 km dari area kolam renang.\n\nTips: Anda dapat mengubah simulasi radius menjadi 'Titik Kolam' atau 'Dekat Kolam' untuk pengujian.`
+      );
+      return;
+    }
+
     // Trigger visual shutter flash effect
     setFlashScreenEffect(true);
     setTimeout(() => setFlashScreenEffect(false), 250);
@@ -452,8 +505,10 @@ export default function CoachCameraPresensi({
       }
       setShowLateReasonModal(false);
       setLateReason("");
+      alert("✅ Presensi Masuk Berhasil Dicatat!");
+      if (onClose) onClose();
     } catch (err: any) {
-      alert(err?.message || "Gagal melakukan presensi masuk.");
+      alert(err?.message || "Gagal melakukan presensi masuk");
     } finally {
       setIsSubmitting(false);
     }
@@ -464,10 +519,6 @@ export default function CoachCameraPresensi({
     if (!activeSchedule) return;
     setIsSubmitting(true);
     try {
-      const finalNotes = checkoutNotes.trim()
-        ? checkoutNotes.trim()
-        : "Presensi Keluar - Sesi latihan selesai";
-
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
@@ -477,13 +528,17 @@ export default function CoachCameraPresensi({
           status: "Selesai",
           latitude: currentLat || targetPoolInfo.latitude,
           longitude: currentLon || targetPoolInfo.longitude,
-          notes: finalNotes,
+          notes: checkoutNotes.trim()
+            ? `Presensi Keluar: ${checkoutNotes.trim()}`
+            : `Presensi Keluar (${distanceMeters}m dari ${targetPoolInfo.name})`,
         });
       }
       setShowCheckoutNotesModal(false);
       setCheckoutNotes("");
+      alert("✅ Presensi Keluar & Catatan Siswa Berhasil Disimpan!");
+      if (onClose) onClose();
     } catch (err: any) {
-      alert(err?.message || "Gagal melakukan presensi keluar.");
+      alert(err?.message || "Gagal menyimpan presensi keluar");
     } finally {
       setIsSubmitting(false);
     }
@@ -491,12 +546,11 @@ export default function CoachCameraPresensi({
 
   // Quick chips for note input
   const quickChips = [
-    "Latihan Gaya Dada 25m Selesai",
-    "Ketahanan & Stamina Meningkat",
-    "Latihan Gerakan Kaki & Luncuran",
-    "Seluruh Siswa Aktif & Disiplin",
-    "Pengenalan Gaya Bebas & Pernapasan",
-    "Latihan Penguatan Otot Inti",
+    "Teknik pernapasan sudah lancar",
+    "Gerakan kaki gaya dada semakin stabil",
+    "Latihan meluncur tanpa bantuan",
+    "Perlu pendalaman posisi kepala",
+    "Stamina sangat baik sepanjang sesi",
   ];
 
   const appendQuickChip = (text: string) => {
@@ -528,196 +582,312 @@ export default function CoachCameraPresensi({
     chosenMode === "masuk" ? isAlreadyCheckedIn : isAlreadyCheckedOut;
 
   // =========================================================================
-  // STEP 1: INITIAL MODE SELECTION SCREEN (MANDATORY BEFORE CAMERA OPENS)
+  // STEP 1: SIMPLIFIED INITIAL MODE SELECTION SCREEN (CLEAN BLUE & WHITE THEME)
   // =========================================================================
   if (chosenMode === null) {
     return (
-      <div className="relative w-full min-h-[100dvh] bg-slate-950 text-white flex flex-col justify-between overflow-y-auto font-sans p-4 sm:p-6 pb-20 select-none">
-        {/* Background Ambient Glow */}
+      <div className="relative w-full min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col justify-between overflow-y-auto font-sans p-4 sm:p-6 pb-24 select-none">
+        {/* Subtle Ambient Background Gradient */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-32 -left-32 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-cyan-600/15 rounded-full blur-3xl" />
+          <div className="absolute -top-32 -left-32 w-80 h-80 bg-blue-200/40 rounded-full blur-3xl" />
+          <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-cyan-200/30 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative z-10 max-w-md w-full mx-auto space-y-5 pt-2 sm:pt-4">
+        <div className="relative z-10 max-w-lg w-full mx-auto space-y-4 pt-1 sm:pt-3">
           {/* Top Bar */}
           <div className="flex items-center justify-between">
             <button
               onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 transition active:scale-95 cursor-pointer shadow-lg"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition active:scale-95 cursor-pointer shadow-2xs"
               title="Kembali ke Dashboard"
             >
               <ArrowLeft size={18} />
             </button>
-            <div className="text-right">
-              <span className="text-[10px] px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 font-bold uppercase tracking-wider">
-                Presensi Pelatih
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Clock size={12} className="text-blue-600" />
+                <span>Presensi Pelatih</span>
               </span>
             </div>
           </div>
 
-          {/* Title Header */}
-          <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Pilih Jenis Presensi
+          {/* Header */}
+          <div className="space-y-0.5">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+              Pilih Presensi Sesi
             </h1>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Silakan pilih apakah Anda akan melakukan <strong className="text-white">Presensi Masuk</strong> di awal sesi atau <strong className="text-white">Presensi Keluar</strong> setelah sesi selesai.
+            <p className="text-xs text-slate-500">
+              Pilih presensi masuk di awal sesi atau presensi keluar setelah sesi selesai.
             </p>
           </div>
 
-          {/* Active Schedule Card Banner */}
-          <div
-            onClick={() => setShowScheduleSelector(true)}
-            className="p-4 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition cursor-pointer space-y-2.5 shadow-xl relative overflow-hidden group"
-          >
+          {/* Active Schedule Card (Clean Blue & White) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Waves size={16} className="text-cyan-400" />
+                <Waves size={16} className="text-blue-600" />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Sesi Latihan Terpilih:
+                  Sesi Latihan Terpilih
                 </span>
               </div>
-              <span className="text-[10px] text-cyan-400 group-hover:underline font-bold flex items-center gap-0.5">
-                Ganti Sesi <ChevronRight size={12} />
-              </span>
+              <button
+                onClick={() => setShowScheduleSelector(true)}
+                className="text-[11px] text-blue-600 hover:text-blue-700 font-bold bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-1 rounded-xl transition flex items-center gap-1 cursor-pointer shadow-2xs"
+              >
+                <span>Ganti Sesi</span>
+                <ChevronRight size={13} />
+              </button>
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-sm sm:text-base font-black text-white">
+              <h3 className="text-sm sm:text-base font-black text-slate-900">
                 {activeSchedule ? `${activeSchedule.title || activeSchedule.class}` : "Belum Ada Jadwal"}
               </h3>
-              <div className="flex items-center gap-3 text-xs text-slate-300 flex-wrap">
-                <span className="font-mono font-bold text-cyan-300 flex items-center gap-1">
+              <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                <span className="font-mono font-bold text-blue-600 flex items-center gap-1">
                   <Clock size={12} /> {activeSchedule?.timeStart || "--:--"} - {activeSchedule?.timeEnd || "--:--"} WIB
                 </span>
                 <span>•</span>
-                <span className="flex items-center gap-1">
-                  <MapPin size={12} className="text-slate-400" /> {activeSchedule?.poolArea || "Kolam Renang"}
+                <span className="flex items-center gap-1 text-slate-600">
+                  <MapPin size={12} className="text-blue-500" /> {activeSchedule?.poolArea || "Kolam Renang"}
                 </span>
               </div>
-            </div>
-
-            {/* GPS Distance info */}
-            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-              <span className="flex items-center gap-1">
-                <MapPin size={12} className="text-cyan-400" />
-                <span>Radius: {distanceMeters} meter</span>
-              </span>
-              <span className={isLocationValid ? "text-emerald-400 font-bold flex items-center gap-1" : "text-amber-400 font-bold flex items-center gap-1"}>
-                {isLocationValid ? (
-                  <>
-                    <Check size={12} /> Di Lokasi Kolam
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle size={12} /> Di Luar Radius
-                  </>
-                )}
-              </span>
             </div>
           </div>
 
           {/* =========================================================================
-              CHOICE CARDS: PRESENSI MASUK vs PRESENSI KELUAR
+              TWIN ACTION CARDS: PRESENSI MASUK & PRESENSI KELUAR (BLUE & WHITE STYLE)
               ========================================================================= */}
-          <div className="space-y-3.5 pt-1">
-            {/* 1. PRESENSI MASUK CARD */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 1. PRESENSI MASUK */}
             <button
               type="button"
               onClick={handleSelectPresensiMasuk}
-              className={`w-full p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group ${isAlreadyCheckedIn
-                  ? "bg-slate-900/60 border-slate-800 opacity-90"
-                  : "bg-gradient-to-br from-slate-900 via-slate-900/95 to-blue-950/40 border-blue-500/40 hover:border-blue-400 shadow-xl hover:shadow-blue-500/10 ring-1 ring-blue-500/20"
-                }`}
+              className={`p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group flex flex-col justify-between ${
+                isAlreadyCheckedIn
+                  ? "bg-slate-50 border-slate-200/80 text-slate-700"
+                  : "bg-white hover:bg-blue-50/40 border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md ring-1 ring-slate-100"
+              }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3.5">
-                  <div className="h-12 w-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 group-hover:scale-105 transition">
                     <CheckCircle2 size={24} />
                   </div>
-                  <div>
-                    <h2 className="text-base font-black text-white flex items-center gap-2">
-                      <span>Presensi Masuk</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold uppercase">
-                        Awal Sesi
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                      Catat waktu tiba di kolam renang sebelum memulai sesi pelatihan.
-                    </p>
-                  </div>
+                  <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 transition" />
                 </div>
-                <ChevronRight size={20} className="text-slate-400 group-hover:text-white transition shrink-0 mt-1" />
+                <h2 className="text-base sm:text-lg font-black text-slate-900">Presensi Masuk</h2>
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-snug">
+                  Foto selfie &amp; catat waktu mulai tiba di kolam.
+                </p>
               </div>
 
-              {/* Status Badge */}
-              <div className="mt-3.5 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
-                <span className="text-[11px] text-slate-400">Status Sesi Ini:</span>
+              <div className="mt-4 pt-3 border-t border-slate-100">
                 {isAlreadyCheckedIn ? (
-                  <span className="px-2.5 py-0.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold flex items-center gap-1">
-                    <Check size={11} /> Sudah Presensi Masuk
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                    <Check size={12} /> Sudah Masuk
                   </span>
                 ) : (
-                  <span className="text-blue-400 font-bold text-[11px] flex items-center gap-0.5">
-                    Siap Presensi Masuk <ChevronRight size={12} />
+                  <span className="inline-flex items-center gap-1 text-blue-600 font-bold text-xs group-hover:translate-x-0.5 transition">
+                    Mulai Presensi Masuk <ChevronRight size={13} />
                   </span>
                 )}
               </div>
             </button>
 
-            {/* 2. PRESENSI KELUAR CARD */}
+            {/* 2. PRESENSI KELUAR */}
             <button
               type="button"
               onClick={handleSelectPresensiKeluar}
-              className={`w-full p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group ${isAlreadyCheckedOut
-                  ? "bg-slate-900/60 border-slate-800 opacity-90"
+              className={`p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group flex flex-col justify-between ${
+                isAlreadyCheckedOut
+                  ? "bg-slate-50 border-slate-200/80 text-slate-700"
                   : isAlreadyCheckedIn
-                    ? "bg-gradient-to-br from-slate-900 via-slate-900/95 to-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 shadow-xl hover:shadow-emerald-500/10 ring-1 ring-emerald-500/20"
-                    : "bg-slate-900/50 border-slate-800/80 opacity-75 hover:opacity-100"
-                }`}
+                  ? "bg-white hover:bg-blue-50/40 border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md ring-1 ring-slate-100"
+                  : "bg-slate-50/80 border-slate-200/70 opacity-80 hover:opacity-100"
+              }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3.5">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition ${isAlreadyCheckedIn
-                      ? "bg-emerald-500/20 border border-emerald-400/40 text-emerald-400"
-                      : "bg-slate-800 border border-slate-700 text-slate-400"
-                    }`}>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div
+                    className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition ${
+                      isAlreadyCheckedIn
+                        ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-blue-500/20"
+                        : "bg-slate-100 border border-slate-200 text-slate-400"
+                    }`}
+                  >
                     {isAlreadyCheckedIn ? <Flag size={22} /> : <Lock size={20} />}
                   </div>
-                  <div>
-                    <h2 className="text-base font-black text-white flex items-center gap-2">
-                      <span>Presensi Keluar</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold uppercase">
-                        Selesai Sesi
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                      Catat selesai sesi latihan disertai foto selfie &amp; catatan perkembangan siswa.
-                    </p>
-                  </div>
+                  <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 transition" />
                 </div>
-                <ChevronRight size={20} className="text-slate-400 group-hover:text-white transition shrink-0 mt-1" />
+                <h2 className="text-base sm:text-lg font-black text-slate-900">Presensi Keluar</h2>
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-snug">
+                  Selesai sesi + foto selfie &amp; catatan siswa.
+                </p>
               </div>
 
-              {/* Status Badge & Validator Indicator */}
-              <div className="mt-3.5 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
-                <span className="text-[11px] text-slate-400">Status Sesi Ini:</span>
+              <div className="mt-4 pt-3 border-t border-slate-100">
                 {isAlreadyCheckedOut ? (
-                  <span className="px-2.5 py-0.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold flex items-center gap-1">
-                    <Check size={11} /> Selesai (Sudah Presensi Keluar)
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                    <Check size={12} /> Selesai Sesi
                   </span>
                 ) : isAlreadyCheckedIn ? (
-                  <span className="text-emerald-400 font-bold text-[11px] flex items-center gap-0.5">
-                    Siap Presensi Keluar &amp; Catatan Siswa <ChevronRight size={12} />
+                  <span className="inline-flex items-center gap-1 text-blue-600 font-bold text-xs group-hover:translate-x-0.5 transition">
+                    Mulai Presensi Keluar <ChevronRight size={13} />
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-xl bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1">
-                    <Lock size={10} /> Wajib Presensi Masuk Dulu
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                    <Lock size={10} /> Wajib Masuk Dulu
                   </span>
                 )}
               </div>
             </button>
+          </div>
+
+          {/* =========================================================================
+              INTERACTIVE RADIUS SIMULATOR CARD (BLUE & WHITE STYLE)
+              ========================================================================= */}
+          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="text-blue-600" />
+                <span className="text-xs font-bold text-slate-800">
+                  Simulasi Radius GPS
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                  isLocationValid
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs"
+                    : "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
+                }`}
+              >
+                {isLocationValid ? "🟢 Radius Valid (< 2.0 km)" : "🔴 Di Luar Radius (> 2.0 km)"}
+              </span>
+            </div>
+
+            {/* Current Distance Indicator */}
+            <div className="flex items-baseline justify-between bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                  Jarak ke {targetPoolInfo.name}
+                </p>
+                <p className="text-base font-black text-slate-900 mt-0.5 font-mono">
+                  {distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters} meter`}
+                </p>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Maks. <strong className="text-slate-800 font-mono">2.0 km</strong>
+              </p>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Preset Cepat:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => applyRadiusPreset("at_pool")}
+                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
+                    radiusSimPreset === "at_pool"
+                      ? "bg-blue-600 text-white font-black border-blue-600 shadow-sm shadow-blue-500/25"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  <span>🏊 Titik Kolam</span>
+                  <span className={`text-[10px] ${radiusSimPreset === "at_pool" ? "text-blue-100" : "opacity-75"}`}>15m</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyRadiusPreset("near_pool")}
+                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
+                    radiusSimPreset === "near_pool"
+                      ? "bg-blue-600 text-white font-black border-blue-600 shadow-sm shadow-blue-500/25"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  <span>🎯 Dekat Kolam</span>
+                  <span className={`text-[10px] ${radiusSimPreset === "near_pool" ? "text-blue-100" : "opacity-75"}`}>150m</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyRadiusPreset("radius_limit")}
+                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
+                    radiusSimPreset === "radius_limit"
+                      ? "bg-amber-500 text-white font-black border-amber-500 shadow-sm shadow-amber-500/25"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  <span>🚶 Batas Radius</span>
+                  <span className={`text-[10px] ${radiusSimPreset === "radius_limit" ? "text-amber-100" : "opacity-75"}`}>1.8km</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyRadiusPreset("out_of_radius")}
+                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
+                    radiusSimPreset === "out_of_radius"
+                      ? "bg-rose-500 text-white font-black border-rose-500 shadow-sm shadow-rose-500/25"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  <span>🚫 Luar Radius</span>
+                  <span className={`text-[10px] ${radiusSimPreset === "out_of_radius" ? "text-rose-100" : "opacity-75"}`}>3.5km</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyRadiusPreset("device")}
+                  disabled={locationLoading}
+                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between col-span-2 sm:col-span-2 ${
+                    radiusSimPreset === "device"
+                      ? "bg-blue-600 text-white font-black border-blue-600 shadow-sm shadow-blue-500/25"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    <RotateCw size={11} className={locationLoading ? "animate-spin" : ""} />
+                    <span>📍 GPS Asli Perangkat</span>
+                  </span>
+                  <span className={`text-[10px] ${radiusSimPreset === "device" ? "text-blue-100" : "opacity-75"}`}>
+                    {locationLoading ? "Mencari..." : "Live"}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Radius Slider */}
+            <div className="pt-2 border-t border-slate-100 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 font-medium">Atur Jarak Kustom:</span>
+                <span className="font-mono font-bold text-blue-600">
+                  {customRadiusMeters >= 1000
+                    ? `${(customRadiusMeters / 1000).toFixed(2)} km`
+                    : `${customRadiusMeters} meter`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="4500"
+                step="25"
+                value={customRadiusMeters}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  applyRadiusPreset("custom", val);
+                }}
+                className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+              />
+              <div className="flex justify-between text-[9px] text-slate-400 font-mono">
+                <span>10m (Kolam)</span>
+                <span>2.0km (Batas Maksimal)</span>
+                <span>4.5km (Luar)</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -725,19 +895,19 @@ export default function CoachCameraPresensi({
             VALIDATOR MODAL: IF COACH CLICKS PRESENSI KELUAR WITHOUT PRESENSI MASUK
             ========================================================================= */}
         {showCheckoutWarningModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-            <div className="w-full max-w-sm rounded-3xl bg-[#1a1e24] border border-rose-500/30 p-6 space-y-4 shadow-2xl text-white text-center">
-              <div className="h-16 w-16 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mx-auto text-rose-400 shadow-lg">
-                <AlertTriangle size={32} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+            <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-100 p-6 space-y-4 shadow-2xl text-slate-900 text-center">
+              <div className="h-16 w-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600 shadow-md">
+                <AlertTriangle size={30} />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-base font-black text-white">
+                <h3 className="text-base font-black text-slate-900">
                   Belum Bisa Presensi Keluar
                 </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Anda belum melakukan <strong className="text-amber-300">Presensi Masuk</strong> untuk sesi{" "}
-                  <strong className="text-white">
-                    "{activeSchedule?.title || activeSchedule?.class || "Sesi Latihan"}"
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Anda belum melakukan <strong className="text-blue-600">Presensi Masuk</strong> untuk sesi{" "}
+                  <strong className="text-slate-900">
+                    &quot;{activeSchedule?.title || activeSchedule?.class || "Sesi Latihan"}&quot;
                   </strong>.
                 </p>
                 <p className="text-[11px] text-slate-400 pt-1">
@@ -752,7 +922,7 @@ export default function CoachCameraPresensi({
                     setShowCheckoutWarningModal(false);
                     setChosenMode("masuk");
                   }}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95 flex items-center justify-center gap-1.5"
                 >
                   <CheckCircle2 size={16} />
                   <span>Lakukan Presensi Masuk Sekarang</span>
@@ -760,7 +930,7 @@ export default function CoachCameraPresensi({
                 <button
                   type="button"
                   onClick={() => setShowCheckoutWarningModal(false)}
-                  className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                  className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -769,24 +939,24 @@ export default function CoachCameraPresensi({
           </div>
         )}
 
-        {/* Schedule Selector Modal */}
+        {/* Schedule Selector Modal (Clean Blue & White) */}
         {showScheduleSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
-            <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-4 shadow-2xl text-white">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+            <div className="w-full max-w-md rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 space-y-4 shadow-2xl text-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-sm font-black text-white">Pilih Sesi Jadwal Latihan</h3>
-                  <p className="text-[10px] text-slate-400">Pilih sesi untuk presensi kehadiran</p>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">Pilih Sesi Jadwal Latihan</h3>
+                  <p className="text-[11px] text-slate-400">Pilih sesi untuk presensi kehadiran</p>
                 </div>
                 <button
                   onClick={() => setShowScheduleSelector(false)}
-                  className="h-7 w-7 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-xs cursor-pointer hover:bg-slate-700"
+                  className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs cursor-pointer transition"
                 >
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {schedules.map((s) => {
                   const isSelected = s.id === activeSchedule?.id;
                   return (
@@ -796,21 +966,22 @@ export default function CoachCameraPresensi({
                         setSelectedScheduleId(s.id);
                         setShowScheduleSelector(false);
                       }}
-                      className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${isSelected
-                          ? "bg-cyan-500/20 border-cyan-400/50 text-white font-bold"
-                          : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/50 text-slate-300"
-                        }`}
+                      className={`w-full text-left p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
+                        isSelected
+                          ? "bg-blue-50 border-blue-300 text-slate-900 font-bold shadow-2xs"
+                          : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
+                      }`}
                     >
                       <div>
-                        <p className="text-xs font-black">{s.title || s.class}</p>
-                        <p className="text-[10px] text-cyan-300 flex items-center gap-1">
+                        <p className="text-xs font-black text-slate-900">{s.title || s.class}</p>
+                        <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1 mt-0.5">
                           <Clock size={10} /> {s.timeStart} - {s.timeEnd} WIB • <MapPin size={10} /> {s.poolArea}
                         </p>
-                        <p className="text-[9px] text-slate-400">
+                        <p className="text-[10px] text-slate-400 mt-0.5">
                           {s.date || "Setiap Hari"} • Pelatih: {s.coachName || "Coach"}
                         </p>
                       </div>
-                      {isSelected && <Check size={14} className="text-cyan-400" />}
+                      {isSelected && <Check size={16} className="text-blue-600 shrink-0" />}
                     </button>
                   );
                 })}
@@ -941,28 +1112,108 @@ export default function CoachCameraPresensi({
           </div>
 
           {/* Item 2: Radius & Lokasi GPS */}
-          <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-[#283038]/70 border border-white/5">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-lg">
-                <MapPin size={20} />
+          <div className="p-2.5 rounded-2xl bg-[#283038]/70 border border-white/5 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg border ${
+                    isLocationValid
+                      ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-400"
+                      : "bg-rose-500/20 border-rose-400/40 text-rose-400"
+                  }`}
+                >
+                  <MapPin size={20} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-white leading-tight flex items-center gap-1.5">
+                    <span>
+                      Radius {distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters}m`}
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                        isLocationValid
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : "bg-rose-500/20 text-rose-300"
+                      }`}
+                    >
+                      {isLocationValid ? "Valid" : "Di Luar Radius"}
+                    </span>
+                  </p>
+                  <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                    {targetPoolInfo.name}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black text-white leading-tight">
-                  Radius {distanceMeters} meter dari kolam {isLocationValid ? "(di kolam)" : "(di luar area)"}
-                </p>
-                <p className="text-[10px] text-slate-300 truncate mt-0.5">
-                  {targetPoolInfo.name} • {isSimulatedGPS ? "Mode Akurasi GPS" : "Akurasi Tinggi"}
-                </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setShowRadiusPanel((prev) => !prev)}
+                  className="px-2 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/30 text-[10px] font-bold transition cursor-pointer"
+                >
+                  {showRadiusPanel ? "Tutup" : "Ubah Radius"}
+                </button>
+                <button
+                  onClick={requestGPSLocation}
+                  disabled={locationLoading}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer border border-white/10 disabled:opacity-50"
+                  title="Perbarui Titik GPS"
+                >
+                  <RotateCw size={13} className={locationLoading ? "animate-spin" : ""} />
+                </button>
               </div>
             </div>
-            <button
-              onClick={requestGPSLocation}
-              disabled={locationLoading}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer border border-white/10 disabled:opacity-50"
-              title="Perbarui Titik GPS"
-            >
-              <RotateCw size={14} className={locationLoading ? "animate-spin" : ""} />
-            </button>
+
+            {/* In-Camera Quick Radius Selector (when expanded) */}
+            {showRadiusPanel && (
+              <div className="pt-2 border-t border-white/10 space-y-1.5 animate-fadeIn">
+                <div className="grid grid-cols-4 gap-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => applyRadiusPreset("at_pool")}
+                    className={`py-1 rounded-lg font-bold border transition text-center ${
+                      radiusSimPreset === "at_pool"
+                        ? "bg-cyan-500/30 border-cyan-400 text-cyan-200"
+                        : "bg-black/30 border-white/10 text-slate-300"
+                    }`}
+                  >
+                    15m (Kolam)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyRadiusPreset("near_pool")}
+                    className={`py-1 rounded-lg font-bold border transition text-center ${
+                      radiusSimPreset === "near_pool"
+                        ? "bg-cyan-500/30 border-cyan-400 text-cyan-200"
+                        : "bg-black/30 border-white/10 text-slate-300"
+                    }`}
+                  >
+                    150m (Dekat)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyRadiusPreset("radius_limit")}
+                    className={`py-1 rounded-lg font-bold border transition text-center ${
+                      radiusSimPreset === "radius_limit"
+                        ? "bg-amber-500/30 border-amber-400 text-amber-200"
+                        : "bg-black/30 border-white/10 text-slate-300"
+                    }`}
+                  >
+                    1.8km (Batas)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyRadiusPreset("out_of_radius")}
+                    className={`py-1 rounded-lg font-bold border transition text-center ${
+                      radiusSimPreset === "out_of_radius"
+                        ? "bg-rose-500/30 border-rose-400 text-rose-200"
+                        : "bg-black/30 border-white/10 text-slate-300"
+                    }`}
+                  >
+                    3.5km (Luar)
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Item 3: Kantor / Sesi Jadwal Latihan Terdekat */}
@@ -1076,47 +1327,47 @@ export default function CoachCameraPresensi({
         </button>
       </div>
 
-      {/* MODAL: PRESENSI KELUAR & CATATAN PERKEMBANGAN SISWA */}
+      {/* MODAL: PRESENSI KELUAR & CATATAN PERKEMBANGAN SISWA (BLUE & WHITE THEME) */}
       {showCheckoutNotesModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-[#181d24] border border-white/10 p-5 sm:p-6 space-y-4 shadow-2xl text-white max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 space-y-4 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-white/10 pb-3">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 shadow-2xs">
                   <FileText size={22} />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-black text-white leading-tight">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
                     Presensi Keluar &amp; Catatan Sesi
                   </h3>
-                  <p className="text-[11px] text-emerald-300 mt-0.5">
+                  <p className="text-[11px] text-blue-600 font-bold mt-0.5">
                     {activeSchedule?.title || activeSchedule?.class} ({activeSchedule?.timeStart} - {activeSchedule?.timeEnd} WIB)
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowCheckoutNotesModal(false)}
-                className="h-8 w-8 rounded-full bg-white/10 text-slate-300 flex items-center justify-center text-xs hover:bg-white/20 cursor-pointer"
+                className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs transition cursor-pointer"
               >
-                <X size={14} />
+                <X size={15} />
               </button>
             </div>
 
             {/* Snapshot Preview & Meta */}
             {capturedPhotoUrl && (
-              <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/5 border border-white/10">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
                 <img
                   src={capturedPhotoUrl}
                   alt="Snapshot Selfie"
-                  className="h-14 w-14 rounded-xl object-cover border border-emerald-400/40 shadow-md"
+                  className="h-14 w-14 rounded-xl object-cover border border-blue-200 shadow-sm"
                 />
                 <div className="flex-1 min-w-0 text-xs">
-                  <p className="font-bold text-white flex items-center gap-1">
-                    <CheckCircle2 size={14} className="text-emerald-400" /> Foto Selfie Terverifikasi
+                  <p className="font-bold text-slate-900 flex items-center gap-1">
+                    <CheckCircle2 size={14} className="text-emerald-600" /> Foto Selfie Terverifikasi
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                    <MapPin size={10} className="text-slate-400" /> {targetPoolInfo.name} • {formattedDateTime}
+                  <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                    <MapPin size={10} className="text-blue-500" /> {targetPoolInfo.name} • {formattedDateTime}
                   </p>
                 </div>
               </div>
@@ -1125,7 +1376,7 @@ export default function CoachCameraPresensi({
             {/* Quick Student Mention Chips */}
             {activeSchedule?.studentNames && activeSchedule.studentNames.length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Siswa di Sesi Ini (Klik nama untuk menambahkan catatan):
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -1134,7 +1385,7 @@ export default function CoachCameraPresensi({
                       key={i}
                       type="button"
                       onClick={() => appendStudentTag(st)}
-                      className="px-2.5 py-1 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-200 text-xs font-semibold transition cursor-pointer active:scale-95 flex items-center gap-1.5"
+                      className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/80 text-blue-700 text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-2xs"
                     >
                       <User size={12} />
                       <span>{st}</span>
@@ -1146,7 +1397,7 @@ export default function CoachCameraPresensi({
 
             {/* Quick Note Suggestions */}
             <div className="space-y-1.5">
-              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Opsi Cepat Catatan Latihan:
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -1155,7 +1406,7 @@ export default function CoachCameraPresensi({
                     key={idx}
                     type="button"
                     onClick={() => appendQuickChip(chip)}
-                    className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 text-[11px] font-medium transition cursor-pointer active:scale-95"
+                    className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-medium transition cursor-pointer active:scale-95"
                   >
                     {chip}
                   </button>
@@ -1165,27 +1416,27 @@ export default function CoachCameraPresensi({
 
             {/* Textarea: Catatan Perkembangan Siswa */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-200">
+              <label className="block text-xs font-bold text-slate-700">
                 Catatan Perkembangan Siswa &amp; Evaluasi Sesi Latihan:
               </label>
               <textarea
                 value={checkoutNotes}
                 onChange={(e) => setCheckoutNotes(e.target.value)}
-                placeholder="Contoh: Seluruh siswa hadir tepat waktu. Budi sudah mampu berenang gaya dada 25 meter dengan kayuhan stabil. Siti perlu perbaikan pada teknik pengambilan napas saat meluncur..."
+                placeholder="Contoh: Seluruh siswa hadir tepat waktu. Budi sudah mampu berenang gaya dada 25 meter dengan kayuhan stabil..."
                 rows={4}
-                className="w-full p-3.5 rounded-2xl bg-black/40 border border-white/15 text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 leading-relaxed font-sans resize-none"
+                className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white leading-relaxed font-sans resize-none transition"
               />
               <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                <AlertCircle size={12} className="text-cyan-400 shrink-0" /> Catatan ini akan tersimpan di riwayat jadwal dan dapat dilihat oleh admin &amp; wali murid.
+                <AlertCircle size={12} className="text-blue-500 shrink-0" /> Catatan ini akan tersimpan di riwayat jadwal dan dapat dilihat oleh admin &amp; wali murid.
               </p>
             </div>
 
             {/* Modal Actions */}
-            <div className="flex gap-2.5 pt-2">
+            <div className="flex gap-2.5 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowCheckoutNotesModal(false)}
-                className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold transition cursor-pointer"
+                className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
               >
                 Batal
               </button>
@@ -1193,7 +1444,7 @@ export default function CoachCameraPresensi({
                 type="button"
                 onClick={submitPresensiKeluar}
                 disabled={isSubmitting}
-                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -1212,15 +1463,17 @@ export default function CoachCameraPresensi({
         </div>
       )}
 
-      {/* MODAL: LATE REASON */}
+      {/* MODAL: LATE REASON (BLUE & WHITE THEME) */}
       {showLateReasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-4 shadow-2xl text-white">
-            <div className="flex items-center gap-2 text-amber-400">
-              <AlertTriangle size={18} />
-              <h3 className="text-sm font-black">Presensi Terlambat</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-100 p-6 space-y-4 shadow-2xl text-slate-900">
+            <div className="flex items-center gap-2.5 text-amber-600 font-black">
+              <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+                <AlertTriangle size={18} />
+              </div>
+              <h3 className="text-sm font-black text-slate-900">Presensi Terlambat</h3>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Sesi latihan telah dimulai lebih dari 15 menit. Silakan masukkan alasan keterlambatan untuk catatan sistem:
             </p>
             <textarea
@@ -1228,18 +1481,18 @@ export default function CoachCameraPresensi({
               onChange={(e) => setLateReason(e.target.value)}
               placeholder="Contoh: Terkendala kemacetan di jalan raya menuju kolam renang..."
               rows={3}
-              className="w-full p-3 rounded-2xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition"
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button
                 onClick={() => setShowLateReasonModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                className="flex-1 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
               >
                 Batal
               </button>
               <button
                 onClick={() => submitPresensiMasuk(lateReason || "Terlambat hadir")}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg"
+                className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95"
               >
                 Kirim Presensi
               </button>

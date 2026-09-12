@@ -193,6 +193,18 @@ func runMigrations() error {
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS financial_transactions (
+		id SERIAL PRIMARY KEY,
+		type VARCHAR(20) NOT NULL,
+		category VARCHAR(100) NOT NULL,
+		title VARCHAR(255) NOT NULL,
+		amount NUMERIC(15,2) NOT NULL,
+		date VARCHAR(50) NOT NULL,
+		notes TEXT DEFAULT '',
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
 	-- Add column migrations if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;

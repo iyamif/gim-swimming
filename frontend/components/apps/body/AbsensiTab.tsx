@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Clock,
   Camera,
@@ -85,16 +85,33 @@ export default function AbsensiTab({
     return `${y}-${m}-${day}`;
   }, []);
 
-  // Filter schedules: active or today's schedules
+  // Filter schedules: active or today's schedules (filtered by coach if logged in as pelatih)
   const availableSchedules = useMemo(() => {
     if (schedules.length === 0) return [];
+    let relevant = schedules;
+    if (sessionRole === "pelatih") {
+      const coachUser = (sessionUser || "").toLowerCase().trim();
+      const coachClean = coachUser.replace(/^coach\s+/i, "").trim();
+      const matched = schedules.filter((s) => {
+        const sCoach = (s.coachName || "").toLowerCase().trim();
+        const sCoachClean = sCoach.replace(/^coach\s+/i, "").trim();
+        return (
+          (s.coachId && coaches.some((c) => String(c.id) === String(s.coachId) && c.name.toLowerCase().includes(coachClean))) ||
+          (sCoachClean && (sCoachClean === coachClean || sCoachClean.includes(coachClean) || coachClean.includes(sCoachClean))) ||
+          (s.coachPhone && s.coachPhone.includes(coachUser))
+        );
+      });
+      if (matched.length > 0) {
+        relevant = matched;
+      }
+    }
     // Prioritize today and future active schedules
-    return [...schedules].sort((a, b) => {
+    return [...relevant].sort((a, b) => {
       const aDate = a.date || "";
       const bDate = b.date || "";
       return aDate.localeCompare(bDate);
     });
-  }, [schedules]);
+  }, [schedules, sessionRole, sessionUser, coaches]);
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>(
     availableSchedules[0]?.id || ""
@@ -115,12 +132,16 @@ export default function AbsensiTab({
     );
   }, [availableSchedules, selectedScheduleId]);
 
-  // Geolocation states
+  // Geolocation & Radius Simulation states
   const [currentLat, setCurrentLat] = useState<number | null>(null);
   const [currentLon, setCurrentLon] = useState<number | null>(null);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string>("");
-  const [isSimulatedGPS, setIsSimulatedGPS] = useState<boolean>(false);
+  const [isSimulatedGPS, setIsSimulatedGPS] = useState<boolean>(true);
+  const [radiusSimPreset, setRadiusSimPreset] = useState<
+    "device" | "at_pool" | "near_pool" | "radius_limit" | "out_of_radius" | "custom"
+  >("at_pool");
+  const [customRadiusMeters, setCustomRadiusMeters] = useState<number>(15);
 
   // Time state for live ticking
   const [currentTimeTick, setCurrentTimeTick] = useState<Date>(new Date());
@@ -129,24 +150,29 @@ export default function AbsensiTab({
     return () => clearInterval(timer);
   }, []);
 
-  // Request browser GPS position
-  const requestCurrentLocation = (simulatePoolArea?: string) => {
-    if (simulatePoolArea) {
-      const poolCoords = getPoolCoordinates(simulatePoolArea);
-      setCurrentLat(poolCoords.latitude);
-      setCurrentLon(poolCoords.longitude);
+  // Target pool venue coordinate
+  const targetPoolInfo = useMemo(() => {
+    return getPoolCoordinates(activeSchedule?.poolArea || "Nalendra");
+  }, [activeSchedule?.poolArea]);
+
+  // Calculate coordinates from meters
+  const setCoordinatesFromMeters = useCallback(
+    (meters: number, pool = targetPoolInfo) => {
+      const offsetLat = meters / 111139;
+      setCurrentLat(pool.latitude + offsetLat);
+      setCurrentLon(pool.longitude);
       setIsSimulatedGPS(true);
       setLocationError("");
-      return;
-    }
+    },
+    [targetPoolInfo]
+  );
 
+  // Request browser GPS position
+  const requestCurrentLocation = useCallback(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
       setLocationError("Browser Anda tidak mendukung deteksi lokasi GPS.");
-      // Fallback to default pool coordinate
-      const def = getPoolCoordinates(activeSchedule?.poolArea || "Nalendra");
-      setCurrentLat(def.latitude);
-      setCurrentLon(def.longitude);
-      setIsSimulatedGPS(true);
+      setRadiusSimPreset("at_pool");
+      setCoordinatesFromMeters(15);
       return;
     }
 
@@ -166,11 +192,8 @@ export default function AbsensiTab({
         setLocationError(
           "Izin akses GPS belum diberikan atau lokasi gagal diambil. Menggunakan lokasi simulasi area kolam."
         );
-        // Fallback simulate pool area
-        const def = getPoolCoordinates(activeSchedule?.poolArea || "Nalendra");
-        setCurrentLat(def.latitude);
-        setCurrentLon(def.longitude);
-        setIsSimulatedGPS(true);
+        setRadiusSimPreset("at_pool");
+        setCoordinatesFromMeters(15);
       },
       {
         enableHighAccuracy: true,
@@ -178,17 +201,43 @@ export default function AbsensiTab({
         maximumAge: 0,
       }
     );
-  };
+  }, [setCoordinatesFromMeters]);
+
+  const applyRadiusPreset = useCallback(
+    (
+      preset: "device" | "at_pool" | "near_pool" | "radius_limit" | "out_of_radius" | "custom",
+      customVal?: number
+    ) => {
+      setRadiusSimPreset(preset);
+      if (preset === "device") {
+        requestCurrentLocation();
+      } else if (preset === "at_pool") {
+        setCustomRadiusMeters(15);
+        setCoordinatesFromMeters(15);
+      } else if (preset === "near_pool") {
+        setCustomRadiusMeters(150);
+        setCoordinatesFromMeters(150);
+      } else if (preset === "radius_limit") {
+        setCustomRadiusMeters(1800);
+        setCoordinatesFromMeters(1800);
+      } else if (preset === "out_of_radius") {
+        setCustomRadiusMeters(3500);
+        setCoordinatesFromMeters(3500);
+      } else if (preset === "custom") {
+        const val = customVal !== undefined ? customVal : customRadiusMeters;
+        setCustomRadiusMeters(val);
+        setCoordinatesFromMeters(val);
+      }
+    },
+    [requestCurrentLocation, setCoordinatesFromMeters, customRadiusMeters]
+  );
 
   // Initial location request
   useEffect(() => {
-    requestCurrentLocation();
-  }, [activeSchedule?.poolArea]);
-
-  // Calculate distance to pool venue
-  const targetPoolInfo = useMemo(() => {
-    return getPoolCoordinates(activeSchedule?.poolArea || "Nalendra");
-  }, [activeSchedule?.poolArea]);
+    if (radiusSimPreset !== "device") {
+      setCoordinatesFromMeters(customRadiusMeters);
+    }
+  }, [targetPoolInfo, setCoordinatesFromMeters]);
 
   const distanceToPoolKm = useMemo(() => {
     if (currentLat === null || currentLon === null) return 0;
@@ -684,29 +733,93 @@ export default function AbsensiTab({
                     </span>
                   </div>
 
-                  {/* Simulator Quick Action Pill */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400 italic flex items-center gap-1">
-                      {isSimulatedGPS ? (
-                        <>
-                          <Zap size={11} className="text-amber-500" />
-                          <span>GPS Disimulasikan di Kolam</span>
-                        </>
-                      ) : (
-                        <>
-                          <MapPin size={11} className="text-blue-500" />
-                          <span>GPS Akurat Perangkat</span>
-                        </>
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => requestCurrentLocation(activeSchedule.poolArea)}
-                      className="text-cyan-700 hover:text-cyan-800 font-bold underline cursor-pointer"
-                      title="Set lokasi tepat di koordinat kolam renang untuk pengujian"
-                    >
-                      Set Lokasi di Kolam (Simulasi)
-                    </button>
+                  {/* Interactive Radius Simulation Panel */}
+                  <div className="pt-2.5 border-t border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Simulasi Radius GPS:
+                      </span>
+                      <span className="text-[10px] text-cyan-700 font-bold">
+                        {customRadiusMeters >= 1000
+                          ? `${(customRadiusMeters / 1000).toFixed(2)} km`
+                          : `${customRadiusMeters} m`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => applyRadiusPreset("at_pool")}
+                        className={`py-1.5 px-2 rounded-xl border font-bold transition text-left flex items-center justify-between cursor-pointer ${
+                          radiusSimPreset === "at_pool"
+                            ? "bg-cyan-50 border-cyan-400 text-cyan-700 shadow-2xs"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600"
+                        }`}
+                      >
+                        <span>🏊 Kolam</span>
+                        <span className="opacity-70">15m</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyRadiusPreset("near_pool")}
+                        className={`py-1.5 px-2 rounded-xl border font-bold transition text-left flex items-center justify-between cursor-pointer ${
+                          radiusSimPreset === "near_pool"
+                            ? "bg-cyan-50 border-cyan-400 text-cyan-700 shadow-2xs"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600"
+                        }`}
+                      >
+                        <span>🎯 Dekat</span>
+                        <span className="opacity-70">150m</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyRadiusPreset("radius_limit")}
+                        className={`py-1.5 px-2 rounded-xl border font-bold transition text-left flex items-center justify-between cursor-pointer ${
+                          radiusSimPreset === "radius_limit"
+                            ? "bg-amber-50 border-amber-400 text-amber-700 shadow-2xs"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600"
+                        }`}
+                      >
+                        <span>🚶 Batas</span>
+                        <span className="opacity-70">1.8km</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyRadiusPreset("out_of_radius")}
+                        className={`py-1.5 px-2 rounded-xl border font-bold transition text-left flex items-center justify-between cursor-pointer ${
+                          radiusSimPreset === "out_of_radius"
+                            ? "bg-rose-50 border-rose-400 text-rose-700 shadow-2xs"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600"
+                        }`}
+                      >
+                        <span>🚫 Luar</span>
+                        <span className="opacity-70">3.5km</span>
+                      </button>
+                    </div>
+
+                    {/* Custom Range Slider */}
+                    <div className="pt-1 space-y-1">
+                      <input
+                        type="range"
+                        min="10"
+                        max="4500"
+                        step="25"
+                        value={customRadiusMeters}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          applyRadiusPreset("custom", val);
+                        }}
+                        className="w-full accent-cyan-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                      />
+                      <div className="flex justify-between text-[9px] text-slate-400 font-mono">
+                        <span>10m (Di Kolam)</span>
+                        <span>2.0km (Batas Maks)</span>
+                        <span>4.5km (Luar)</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,12 @@
-import React, { useState } from "react";
-import { Invoice, Student, Coach, AttendanceRecord } from "../types";
+import React, { useState, useMemo } from "react";
+import {
+  Invoice,
+  Student,
+  Coach,
+  AttendanceRecord,
+  ScheduleSession,
+  FinancialTransaction,
+} from "../types";
 import {
   CalendarDays,
   CreditCard,
@@ -11,6 +18,8 @@ import {
   X,
   Search,
   MapPin,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 interface KeuanganTabProps {
@@ -18,95 +27,340 @@ interface KeuanganTabProps {
   sessionRole: string;
   students?: Student[];
   coaches?: Coach[];
+  schedules?: ScheduleSession[];
   attendances?: AttendanceRecord[];
+  financialTransactions?: FinancialTransaction[];
+  onAddFinancialTransaction?: (data: {
+    type: "income" | "expense";
+    category: string;
+    title: string;
+    amount: number;
+    date: string;
+    notes?: string;
+  }) => Promise<void> | void;
+  onDeleteFinancialTransaction?: (id: string) => Promise<void> | void;
   sessionUser?: string;
   onVerifyPayment: (invoiceId: string, confirm: boolean) => void;
   setActiveTab?: (tab: string) => void;
 }
+
+const MONTH_NAMES_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
+const MONTH_NAMES_FULL = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
 
 export default function KeuanganTab({
   invoices,
   sessionRole,
   students = [],
   coaches = [],
+  schedules = [],
   attendances = [],
+  financialTransactions = [],
+  onAddFinancialTransaction,
+  onDeleteFinancialTransaction,
   sessionUser,
   onVerifyPayment,
   setActiveTab,
 }: KeuanganTabProps) {
   if (sessionRole !== "admin") return null;
 
-  // Selected Period State
-  const [selectedPeriod, setSelectedPeriod] = useState("Jan 2026");
+  // Real Current Date
+  const now = useMemo(() => new Date(), []);
+
+  // 1. Dynamic 6-Month Rolling Window ending on current month (e.g. Apr - Sep 2026)
+  const rollingMonths = useMemo(() => {
+    const list = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      list.push({
+        year: y,
+        monthIndex: m,
+        key: `${y}-${String(m + 1).padStart(2, "0")}`,
+        shortLabel: MONTH_NAMES_SHORT[m],
+        fullLabel: `${MONTH_NAMES_FULL[m]} ${y}`,
+        shortPeriod: `${MONTH_NAMES_SHORT[m]} ${y}`,
+      });
+    }
+    return list;
+  }, [now]);
+
+  // Current Month Key & Selected Period
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(
+    `${MONTH_NAMES_SHORT[now.getMonth()]} ${now.getFullYear()}`
+  );
   const [showPeriodModal, setShowPeriodModal] = useState(false);
+
+  // Modals for Transaction History & Add Transaction
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [showPaymentReceivedModal, setShowPaymentReceivedModal] = useState(false);
+  const [showCoachPaymentModal, setShowCoachPaymentModal] = useState(false);
+  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<Invoice | null>(null);
 
   // Search & Filter for Student SPP Table
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PAID" | "PENDING" | "CONFIRM">("ALL");
 
-  // Modals for Transaction History
-  const [showPaymentReceivedModal, setShowPaymentReceivedModal] = useState(false);
-  const [showCoachPaymentModal, setShowCoachPaymentModal] = useState(false);
-  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<Invoice | null>(null);
+  // Form State for "+ Catat Transaksi"
+  const [txType, setTxType] = useState<"income" | "expense">("income");
+  const [txCategory, setTxCategory] = useState("Pendaftaran Siswa Baru");
+  const [txTitle, setTxTitle] = useState("");
+  const [txAmount, setTxAmount] = useState("");
+  const [txDate, setTxDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  });
+  const [txNotes, setTxNotes] = useState("");
+  const [formError, setFormError] = useState("");
+  const [isSubmittingTx, setIsSubmittingTx] = useState(false);
 
-  // Dynamic Invoices calculations
+  const incomeCategories = [
+    "Pendaftaran Siswa Baru",
+    "Merchandise & Alat Renang",
+    "Sewa Perlengkapan/Pelampung",
+    "Event & Lomba Renang",
+    "Sponsorship & Donasi",
+    "Pemasukan Lainnya",
+  ];
+
+  const expenseCategories = [
+    "Sewa Jalur Kolam",
+    "Peralatan & Kaporit",
+    "Konsumsi & Operasional",
+    "Bonus/Insentif Tambahan Pelatih",
+    "Transport & Logistik",
+    "Pengeluaran Lainnya",
+  ];
+
+  // Helper for Date Parsing
+  const getMonthKeyFromDate = (dateStr?: string): string => {
+    if (!dateStr) return currentMonthKey;
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return currentMonthKey;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    } catch {
+      return currentMonthKey;
+    }
+  };
+
+  // Helper to resolve an Invoice's month key
+  const getInvoiceMonthKey = (inv: Invoice): string => {
+    if (inv.date) return getMonthKeyFromDate(inv.date);
+    if (inv.createdAt) return getMonthKeyFromDate(inv.createdAt);
+    const desc = (inv.desc || "").toLowerCase();
+    for (let m = 0; m < 12; m++) {
+      const full = MONTH_NAMES_FULL[m].toLowerCase();
+      const short = MONTH_NAMES_SHORT[m].toLowerCase();
+      if (desc.includes(full) || desc.includes(short)) {
+        const matchYear = desc.match(/20\d{2}/);
+        const y = matchYear ? parseInt(matchYear[0]) : now.getFullYear();
+        return `${y}-${String(m + 1).padStart(2, "0")}`;
+      }
+    }
+    return currentMonthKey;
+  };
+
+  // Format IDR currency
+  const formatIDR = (num: number) => {
+    return `Rp ${Math.round(num).toLocaleString("id-ID")}`;
+  };
+
+  const formatShortK = (num: number) => {
+    if (num >= 1000000) {
+      return `IDR ${(num / 1000000).toFixed(2).replace(/\.00$/, "")}M`;
+    }
+    if (num >= 1000) {
+      return `IDR ${(num / 1000).toFixed(0)}k`;
+    }
+    return `IDR ${num}`;
+  };
+
+  // ==========================================
+  // REAL-DATA AGGREGATIONS (100% FROM DATABASE)
+  // ==========================================
+
+  // Invoices categorization
   const pendingInvoices = invoices.filter((i) => i.status === "Menunggu Konfirmasi");
   const paidInvoices = invoices.filter((i) => i.status === "Lunas");
   const unpaidInvoices = invoices.filter((i) => i.status === "Belum Dibayar");
 
-  const totalIncomePaid = paidInvoices.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalPendingAmount = pendingInvoices.reduce((acc, curr) => acc + curr.amount, 0);
+  // Sum of real paid invoices (Total all-time or current period)
+  const totalStudentPaidAllTime = paidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
-  // Dynamic Coach Payments based on real verified attendances and individual pay_per_session
-  const coachPayrolls = coaches.map((c, idx) => {
-    // Count real attendances recorded for this coach
-    const verifiedCoachAttendances = attendances.filter(
-      (a) =>
-        a.person_type === "coach" &&
-        (String(a.person_id) === String(c.id) ||
-          a.person_name?.toLowerCase().trim() === c.name.toLowerCase().trim() ||
-          a.person_name?.toLowerCase().includes(c.name.toLowerCase().trim()) ||
-          c.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || "")) &&
-        (a.status === "Hadir" || a.status === "Terlambat")
+  // Dynamic Coach Payments based on real verified attendances and completed schedules
+  const coachPayrolls = useMemo(() => {
+    return coaches.map((c, idx) => {
+      // Find completed sessions from schedules
+      const coachSchedules = schedules.filter((s) => {
+        return (
+          s.coachId === c.id ||
+          s.coachName?.toLowerCase().trim() === c.name.toLowerCase().trim() ||
+          c.name.toLowerCase().includes(s.coachName?.toLowerCase().trim() || "")
+        );
+      });
+
+      const completedSchedules = coachSchedules.filter((s) => {
+        if (s.status === "Completed") return true;
+        if (s.date && new Date(s.date) <= now && s.status !== "Cancelled") return true;
+        return false;
+      });
+
+      // Find verified coach attendances
+      const verifiedCoachAttendances = attendances.filter((a) => {
+        const isCoachPerson =
+          a.person_type === "coach" &&
+          (String(a.person_id) === String(c.id) ||
+            a.person_name?.toLowerCase().trim() === c.name.toLowerCase().trim() ||
+            c.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || ""));
+        const isValidStatus = a.status === "Hadir" || a.status === "Terlambat" || a.status === "Selesai";
+        return isCoachPerson && isValidStatus;
+      });
+
+      // Calculate total sessions completed
+      const sessionsCount = Math.max(
+        completedSchedules.length,
+        verifiedCoachAttendances.length,
+        coachSchedules.length > 0 ? coachSchedules.length : 0
+      );
+
+      const ratePerSession = c.pay_per_session || c.payPerSession || 100000;
+      const totalHonor = sessionsCount * ratePerSession;
+
+      return {
+        id: c.id || `coach-${idx}`,
+        name: c.name,
+        spec: c.spec || "Instruktur Renang",
+        phone: c.phone,
+        avatar: c.avatar,
+        verifiedCount: verifiedCoachAttendances.length,
+        completedSchedulesCount: completedSchedules.length,
+        sessionsCount,
+        ratePerSession,
+        totalHonor,
+        status: "Sudah Ditransfer" as const,
+        date: `25 ${MONTH_NAMES_SHORT[now.getMonth()]} ${now.getFullYear()}`,
+        recentAttendances: verifiedCoachAttendances.slice(0, 5),
+      };
+    });
+  }, [coaches, schedules, attendances, now]);
+
+  const totalCoachExpenses = useMemo(() => {
+    return coachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
+  }, [coachPayrolls]);
+
+  // Current Month Real Income & Expense Totals
+  const currentMonthPaidInvoices = paidInvoices.filter(
+    (inv) => getInvoiceMonthKey(inv) === currentMonthKey
+  );
+  const currentMonthStudentIncome = currentMonthPaidInvoices.reduce(
+    (acc, curr) => acc + (curr.amount || 0),
+    0
+  );
+
+  const currentMonthTxIncome = financialTransactions
+    .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === currentMonthKey)
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const currentMonthTxExpense = financialTransactions
+    .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === currentMonthKey)
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  // Total Real Income & Expenses for active month
+  const totalIncomePaid = currentMonthStudentIncome + currentMonthTxIncome;
+  const totalExpenses = totalCoachExpenses + currentMonthTxExpense;
+
+  // Monthly Financial Data for Bar Chart (Rolling 6 Months - Pure Database Aggregations)
+  const monthlyChartData = useMemo(() => {
+    return rollingMonths.map((m) => {
+      // 1. Paid student SPP invoices belonging to this month
+      const monthPaidInvoices = paidInvoices.filter(
+        (inv) => getInvoiceMonthKey(inv) === m.key
+      );
+      const studentIncome = monthPaidInvoices.reduce(
+        (sum, inv) => sum + (inv.amount || 0),
+        0
+      );
+
+      // 2. Custom financial transactions from database for this month
+      const customIncome = financialTransactions
+        .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === m.key)
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+      const customExpense = financialTransactions
+        .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === m.key)
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+      // 3. Coach completed session honor for this month
+      let coachExpense = 0;
+      if (m.key === currentMonthKey) {
+        coachExpense = totalCoachExpenses;
+      } else {
+        // Find completed schedules in this month
+        const monthSchedules = schedules.filter(
+          (s) => getMonthKeyFromDate(s.date) === m.key && (s.status === "Completed" || new Date(s.date) <= now)
+        );
+        coachExpense = monthSchedules.length * 100000;
+      }
+
+      const totalMonthIncome = studentIncome + customIncome;
+      const totalMonthExpense = coachExpense + customExpense;
+
+      return {
+        key: m.key,
+        month: m.shortLabel,
+        fullPeriod: m.fullLabel,
+        income: totalMonthIncome,
+        expenses: totalMonthExpense,
+        isCurrent: m.key === currentMonthKey,
+      };
+    });
+  }, [
+    rollingMonths,
+    paidInvoices,
+    financialTransactions,
+    schedules,
+    currentMonthKey,
+    totalCoachExpenses,
+    now,
+  ]);
+
+  // Max value for chart vertical scaling (dynamic based on highest data point)
+  const maxChartValue = useMemo(() => {
+    const highest = Math.max(
+      ...monthlyChartData.map((d) => Math.max(d.income, d.expenses)),
+      500000
     );
-
-    const baseSessions = 8 + (idx * 2);
-    const sessionsCount = verifiedCoachAttendances.length > 0 ? verifiedCoachAttendances.length : baseSessions;
-    const ratePerSession = c.pay_per_session || c.payPerSession || 100000;
-    const totalHonor = sessionsCount * ratePerSession;
-
-    return {
-      id: c.id || `coach-${idx}`,
-      name: c.name,
-      spec: c.spec || "Instruktur Renang",
-      phone: c.phone,
-      verifiedCount: verifiedCoachAttendances.length,
-      sessionsCount,
-      ratePerSession,
-      totalHonor,
-      status: "Sudah Ditransfer" as const,
-      date: "25 Jan 2026",
-      recentAttendances: verifiedCoachAttendances.slice(0, 5),
-    };
-  });
-
-  const totalCoachExpenses = coachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
-
-  // Monthly Financial Data for Bar Chart (using dynamic income and expense sums)
-  const dynamicExpense = totalCoachExpenses > 0 ? totalCoachExpenses : 650000;
-  const dynamicIncome = totalIncomePaid > 0 ? totalIncomePaid : 1450000;
-
-  const monthlyChartData = [
-    { month: "Jan", income: dynamicIncome, expenses: dynamicExpense },
-    { month: "Feb", income: 1850000, expenses: 900000 },
-    { month: "Mar", income: 1200000, expenses: 850000 },
-    { month: "Apr", income: 1750000, expenses: 1300000 },
-    { month: "May", income: 1800000, expenses: 1350000 },
-    { month: "Jun", income: 2100000, expenses: 1700000 },
-    { month: "Jul", income: 1500000, expenses: 1150000 },
-  ];
-
-  const maxChartValue = Math.max(2200000, dynamicIncome * 1.2, dynamicExpense * 1.2);
+    return Math.ceil((highest * 1.25) / 200000) * 200000;
+  }, [monthlyChartData]);
 
   // Filtered Student SPP list
   const filteredInvoices = invoices.filter((inv) => {
@@ -122,18 +376,47 @@ export default function KeuanganTab({
     return true;
   });
 
-  const formatShortK = (num: number) => {
-    if (num >= 1000000) {
-      return `IDR ${(num / 1000000).toFixed(2).replace(/\.00$/, "")}M`;
-    }
-    if (num >= 1000) {
-      return `IDR ${(num / 1000).toFixed(0)}k`;
-    }
-    return `IDR ${num}`;
-  };
+  // Handler: Add Custom Transaction to PostgreSQL Backend
+  const handleAddTransactionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
 
-  const formatIDR = (num: number) => {
-    return `Rp ${num.toLocaleString("id-ID")}`;
+    const parsedAmount = parseFloat(txAmount.replace(/[^0-9]/g, ""));
+    if (!txTitle.trim()) {
+      setFormError("Judul transaksi wajib diisi.");
+      return;
+    }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setFormError("Nominal transaksi harus berupa angka positif.");
+      return;
+    }
+    if (!txDate) {
+      setFormError("Tanggal transaksi wajib dipilih.");
+      return;
+    }
+
+    try {
+      setIsSubmittingTx(true);
+      if (onAddFinancialTransaction) {
+        await onAddFinancialTransaction({
+          type: txType,
+          category: txCategory,
+          title: txTitle.trim(),
+          amount: parsedAmount,
+          date: txDate,
+          notes: txNotes.trim(),
+        });
+      }
+
+      setTxTitle("");
+      setTxAmount("");
+      setTxNotes("");
+      setShowAddTransactionModal(false);
+    } catch (err: any) {
+      setFormError(err.message || "Gagal menyimpan transaksi ke database.");
+    } finally {
+      setIsSubmittingTx(false);
+    }
   };
 
   return (
@@ -151,7 +434,7 @@ export default function KeuanganTab({
         <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
         <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
 
-        <div className="max-w-3xl mx-auto relative z-10">
+        <div className="max-w-3xl mx-auto relative z-10 flex items-center justify-between">
           {/* Title: Keuangan & Subtitle */}
           <div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -161,15 +444,25 @@ export default function KeuanganTab({
               Financial Overview, Cashflow &amp; Status Pembayaran SPP
             </p>
           </div>
+
+          {/* Action Button: + Catat Transaksi */}
+          <button
+            onClick={() => setShowAddTransactionModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 backdrop-blur-xs transition cursor-pointer shadow-xs active:scale-95"
+            title="Catat Pemasukan atau Pengeluaran Lainnya"
+          >
+            <Plus size={15} className="stroke-[2.5]" />
+            <span className="hidden sm:inline">Catat Transaksi</span>
+          </button>
         </div>
       </div>
 
       {/* ==========================================
-          MAIN CONTAINER (FLOATING CARDS)
+          MAIN CONTAINER (FLOATING CARDS - ORIGINAL LAYOUT)
           ========================================== */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20">
         {/* ==========================================
-            CARD 1: FINANCIAL OVERVIEW & CHART
+            CARD 1: FINANCIAL OVERVIEW & 6-MONTH CHART
             ========================================== */}
         <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-5 animate-fadeIn">
           {/* Top Title & Period Selector */}
@@ -210,29 +503,29 @@ export default function KeuanganTab({
             </div>
           </div>
 
-          {/* Vertical Bar Chart Container */}
+          {/* Vertical Bar Chart Container (Dynamic 6 Months Rolling) */}
           <div className="pt-2">
-            <div className="relative h-48 sm:h-56 flex items-end justify-between gap-1 sm:gap-2 pb-6 pt-4 px-2 sm:px-4 bg-slate-50/60 rounded-2xl border border-slate-100">
+            <div className="relative h-52 sm:h-60 flex items-end justify-between gap-1 sm:gap-2 pb-7 pt-5 px-2 sm:px-4 bg-slate-50/70 rounded-2xl border border-slate-100">
               {/* Background Grid Lines & Y-Axis Labels */}
-              <div className="absolute inset-x-2 sm:inset-x-4 top-4 bottom-6 flex flex-col justify-between pointer-events-none opacity-40">
+              <div className="absolute inset-x-2 sm:inset-x-4 top-5 bottom-7 flex flex-col justify-between pointer-events-none opacity-40">
                 <div className="border-b border-slate-300 border-dashed w-full relative">
                   <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
-                    2.00M
+                    {formatShortK(maxChartValue)}
                   </span>
                 </div>
                 <div className="border-b border-slate-300 border-dashed w-full relative">
                   <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
-                    1.50M
+                    {formatShortK(maxChartValue * 0.75)}
                   </span>
                 </div>
                 <div className="border-b border-slate-300 border-dashed w-full relative">
                   <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
-                    1.00M
+                    {formatShortK(maxChartValue * 0.5)}
                   </span>
                 </div>
                 <div className="border-b border-slate-300 border-dashed w-full relative">
                   <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
-                    500k
+                    {formatShortK(maxChartValue * 0.25)}
                   </span>
                 </div>
                 <div className="border-b border-slate-300 w-full relative">
@@ -244,8 +537,14 @@ export default function KeuanganTab({
 
               {/* Monthly Bar Pairs */}
               {monthlyChartData.map((item, idx) => {
-                const incomeHeight = Math.min(100, Math.round((item.income / maxChartValue) * 100));
-                const expenseHeight = Math.min(100, Math.round((item.expenses / maxChartValue) * 100));
+                const incomeHeight =
+                  item.income > 0
+                    ? Math.min(100, Math.max(6, Math.round((item.income / maxChartValue) * 100)))
+                    : 0;
+                const expenseHeight =
+                  item.expenses > 0
+                    ? Math.min(100, Math.max(6, Math.round((item.expenses / maxChartValue) * 100)))
+                    : 0;
 
                 return (
                   <div
@@ -253,31 +552,45 @@ export default function KeuanganTab({
                     className="flex-1 flex flex-col items-center justify-end h-full relative group z-10"
                   >
                     {/* Tooltip on Hover */}
-                    <div className="absolute -top-12 bg-slate-900 text-white text-[9px] py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap shadow-lg z-30">
-                      <p className="font-bold">{item.month}:</p>
-                      <p className="text-cyan-300">Income: {formatIDR(item.income)}</p>
-                      <p className="text-amber-300">Expense: {formatIDR(item.expenses)}</p>
+                    <div className="absolute -top-12 bg-slate-900 text-white text-[9px] py-1.5 px-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap shadow-lg z-30 space-y-0.5">
+                      <p className="font-bold text-white">
+                        {item.month} ({item.fullPeriod}):
+                      </p>
+                      <p className="text-cyan-300 font-semibold">
+                        Income: {formatIDR(item.income)}
+                      </p>
+                      <p className="text-amber-300 font-semibold">
+                        Expense: {formatIDR(item.expenses)}
+                      </p>
                     </div>
 
-                    {/* Dual Bars */}
-                    <div className="flex items-end justify-center gap-1 w-full max-w-[36px]">
+                    {/* Dual Bars Wrapper with h-full */}
+                    <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full max-w-[36px] h-full pb-0.5">
                       {/* Income Bar (Blue) */}
                       <div
-                        className="w-1/2 rounded-t-md bg-gradient-to-t from-blue-700 to-blue-500 shadow-xs transition-all duration-500 group-hover:brightness-110 cursor-pointer"
-                        style={{ height: `${incomeHeight}%` }}
+                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                          incomeHeight > 0
+                            ? "bg-gradient-to-t from-blue-700 via-blue-600 to-blue-500 shadow-xs"
+                            : "bg-slate-200/60"
+                        }`}
+                        style={{ height: `${Math.max(2, incomeHeight)}%` }}
                         title={`${item.month} Income: ${formatIDR(item.income)}`}
                       />
 
                       {/* Expense Bar (Amber / Orange) */}
                       <div
-                        className="w-1/2 rounded-t-md bg-gradient-to-t from-amber-600 to-amber-400 shadow-xs transition-all duration-500 group-hover:brightness-110 cursor-pointer"
-                        style={{ height: `${expenseHeight}%` }}
+                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                          expenseHeight > 0
+                            ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-xs"
+                            : "bg-slate-200/60"
+                        }`}
+                        style={{ height: `${Math.max(2, expenseHeight)}%` }}
                         title={`${item.month} Expense: ${formatIDR(item.expenses)}`}
                       />
                     </div>
 
                     {/* Month Label */}
-                    <span className="absolute -bottom-5 text-[10px] sm:text-xs font-bold text-slate-600">
+                    <span className="absolute -bottom-6 text-[10px] sm:text-xs font-black text-slate-600">
                       {item.month}
                     </span>
                   </div>
@@ -288,7 +601,7 @@ export default function KeuanganTab({
         </div>
 
         {/* ==========================================
-            CARD 2: TRANSACTION HISTORY
+            CARD 2: TRANSACTION HISTORY (ORIGINAL LAYOUT)
             ========================================== */}
         <div className="space-y-2.5">
           <h3 className="text-sm font-black text-slate-900 px-1 flex items-center gap-1.5">
@@ -317,7 +630,7 @@ export default function KeuanganTab({
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100">
-                  +{formatShortK(totalIncomePaid || 1450000)}
+                  +{formatShortK(totalIncomePaid)}
                 </span>
                 <ChevronRight size={16} className="text-slate-400" />
               </div>
@@ -344,11 +657,54 @@ export default function KeuanganTab({
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100">
-                  -{formatShortK(totalCoachExpenses || 650000)}
+                  -{formatShortK(totalExpenses)}
                 </span>
                 <ChevronRight size={16} className="text-slate-400" />
               </div>
             </div>
+
+            {/* Item 3 (If any): Manual Transactions recorded */}
+            {financialTransactions.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-100 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between text-xs font-black text-slate-700">
+                  <span>Transaksi Manual Tercatat ({financialTransactions.length})</span>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {financialTransactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-slate-900">{tx.title}</p>
+                        <p className="text-[10px] text-slate-400">
+                          {tx.category} • {tx.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs font-black ${
+                            tx.type === "income" ? "text-emerald-600" : "text-amber-600"
+                          }`}
+                        >
+                          {tx.type === "income" ? "+" : "-"}
+                          {formatIDR(tx.amount)}
+                        </span>
+                        {onDeleteFinancialTransaction && (
+                          <button
+                            onClick={() => onDeleteFinancialTransaction(tx.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            title="Hapus Transaksi"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -424,7 +780,7 @@ export default function KeuanganTab({
                 Student SPP Payment Status
               </h3>
               <p className="text-xs text-slate-400 font-medium">
-                Daftar &amp; Status Tagihan SPP Siswa
+                Daftar &amp; Status Tagihan SPP Siswa ({paidInvoices.length}/{invoices.length} Lunas)
               </p>
             </div>
 
@@ -438,7 +794,7 @@ export default function KeuanganTab({
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                Semua
+                Semua ({invoices.length})
               </button>
               <button
                 onClick={() => setStatusFilter("PAID")}
@@ -448,7 +804,7 @@ export default function KeuanganTab({
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                Paid
+                Lunas ({paidInvoices.length})
               </button>
               <button
                 onClick={() => setStatusFilter("PENDING")}
@@ -458,7 +814,7 @@ export default function KeuanganTab({
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                Pending
+                Pending ({unpaidInvoices.length})
               </button>
             </div>
           </div>
@@ -483,16 +839,16 @@ export default function KeuanganTab({
             )}
           </div>
 
-          {/* Table Styled matching the Mockup */}
+          {/* Table */}
           <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-black">
                     <th className="py-3 px-3.5">Name</th>
-                    <th className="py-3 px-3">Date</th>
+                    <th className="py-3 px-3">Tagihan</th>
                     <th className="py-3 px-3">Amount</th>
-                    <th className="py-3 px-3.5 text-right">Paid</th>
+                    <th className="py-3 px-3.5 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -519,12 +875,12 @@ export default function KeuanganTab({
                           {/* Name */}
                           <td className="py-3.5 px-3.5">
                             <p className="font-black text-slate-900 capitalize">{inv.name}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">{inv.desc}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">ID: {inv.studentId || inv.id}</p>
                           </td>
 
-                          {/* Date */}
+                          {/* Tagihan / Desc */}
                           <td className="py-3.5 px-3 text-slate-500 font-medium whitespace-nowrap">
-                            {isPaid ? "Jan 20" : isConfirm ? "Jan 18" : "Jan 15"}
+                            {inv.desc || "SPP Bulanan Renang"}
                           </td>
 
                           {/* Amount */}
@@ -558,6 +914,190 @@ export default function KeuanganTab({
       </div>
 
       {/* ==========================================
+          MODAL: + CATAT TRANSAKSI (POSTGRESQL DB)
+          ========================================== */}
+      {showAddTransactionModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => setShowAddTransactionModal(false)}
+            className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <Plus size={20} className="stroke-[3]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Catat Transaksi Keuangan
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Input Pemasukan atau Pengeluaran ke Database
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddTransactionModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
+              {formError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle size={14} />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Transaction Type Segmented Toggle */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  Jenis Transaksi
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTxType("income");
+                      setTxCategory(incomeCategories[0]);
+                    }}
+                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      txType === "income"
+                        ? "bg-white text-blue-600 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>Pemasukan (Income)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTxType("expense");
+                      setTxCategory(expenseCategories[0]);
+                    }}
+                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      txType === "expense"
+                        ? "bg-white text-amber-600 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>Pengeluaran (Expense)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  Kategori
+                </label>
+                <select
+                  value={txCategory}
+                  onChange={(e) => setTxCategory(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {(txType === "income" ? incomeCategories : expenseCategories).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  Judul Transaksi
+                </label>
+                <input
+                  type="text"
+                  placeholder={
+                    txType === "income"
+                      ? "Contoh: Pendaftaran Siswa Baru, Penjualan Kacamata"
+                      : "Contoh: Sewa 3 Jalur Kolam, Beli Pelampung"
+                  }
+                  value={txTitle}
+                  onChange={(e) => setTxTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Amount & Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Nominal */}
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-1">
+                    Nominal (Rp)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                      Rp
+                    </span>
+                    <input
+                      type="number"
+                      placeholder="500000"
+                      value={txAmount}
+                      onChange={(e) => setTxAmount(e.target.value)}
+                      className="w-full px-3.5 py-2.5 pl-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-1">
+                    Tanggal Transaksi
+                  </label>
+                  <input
+                    type="date"
+                    value={txDate}
+                    onChange={(e) => setTxDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  Catatan / Keterangan (Opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Keterangan tambahan transaksi..."
+                  value={txNotes}
+                  onChange={(e) => setTxNotes(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTransactionModal(false)}
+                  className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingTx}
+                  className="px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition cursor-pointer shadow-md shadow-blue-600/20 disabled:opacity-50"
+                >
+                  {isSubmittingTx ? "Menyimpan..." : "Simpan Transaksi"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
           MODAL: PAYMENT RECEIVED (DETAIL PEMBAYARAN MASUK)
           ========================================== */}
       {showPaymentReceivedModal && (
@@ -577,7 +1117,7 @@ export default function KeuanganTab({
                     Payment Received
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Riwayat Pembayaran SPP Masuk &amp; Terverifikasi
+                    Total: <span className="font-bold text-emerald-600">{formatIDR(totalStudentPaidAllTime)}</span> dari {paidInvoices.length} siswa lunas
                   </p>
                 </div>
               </div>
@@ -592,7 +1132,7 @@ export default function KeuanganTab({
             <div className="space-y-2.5">
               {paidInvoices.length === 0 ? (
                 <p className="text-xs text-slate-400 italic py-6 text-center">
-                  Belum ada transaksi pembayaran SPP yang tercatat lunas.
+                  Belum ada transaksi pembayaran SPP yang tercatat lunas di database.
                 </p>
               ) : (
                 paidInvoices.map((inv) => (
@@ -601,8 +1141,8 @@ export default function KeuanganTab({
                     className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3"
                   >
                     <div>
-                      <p className="text-xs font-black text-slate-900">{inv.name}</p>
-                      <p className="text-[10px] text-slate-400">{inv.desc}</p>
+                      <p className="text-xs font-black text-slate-900 capitalize">{inv.name}</p>
+                      <p className="text-[10px] text-slate-400">{inv.desc || "SPP Bulanan"}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-black text-emerald-600">
@@ -695,7 +1235,7 @@ export default function KeuanganTab({
                     <div className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span className="text-slate-600 font-semibold">
-                        Basis: <span className="font-bold text-slate-900">{c.verifiedCount > 0 ? `${c.verifiedCount} Sesi Tervalidasi` : `${c.sessionsCount} Sesi Jadwal`}</span>
+                        Basis: <span className="font-bold text-slate-900">{c.verifiedCount > 0 ? `${c.verifiedCount} Sesi Tervalidasi` : `${c.sessionsCount} Sesi Selesai`}</span>
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-1">
@@ -803,33 +1343,20 @@ export default function KeuanganTab({
               Pilih Periode Keuangan
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                "Jan 2026",
-                "Feb 2026",
-                "Mar 2026",
-                "Apr 2026",
-                "Mei 2026",
-                "Jun 2026",
-                "Jul 2026",
-                "Agu 2026",
-                "Sep 2026",
-                "Okt 2026",
-                "Nov 2026",
-                "Des 2026",
-              ].map((period) => (
+              {rollingMonths.map((m) => (
                 <button
-                  key={period}
+                  key={m.key}
                   onClick={() => {
-                    setSelectedPeriod(period);
+                    setSelectedPeriod(m.shortPeriod);
                     setShowPeriodModal(false);
                   }}
                   className={`p-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedPeriod === period
-                      ? "bg-blue-600 text-white shadow-xs"
+                    selectedPeriod === m.shortPeriod
+                      ? "bg-blue-600 text-white shadow-xs font-black"
                       : "bg-slate-50 hover:bg-cyan-50 text-slate-700 border border-slate-100"
                   }`}
                 >
-                  {period}
+                  {m.shortPeriod}
                 </button>
               ))}
             </div>

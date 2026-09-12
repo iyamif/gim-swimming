@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Calendar,
   CalendarDays,
@@ -18,6 +18,11 @@ import {
   Check,
   X,
   Award,
+  RotateCcw,
+  MessageCircle,
+  CheckCircle2,
+  Send,
+  Info,
 } from "lucide-react";
 import { ScheduleSession, Student, Coach } from "../types";
 
@@ -42,6 +47,8 @@ interface JadwalTabProps {
   schedules: ScheduleSession[];
   students: Student[];
   coaches: Coach[];
+  sessionUser?: string;
+  sessionRole?: string;
   onAddSchedule: (newSchedule: Omit<ScheduleSession, "id">) => void;
   onUpdateSchedule?: (id: string, updatedSchedule: Partial<ScheduleSession>) => void;
   onDeleteSchedule: (id: string) => void;
@@ -52,14 +59,46 @@ export default function JadwalTab({
   schedules,
   students,
   coaches,
+  sessionUser = "",
+  sessionRole = "admin",
   onAddSchedule,
   onUpdateSchedule,
   onDeleteSchedule,
   setActiveTab,
 }: JadwalTabProps) {
+  const isCoachRole = sessionRole === "pelatih";
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterClass, setFilterClass] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ==========================================
+  // RESCHEDULE REQUEST STATE (FOR COACH ROLE)
+  // ==========================================
+  const [rescheduleSchedule, setRescheduleSchedule] = useState<ScheduleSession | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [isRescheduleCalendarOpen, setIsRescheduleCalendarOpen] = useState(false);
+  const [rescheduleCalYear, setRescheduleCalYear] = useState(() => new Date().getFullYear());
+  const [rescheduleCalMonth, setRescheduleCalMonth] = useState(() => new Date().getMonth());
+  const rescheduleCalendarRef = useRef<HTMLDivElement>(null);
+
+  const [rescheduleTimeStart, setRescheduleTimeStart] = useState("15:00");
+  const [rescheduleTimeEnd, setRescheduleTimeEnd] = useState("16:00");
+  const [reschedulePoolArea, setReschedulePoolArea] = useState("Nalendra");
+  const [rescheduleReason, setRescheduleReason] = useState("Ada keperluan mendesak");
+  const [rescheduleCustomReason, setRescheduleCustomReason] = useState("");
+  const [rescheduleSuccessModal, setRescheduleSuccessModal] = useState<{
+    isOpen: boolean;
+    waUrl: string;
+    scheduleTitle: string;
+    newDateTime: string;
+    coachName: string;
+  }>({
+    isOpen: false,
+    waUrl: "",
+    scheduleTitle: "",
+    newDateTime: "",
+    coachName: "",
+  });
 
   // Helper for today's local date string (YYYY-MM-DD)
   const getTodayString = () => {
@@ -173,9 +212,15 @@ export default function JadwalTab({
       ) {
         setIsEditCalendarOpen(false);
       }
+      if (
+        rescheduleCalendarRef.current &&
+        !rescheduleCalendarRef.current.contains(event.target as Node)
+      ) {
+        setIsRescheduleCalendarOpen(false);
+      }
     };
 
-    if (isCalendarOpen || isEditCalendarOpen) {
+    if (isCalendarOpen || isEditCalendarOpen || isRescheduleCalendarOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
     }
@@ -183,7 +228,7 @@ export default function JadwalTab({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [isCalendarOpen, isEditCalendarOpen]);
+  }, [isCalendarOpen, isEditCalendarOpen, isRescheduleCalendarOpen]);
 
   // Calendar month navigation for Create Modal
   const handlePrevCalMonth = () => {
@@ -220,6 +265,25 @@ export default function JadwalTab({
       setEditCalYear((y) => y + 1);
     } else {
       setEditCalMonth((m) => m + 1);
+    }
+  };
+
+  // Calendar month navigation for Reschedule Modal
+  const handlePrevRescheduleCalMonth = () => {
+    if (rescheduleCalMonth === 0) {
+      setRescheduleCalMonth(11);
+      setRescheduleCalYear((y) => y - 1);
+    } else {
+      setRescheduleCalMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextRescheduleCalMonth = () => {
+    if (rescheduleCalMonth === 11) {
+      setRescheduleCalMonth(0);
+      setRescheduleCalYear((y) => y + 1);
+    } else {
+      setRescheduleCalMonth((m) => m + 1);
     }
   };
 
@@ -778,7 +842,121 @@ export default function JadwalTab({
     setEditingSchedule(null);
   };
 
-  const filteredSchedules = schedules.filter((sch) => {
+  // Open Reschedule Request Modal for Coach
+  const handleOpenRescheduleModal = (sch: ScheduleSession) => {
+    setRescheduleSchedule(sch);
+    setRescheduleDate(sch.date || todayStr);
+    const cls = sch.class || "Private Class";
+    const start = sch.timeStart || "15:00";
+    setRescheduleTimeStart(start);
+    setRescheduleTimeEnd(sch.timeEnd || calculateEndTimeForClass(start, cls));
+    setReschedulePoolArea(sch.poolArea || (cls === "Prestasi" ? "312 Wera" : "Nalendra"));
+    setRescheduleReason("Ada keperluan mendesak");
+    setRescheduleCustomReason("");
+
+    if (sch.date) {
+      try {
+        const d = new Date(sch.date + "T00:00:00");
+        setRescheduleCalYear(d.getFullYear());
+        setRescheduleCalMonth(d.getMonth());
+      } catch {}
+    }
+  };
+
+  // Handle Submit Reschedule Request
+  const handleRescheduleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleSchedule) return;
+
+    if (!rescheduleDate || rescheduleDate < todayStr) {
+      alert("Tanggal reschedule yang diajukan tidak boleh tanggal yang sudah lewat!");
+      return;
+    }
+
+    const durationErr = validateDurationForClass(
+      rescheduleSchedule.class,
+      rescheduleTimeStart,
+      rescheduleTimeEnd
+    );
+    if (durationErr) {
+      alert(`⚠️ VALIDASI DURASI RESCHEDULE:\n\n${durationErr}`);
+      return;
+    }
+
+    const finalReason =
+      rescheduleReason === "Lainnya"
+        ? rescheduleCustomReason.trim() || "Keperluan mendesak"
+        : rescheduleReason;
+
+    const rescheduleTag = `[REQ RESCHEDULE: Diajukan ke ${formatDateIndo(rescheduleDate)} ${rescheduleTimeStart}-${rescheduleTimeEnd} WIB (${reschedulePoolArea}) | Alasan: ${finalReason}]`;
+
+    // Clean old reschedule tag if already present
+    const cleanOldNotes = (rescheduleSchedule.notes || "")
+      .replace(/\[REQ RESCHEDULE:[^\]]*\]/g, "")
+      .trim();
+    const newNotes = cleanOldNotes
+      ? `${cleanOldNotes} | ${rescheduleTag}`
+      : rescheduleTag;
+
+    if (onUpdateSchedule) {
+      onUpdateSchedule(rescheduleSchedule.id, {
+        notes: newNotes,
+      });
+    }
+
+    // Format WhatsApp message to Admin
+    const studentsText =
+      rescheduleSchedule.studentNames && rescheduleSchedule.studentNames.length > 0
+        ? rescheduleSchedule.studentNames.join(", ")
+        : "Siswa";
+
+    const waMessage =
+      `*Halo Admin GIM Swimming, Pengajuan Reschedule Jadwal*\n\n` +
+      `Pelatih: *${rescheduleSchedule.coachName}*\n` +
+      `Sesi / Kelas: *${rescheduleSchedule.title}* (${rescheduleSchedule.class})\n` +
+      `Siswa Terjadwal: *${studentsText}*\n\n` +
+      `• *Jadwal Semula:* ${formatDateIndo(rescheduleSchedule.date)} (${rescheduleSchedule.timeStart} - ${rescheduleSchedule.timeEnd} WIB di ${rescheduleSchedule.poolArea})\n` +
+      `• *Jadwal Baru Diajukan:* ${formatDateIndo(rescheduleDate)} (${rescheduleTimeStart} - ${rescheduleTimeEnd} WIB di ${reschedulePoolArea})\n` +
+      `• *Alasan Pengajuan:* ${finalReason}\n\n` +
+      `Mohon dibantu konfirmasi perubahan jadwal ke siswa & update di sistem. Terima kasih! 🙏`;
+
+    const adminPhone = "6281234567800";
+    const waUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(waMessage)}`;
+
+    const savedTitle = rescheduleSchedule.title;
+    const savedCoach = rescheduleSchedule.coachName;
+    const newDateTimeStr = `${formatShortDateIndo(rescheduleDate)}, ${rescheduleTimeStart} - ${rescheduleTimeEnd} WIB (${reschedulePoolArea})`;
+
+    setRescheduleSchedule(null);
+    setRescheduleSuccessModal({
+      isOpen: true,
+      waUrl,
+      scheduleTitle: savedTitle,
+      newDateTime: newDateTimeStr,
+      coachName: savedCoach,
+    });
+  };
+
+  // Filter schedules strictly for coach if sessionRole === "pelatih"
+  const relevantSchedules = useMemo(() => {
+    if (isCoachRole) {
+      const coachUser = (sessionUser || "").toLowerCase().trim();
+      const coachClean = coachUser.replace(/^coach\s+/i, "").trim();
+      const matched = schedules.filter((s) => {
+        const sCoach = (s.coachName || "").toLowerCase().trim();
+        const sCoachClean = sCoach.replace(/^coach\s+/i, "").trim();
+        return (
+          (s.coachId && coaches.some((c) => String(c.id) === String(s.coachId) && (c.name.toLowerCase().includes(coachClean) || coachClean.includes(c.name.toLowerCase())))) ||
+          (sCoachClean && (sCoachClean === coachClean || sCoachClean.includes(coachClean) || coachClean.includes(sCoachClean))) ||
+          (s.coachPhone && s.coachPhone.includes(coachUser))
+        );
+      });
+      return matched;
+    }
+    return schedules;
+  }, [schedules, isCoachRole, sessionUser, coaches]);
+
+  const filteredSchedules = relevantSchedules.filter((sch) => {
     const matchClass = filterClass === "Semua" || sch.class === filterClass;
     const matchSearch =
       (sch.coachName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -816,21 +994,25 @@ export default function JadwalTab({
           <div className="flex items-center gap-2">
             <Calendar size={20} className="text-blue-600" />
             <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
-              Manajemen Jadwal Les Renang
+              {isCoachRole ? "Jadwal Mengajar Saya" : "Manajemen Jadwal Les Renang"}
             </h2>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Klik pada kartu jadwal untuk mengubah tanggal, jam, atau pelatih
+            {isCoachRole
+              ? "Daftar sesi mengajar Anda. Klik tombol 'Req Reschedule' bila berhalangan atau ingin mengajukan perubahan waktu."
+              : "Klik pada kartu jadwal untuk mengubah tanggal, jam, atau pelatih"}
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2"
-        >
-          <Plus size={15} />
-          <span>Buat Jadwal Baru</span>
-        </button>
+        {!isCoachRole && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            <Plus size={15} />
+            <span>Buat Jadwal Baru</span>
+          </button>
+        )}
       </div>
 
       {/* ==========================================
@@ -869,150 +1051,200 @@ export default function JadwalTab({
       </div>
 
       {/* ==========================================
-          SCHEDULE LIST CARDS (CLICKABLE FOR EDIT)
+          SCHEDULE LIST CARDS (CLICKABLE FOR EDIT / RESCHEDULE)
           ========================================== */}
       {filteredSchedules.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 shadow-sm space-y-3">
           <CalendarDays size={40} className="text-slate-300 mx-auto" />
-          <h3 className="text-sm font-bold text-slate-700">Belum Ada Jadwal Sesi</h3>
+          <h3 className="text-sm font-bold text-slate-700">
+            {isCoachRole ? "Belum Ada Jadwal Mengajar" : "Belum Ada Jadwal Sesi"}
+          </h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Tidak ditemukan jadwal renang yang cocok. Klik tombol di bawah untuk membuat jadwal sesi baru.
+            {isCoachRole
+              ? "Tidak ditemukan jadwal sesi mengajar untuk Anda saat ini. Hubungi admin jika membutuhkan konfirmasi jadwal."
+              : "Tidak ditemukan jadwal renang yang cocok. Klik tombol di bawah untuk membuat jadwal sesi baru."}
           </p>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="mt-2 px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer flex items-center gap-1.5 mx-auto"
-          >
-            <Plus size={13} />
-            <span>Tambah Jadwal Sekarang</span>
-          </button>
+          {!isCoachRole && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="mt-2 px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer flex items-center gap-1.5 mx-auto"
+            >
+              <Plus size={13} />
+              <span>Tambah Jadwal Sekarang</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredSchedules.map((sch) => (
-            <div
-              key={sch.id}
-              onClick={() => handleOpenEditModal(sch)}
-              className="p-5 rounded-3xl bg-white border border-slate-100 hover:border-blue-300 shadow-sm hover:shadow-md transition space-y-3.5 relative overflow-hidden group cursor-pointer active:scale-[0.99]"
-              title="Klik untuk mengedit jadwal ini"
-            >
-              {/* Header card */}
-              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-cyan-50 text-cyan-700 border border-cyan-100">
-                      {sch.class}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-0.5">
-                      <MapPin size={11} className="text-slate-400" />
-                      <span>{sch.poolArea}</span>
-                    </span>
-                  </div>
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-1 flex items-center gap-1.5">
-                    <span>{sch.title}</span>
-                    <Pencil size={12} className="text-blue-500 opacity-0 group-hover:opacity-100 transition" />
-                  </h4>
-                </div>
+          {filteredSchedules.map((sch) => {
+            const hasRescheduleReq = (sch.notes || "").includes("[REQ RESCHEDULE:");
+            const rescheduleMatch = (sch.notes || "").match(/\[REQ RESCHEDULE:\s*([^\]]+)\]/);
+            const rescheduleDetails = rescheduleMatch ? rescheduleMatch[1] : null;
 
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-black text-blue-600 block flex items-center gap-1 justify-end">
-                    <Clock size={12} className="text-blue-600" />
-                    <span>{sch.timeStart} - {sch.timeEnd} WIB</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500">
-                    {formatDateIndo(sch.date)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Coach Row */}
-              <div className="flex items-center justify-between p-2.5 bg-slate-50/80 rounded-2xl border border-slate-100 text-xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-xs">
-                    <Award size={16} />
-                  </div>
+            return (
+              <div
+                key={sch.id}
+                onClick={() => {
+                  if (isCoachRole) {
+                    handleOpenRescheduleModal(sch);
+                  } else {
+                    handleOpenEditModal(sch);
+                  }
+                }}
+                className="p-5 rounded-3xl bg-white border border-slate-100 hover:border-blue-300 shadow-sm hover:shadow-md transition space-y-3.5 relative overflow-hidden group cursor-pointer active:scale-[0.99]"
+                title={isCoachRole ? "Klik untuk mengajukan request reschedule" : "Klik untuk mengedit jadwal ini"}
+              >
+                {/* Header card */}
+                <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                   <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Pelatih / Instruktur</p>
-                    <p className="font-bold text-slate-800">{sch.coachName}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-cyan-50 text-cyan-700 border border-cyan-100">
+                        {sch.class}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 flex items-center gap-0.5">
+                        <MapPin size={11} className="text-slate-400" />
+                        <span>{sch.poolArea}</span>
+                      </span>
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-1 flex items-center gap-1.5">
+                      <span>{sch.title}</span>
+                      {isCoachRole ? (
+                        <RotateCcw size={12} className="text-amber-500 opacity-0 group-hover:opacity-100 transition" />
+                      ) : (
+                        <Pencil size={12} className="text-blue-500 opacity-0 group-hover:opacity-100 transition" />
+                      )}
+                    </h4>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-black text-blue-600 block flex items-center gap-1 justify-end">
+                      <Clock size={12} className="text-blue-600" />
+                      <span>{sch.timeStart} - {sch.timeEnd} WIB</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500">
+                      {formatDateIndo(sch.date)}
+                    </span>
                   </div>
                 </div>
 
-                {sch.coachPhone && (
-                  <a
-                    href={`https://wa.me/${sch.coachPhone}?text=Halo%20${sch.coachName},%20konfirmasi%20jadwal%20latihan%20renang`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-                  >
-                    Hubungi
-                  </a>
+                {/* Reschedule Banner if pending */}
+                {hasRescheduleReq && rescheduleDetails && (
+                  <div className="p-2.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-[11px] space-y-1">
+                    <div className="flex items-center gap-1.5 font-black text-amber-800">
+                      <RotateCcw size={12} className="text-amber-600 shrink-0" />
+                      <span>Permintaan Reschedule Diajukan</span>
+                    </div>
+                    <p className="text-[10px] text-amber-700 leading-snug">
+                      {rescheduleDetails}
+                    </p>
+                  </div>
                 )}
-              </div>
 
-              {/* Students Enrolled Row */}
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Siswa Terjadwal ({sch.studentNames.length}):
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {sch.studentNames.map((name, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-800 text-[11px] font-semibold"
+                {/* Coach Row */}
+                <div className="flex items-center justify-between p-2.5 bg-slate-50/80 rounded-2xl border border-slate-100 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-xs">
+                      <Award size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Pelatih / Instruktur</p>
+                      <p className="font-bold text-slate-800">{sch.coachName}</p>
+                    </div>
+                  </div>
+
+                  {sch.coachPhone && (
+                    <a
+                      href={`https://wa.me/${sch.coachPhone}?text=Halo%20${sch.coachName},%20konfirmasi%20jadwal%20latihan%20renang`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
                     >
-                      <User size={11} className="text-slate-400" />
-                      <span>{name}</span>
-                    </span>
-                  ))}
+                      Hubungi
+                    </a>
+                  )}
                 </div>
-              </div>
 
-              {/* Notes if any */}
-              {sch.notes && (
-                <div className="p-2.5 bg-cyan-50/40 rounded-xl border border-cyan-100/50 text-[11px] text-slate-600">
-                  <span className="font-bold text-cyan-800">Catatan: </span>
-                  {sch.notes}
+                {/* Students Enrolled Row */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Siswa Terjadwal ({sch.studentNames.length}):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sch.studentNames.map((name, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-800 text-[11px] font-semibold"
+                      >
+                        <User size={11} className="text-slate-400" />
+                        <span>{name}</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              )}
 
-              {/* Action Buttons Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                <div className="flex items-center gap-2">
+                {/* Notes if any */}
+                {sch.notes && !hasRescheduleReq && (
+                  <div className="p-2.5 bg-cyan-50/40 rounded-xl border border-cyan-100/50 text-[11px] text-slate-600">
+                    <span className="font-bold text-cyan-800">Catatan: </span>
+                    {sch.notes}
+                  </div>
+                )}
+
+                {/* Action Buttons Footer */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  {isCoachRole ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenRescheduleModal(sch);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-2xs"
+                      >
+                        <RotateCcw size={12} className="text-amber-600" />
+                        <span>Req Reschedule</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSchedule(sch.id);
+                        }}
+                        className="px-2.5 py-1 rounded-xl text-red-500 hover:bg-red-50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                      >
+                        <Trash2 size={12} />
+                        <span>Hapus</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditModal(sch);
+                        }}
+                        className="px-2.5 py-1 rounded-xl text-blue-600 hover:bg-blue-50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                      >
+                        <Pencil size={12} />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDeleteSchedule(sch.id);
+                      if (setActiveTab) setActiveTab("absensi");
                     }}
-                    className="px-2.5 py-1 rounded-xl text-red-500 hover:bg-red-50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                    className="px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
                   >
-                    <Trash2 size={12} />
-                    <span>Hapus</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenEditModal(sch);
-                    }}
-                    className="px-2.5 py-1 rounded-xl text-blue-600 hover:bg-blue-50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                  >
-                    <Pencil size={12} />
-                    <span>Edit</span>
+                    <Clock size={12} />
+                    <span>Mulai Presensi</span>
                   </button>
                 </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (setActiveTab) setActiveTab("absensi");
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                >
-                  <Clock size={12} />
-                  <span>Mulai Presensi</span>
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -2043,6 +2275,382 @@ export default function JadwalTab({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: REQUEST RESCHEDULE (FOR COACH ROLE)
+          ========================================== */}
+      {rescheduleSchedule && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+          <div
+            onClick={() => setRescheduleSchedule(null)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                  <RotateCcw size={12} /> Pengajuan Reschedule Jadwal
+                </span>
+                <h3 className="text-base font-black text-slate-900 mt-0.5">
+                  {rescheduleSchedule.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setRescheduleSchedule(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Current Schedule Info Box */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Informasi Jadwal Semula:
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-slate-700">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Hari & Tanggal:</span>
+                  <span className="font-bold">{formatDateIndo(rescheduleSchedule.date)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Waktu Sesi:</span>
+                  <span className="font-bold text-blue-600">{rescheduleSchedule.timeStart} - {rescheduleSchedule.timeEnd} WIB</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Lokasi Kolam:</span>
+                  <span className="font-bold">{rescheduleSchedule.poolArea}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Siswa:</span>
+                  <span className="font-bold truncate block">{rescheduleSchedule.studentNames?.join(", ") || "-"}</span>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+              {/* 1. Tanggal Baru yang Diajukan (with Calendar) */}
+              <div className="w-full space-y-2 relative" ref={rescheduleCalendarRef}>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Tanggal Pengganti / Baru (Wajib)
+                  </label>
+                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    {formatFullDateIndo(rescheduleDate) || "Pilih Tanggal"}
+                  </span>
+                </div>
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIsRescheduleCalendarOpen((prev) => !prev)}
+                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isRescheduleCalendarOpen
+                    ? "border-amber-500 bg-white ring-2 ring-amber-100 shadow-sm"
+                    : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
+                    }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <Calendar size={14} className="text-amber-600" />
+                      <span>{rescheduleDate ? formatFullDateIndo(rescheduleDate) : "Pilih Tanggal Baru"}</span>
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-600 flex items-center gap-0.5">
+                      {isRescheduleCalendarOpen ? (
+                        <>
+                          <ChevronUp size={13} />
+                          <span>Tutup</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={13} />
+                          <span>Pilih Tanggal</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Reschedule Calendar Popover */}
+                {isRescheduleCalendarOpen && (
+                  <div className="absolute z-50 left-0 right-0 top-full mt-2 p-4 bg-white rounded-3xl border border-slate-200 shadow-2xl space-y-3 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-slate-900">
+                        {MONTH_NAMES_INDO[rescheduleCalMonth]} {rescheduleCalYear}
+                      </h4>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={handlePrevRescheduleCalMonth}
+                          className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNextRescheduleCalMonth}
+                          className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                      {DAY_NAMES_INDO.map((day, idx) => (
+                        <span
+                          key={day}
+                          className={`text-[10px] font-bold ${idx === 0 || idx === 6 ? "text-amber-600" : "text-slate-400"
+                            }`}
+                        >
+                          {day}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {(() => {
+                        const firstDayOfMonth = new Date(rescheduleCalYear, rescheduleCalMonth, 1).getDay();
+                        const daysInMonth = new Date(rescheduleCalYear, rescheduleCalMonth + 1, 0).getDate();
+                        const cells = [];
+
+                        for (let i = 0; i < firstDayOfMonth; i++) {
+                          cells.push(<div key={`empty-${i}`} className="h-8" />);
+                        }
+
+                        for (let day = 1; day <= daysInMonth; day++) {
+                          const mStr = String(rescheduleCalMonth + 1).padStart(2, "0");
+                          const dStr = String(day).padStart(2, "0");
+                          const fullDateStr = `${rescheduleCalYear}-${mStr}-${dStr}`;
+
+                          const isSelected = rescheduleDate === fullDateStr;
+                          const isPast = fullDateStr < todayStr;
+                          const isToday = fullDateStr === todayStr;
+
+                          cells.push(
+                            <button
+                              key={fullDateStr}
+                              type="button"
+                              disabled={isPast}
+                              onClick={() => {
+                                setRescheduleDate(fullDateStr);
+                                setIsRescheduleCalendarOpen(false);
+                              }}
+                              className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${isPast
+                                ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
+                                : isSelected
+                                  ? "bg-amber-500 text-white font-black shadow-sm"
+                                  : isToday
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "hover:bg-slate-100 text-slate-700"
+                                }`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        }
+
+                        return cells;
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Jam Latihan Diajukan */}
+              <div className="w-full space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Jam Sesi Diajukan (WIB)
+                  </label>
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${getRequiredDurationBadge(rescheduleSchedule.class).badgeClass
+                      }`}
+                  >
+                    <Clock size={11} />
+                    <span>{getRequiredDurationBadge(rescheduleSchedule.class).text}</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <div className="w-full min-w-0">
+                    <span className="text-[10px] text-slate-500 font-bold block mb-1">
+                      Jam Masuk
+                    </span>
+                    <input
+                      type="time"
+                      required
+                      value={rescheduleTimeStart}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker?.();
+                        } catch {}
+                      }}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setRescheduleTimeStart(newStart);
+                        setRescheduleTimeEnd(calculateEndTimeForClass(newStart, rescheduleSchedule.class));
+                      }}
+                      className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-amber-500 focus:bg-white min-w-0 cursor-pointer transition shadow-2xs"
+                    />
+                  </div>
+                  <div className="w-full min-w-0">
+                    <span className="text-[10px] text-slate-500 font-bold block mb-1">
+                      Jam Keluar
+                    </span>
+                    <input
+                      type="time"
+                      required
+                      value={rescheduleTimeEnd}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker?.();
+                        } catch {}
+                      }}
+                      onChange={(e) => setRescheduleTimeEnd(e.target.value)}
+                      className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-amber-500 focus:bg-white min-w-0 cursor-pointer transition shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Validation message if duration mismatch */}
+                {validateDurationForClass(rescheduleSchedule.class, rescheduleTimeStart, rescheduleTimeEnd) && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
+                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
+                    <span>{validateDurationForClass(rescheduleSchedule.class, rescheduleTimeStart, rescheduleTimeEnd)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Lokasi Kolam */}
+              <div className="w-full">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Lokasi Kolam Diajukan
+                </label>
+                <select
+                  value={reschedulePoolArea}
+                  onChange={(e) => setReschedulePoolArea(e.target.value)}
+                  className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-amber-500 focus:bg-white cursor-pointer transition"
+                >
+                  <option value="Nalendra">Nalendra</option>
+                  <option value="312 Wera">312 Wera</option>
+                </select>
+              </div>
+
+              {/* 4. Alasan Pengajuan */}
+              <div className="w-full space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  Alasan Permintaan Reschedule
+                </label>
+                <select
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-amber-500 focus:bg-white cursor-pointer transition"
+                >
+                  <option value="Ada keperluan mendesak">Ada keperluan mendesak / acara keluarga</option>
+                  <option value="Siswa berhalangan hadir">Siswa berhalangan hadir / izin sakit</option>
+                  <option value="Kondisi kesehatan pelatih kurang fit">Kondisi kesehatan pelatih kurang fit / sakit</option>
+                  <option value="Cuaca ekstrem / hujan lebat & petir">Cuaca ekstrem / hujan lebat & petir</option>
+                  <option value="Kolam renang sedang maintenance">Kolam renang sedang pembersihan / maintenance</option>
+                  <option value="Lainnya">Alasan Lainnya (Ketik sendiri)</option>
+                </select>
+
+                {rescheduleReason === "Lainnya" && (
+                  <textarea
+                    required
+                    rows={2}
+                    value={rescheduleCustomReason}
+                    onChange={(e) => setRescheduleCustomReason(e.target.value)}
+                    placeholder="Tuliskan alasan pengajuan reschedule secara rinci..."
+                    className="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-amber-500 focus:bg-white transition"
+                  />
+                )}
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={
+                    !rescheduleDate ||
+                    timeToMinutes(rescheduleTimeStart) >= timeToMinutes(rescheduleTimeEnd)
+                  }
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${!rescheduleDate || timeToMinutes(rescheduleTimeStart) >= timeToMinutes(rescheduleTimeEnd)
+                    ? "bg-slate-400 cursor-not-allowed opacity-75"
+                    : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/25 active:scale-95"
+                    }`}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Send size={14} />
+                    <span>Ajukan Request Reschedule</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRescheduleSchedule(null)}
+                  className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: RESCHEDULE SUCCESS & WA NOTIFICATION
+          ========================================== */}
+      {rescheduleSuccessModal.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            onClick={() => setRescheduleSuccessModal((prev) => ({ ...prev, isOpen: false }))}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+          />
+          <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mx-auto ring-8 ring-emerald-50/50">
+              <CheckCircle2 size={32} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900">
+                Pengajuan Reschedule Terkirim!
+              </h3>
+              <p className="text-xs text-slate-500">
+                Data perubahan jadwal telah dicatat pada sistem dan menunggu persetujuan admin.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 text-left text-xs space-y-1">
+              <p className="text-[10px] text-slate-400 font-bold uppercase">Sesi:</p>
+              <p className="font-black text-slate-800">{rescheduleSuccessModal.scheduleTitle}</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Jadwal Baru Diajukan:</p>
+              <p className="font-bold text-emerald-700">{rescheduleSuccessModal.newDateTime}</p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <a
+                href={rescheduleSuccessModal.waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setRescheduleSuccessModal((prev) => ({ ...prev, isOpen: false }))}
+                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 active:scale-95 transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <MessageCircle size={16} />
+                <span>Kirim Notifikasi ke Admin via WA</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setRescheduleSuccessModal((prev) => ({ ...prev, isOpen: false }))}
+                className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

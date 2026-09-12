@@ -671,3 +671,66 @@ func (h *AppHandler) ClearAllNotifications(c *gin.Context) {
 	})
 }
 
+// ================= FINANCIAL TRANSACTIONS =================
+
+// GetFinancialTransactions handles GET /api/v1/financial-transactions
+func (h *AppHandler) GetFinancialTransactions(c *gin.Context) {
+	transactions, err := h.appService.GetFinancialTransactions(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    transactions,
+	})
+}
+
+// CreateFinancialTransaction handles POST /api/v1/financial-transactions
+func (h *AppHandler) CreateFinancialTransaction(c *gin.Context) {
+	var input model.CreateFinancialTransactionInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format input transaksi tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	tx, err := h.appService.CreateFinancialTransaction(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Transaksi keuangan berhasil dicatat",
+		"data":    tx,
+	})
+}
+
+// DeleteFinancialTransaction handles DELETE /api/v1/financial-transactions/:id
+func (h *AppHandler) DeleteFinancialTransaction(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.appService.DeleteFinancialTransaction(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Transaksi keuangan berhasil dihapus",
+	})
+}
+

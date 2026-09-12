@@ -47,9 +47,15 @@ type AppService interface {
 	// Attendances & Notifications
 	CheckInAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error)
 	GetAttendances(ctx context.Context) ([]model.AttendanceRecord, error)
+	// Notifications
 	GetNotifications(ctx context.Context, role, name, userId string) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
 	ClearAllNotifications(ctx context.Context, role, name, userId string) error
+
+	// Financial Transactions
+	GetFinancialTransactions(ctx context.Context) ([]model.FinancialTransaction, error)
+	CreateFinancialTransaction(ctx context.Context, input *model.CreateFinancialTransactionInput) (*model.FinancialTransaction, error)
+	DeleteFinancialTransaction(ctx context.Context, id string) error
 }
 
 type appService struct {
@@ -59,6 +65,7 @@ type appService struct {
 	scheduleRepo   repository.ScheduleRepository
 	invoiceRepo    repository.InvoiceRepository
 	attendanceRepo repository.AttendanceRepository
+	financialRepo  repository.FinancialTransactionRepository
 	pushService    PushService
 }
 
@@ -70,6 +77,7 @@ func NewAppService(
 	scheduleRepo repository.ScheduleRepository,
 	invoiceRepo repository.InvoiceRepository,
 	attendanceRepo repository.AttendanceRepository,
+	financialRepo repository.FinancialTransactionRepository,
 	pushService PushService,
 ) AppService {
 	return &appService{
@@ -79,6 +87,7 @@ func NewAppService(
 		scheduleRepo:   scheduleRepo,
 		invoiceRepo:    invoiceRepo,
 		attendanceRepo: attendanceRepo,
+		financialRepo:  financialRepo,
 		pushService:    pushService,
 	}
 }
@@ -1106,5 +1115,54 @@ func formatIndonesianDate(dateStr string) string {
 	dayName := days[t.Weekday()]
 	monthName := months[t.Month()]
 	return fmt.Sprintf("%s, %02d %s %d", dayName, t.Day(), monthName, t.Year())
+}
+
+// GetFinancialTransactions returns all manual or recorded financial transactions
+func (s *appService) GetFinancialTransactions(ctx context.Context) ([]model.FinancialTransaction, error) {
+	return s.financialRepo.FindAll(ctx)
+}
+
+// CreateFinancialTransaction validates and stores a new financial transaction
+func (s *appService) CreateFinancialTransaction(ctx context.Context, input *model.CreateFinancialTransactionInput) (*model.FinancialTransaction, error) {
+	if input == nil {
+		return nil, errors.New("input tidak boleh kosong")
+	}
+	if strings.TrimSpace(input.Title) == "" {
+		return nil, errors.New("judul transaksi wajib diisi")
+	}
+	if input.Amount <= 0 {
+		return nil, errors.New("nominal transaksi harus lebih besar dari 0")
+	}
+	if input.Type != "income" && input.Type != "expense" {
+		return nil, errors.New("jenis transaksi harus berupa 'income' atau 'expense'")
+	}
+	if strings.TrimSpace(input.Date) == "" {
+		input.Date = time.Now().Format("2006-01-02")
+	}
+
+	tx := &model.FinancialTransaction{
+		Type:      input.Type,
+		Category:  strings.TrimSpace(input.Category),
+		Title:     strings.TrimSpace(input.Title),
+		Amount:    input.Amount,
+		Date:      input.Date,
+		Notes:     strings.TrimSpace(input.Notes),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := s.financialRepo.Create(ctx, tx); err != nil {
+		return nil, fmt.Errorf("failed to create financial transaction: %w", err)
+	}
+
+	return tx, nil
+}
+
+// DeleteFinancialTransaction removes a financial transaction by ID
+func (s *appService) DeleteFinancialTransaction(ctx context.Context, id string) error {
+	if strings.TrimSpace(id) == "" {
+		return errors.New("ID transaksi wajib diisi")
+	}
+	return s.financialRepo.Delete(ctx, id)
 }
 

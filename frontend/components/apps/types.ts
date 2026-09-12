@@ -40,6 +40,8 @@ export interface Invoice {
   desc: string;
   status: "Belum Dibayar" | "Menunggu Konfirmasi" | "Lunas";
   uploadReceipt: string | null;
+  createdAt?: string;
+  date?: string;
 }
 
 export interface ScheduleSession {
@@ -110,6 +112,17 @@ export interface AdminNotification {
   schedule_id?: string;
   is_read: boolean;
   created_at: string;
+}
+
+export interface FinancialTransaction {
+  id: string;
+  type: "income" | "expense";
+  category: string;
+  title: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  notes?: string;
+  created_at?: string;
 }
 
 export interface NavItem {

@@ -226,58 +226,31 @@ export default function PelatihTab({
     );
   };
 
-  // Helper to count unique students handled by a coach across assigned students, schedules & classes
+  // Helper to count unique students handled by a coach (strictly matching pelatih penanggung jawab)
   const getCoachHandledStudentsCount = (coach: Coach) => {
     if (!coach) return 0;
 
-    // 1. Direct assignment: count students who have this coach as their pelatih penanggung jawab
-    const assignedStudents = students.filter(
-      (st) =>
-        (st.coach_id && String(st.coach_id) === String(coach.id)) ||
-        (st.coachId && String(st.coachId) === String(coach.id)) ||
-        (st.coach_name && st.coach_name.toLowerCase().trim() === coach.name.toLowerCase().trim()) ||
-        (st.coachName && st.coachName.toLowerCase().trim() === coach.name.toLowerCase().trim())
-    );
+    const coachIdStr = String(coach.id).trim();
+    const coachNameLower = coach.name.toLowerCase().trim();
+    const coachCleanName = coachNameLower.replace(/^coach\s+/i, "").trim();
 
-    if (assignedStudents.length > 0) {
-      return assignedStudents.length;
-    }
+    const assignedStudents = students.filter((st) => {
+      const stCoachId = String(st.coach_id || st.coachId || "").trim();
+      const stCoachName = (st.coach_name || st.coachName || "").toLowerCase().trim();
+      const stCoachClean = stCoachName.replace(/^coach\s+/i, "").trim();
 
-    // 2. Schedules matching
-    const coachSchedules = schedules.filter(
-      (s) =>
-        (s.coachId && String(s.coachId) === String(coach.id)) ||
-        (s.coachName && s.coachName.toLowerCase().trim() === coach.name.toLowerCase().trim())
-    );
+      const idMatches = stCoachId !== "" && stCoachId === coachIdStr;
+      const nameMatches =
+        stCoachName !== "" &&
+        (stCoachName === coachNameLower ||
+          stCoachClean === coachCleanName ||
+          stCoachName.includes(coachCleanName) ||
+          coachCleanName.includes(stCoachClean));
 
-    const studentIdSet = new Set<string>();
-    const studentNameSet = new Set<string>();
-
-    coachSchedules.forEach((sch) => {
-      if (Array.isArray(sch.studentIds)) {
-        sch.studentIds.forEach((id) => {
-          if (id) studentIdSet.add(String(id));
-        });
-      }
-      if (Array.isArray(sch.studentNames)) {
-        sch.studentNames.forEach((name) => {
-          if (name) studentNameSet.add(name.toLowerCase().trim());
-        });
-      }
+      return idMatches || nameMatches;
     });
 
-    if (studentIdSet.size > 0) return studentIdSet.size;
-    if (studentNameSet.size > 0) return studentNameSet.size;
-
-    // 3. Fallback: students in the coach's assigned primary class
-    if (coach.class && students.length > 0) {
-      const classStudents = students.filter(
-        (st) => st.class?.toLowerCase().trim() === coach.class.toLowerCase().trim()
-      );
-      if (classStudents.length > 0) return classStudents.length;
-    }
-
-    return 0;
+    return assignedStudents.length;
   };
 
   const handleConfirmDeleteCoach = async () => {

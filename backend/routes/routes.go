@@ -164,6 +164,14 @@ func SetupRoutes(
 			notificationGroup.DELETE("", appHandler.ClearAllNotifications)
 		}
 
+		// Financial Transactions Endpoints (Manual & Logged Income / Expense)
+		financialGroup := v1.Group("/financial-transactions")
+		{
+			financialGroup.GET("", appHandler.GetFinancialTransactions)
+			financialGroup.POST("", appHandler.CreateFinancialTransaction)
+			financialGroup.DELETE("/:id", appHandler.DeleteFinancialTransaction)
+		}
+
 		// Role-based Verification Test Endpoints
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.AuthMiddleware(authService), middleware.RequireRoles(model.RoleAdmin))

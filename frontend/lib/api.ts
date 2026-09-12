@@ -5,6 +5,7 @@ import {
   ScheduleSession,
   AttendanceRecord,
   AdminNotification,
+  FinancialTransaction,
 } from "../components/apps/types";
 
 // Central API configuration for frontend-backend communication
@@ -1155,6 +1156,63 @@ export async function broadcastPushNotification(payload: {
       success: false,
       message: err.message || "Gagal menyiarkan notifikasi push",
     };
+  }
+}
+
+// ================= FINANCIAL TRANSACTIONS =================
+
+export async function fetchFinancialTransactions(): Promise<FinancialTransaction[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/financial-transactions`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("fetchFinancialTransactions error:", err);
+    return [];
+  }
+}
+
+export async function createFinancialTransaction(data: {
+  type: "income" | "expense";
+  category: string;
+  title: string;
+  amount: number;
+  date: string;
+  notes?: string;
+}): Promise<FinancialTransaction | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/financial-transactions`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal mencatat transaksi");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("createFinancialTransaction error:", err);
+    throw err;
+  }
+}
+
+export async function deleteFinancialTransaction(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/financial-transactions/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    if (!res.ok) return false;
+    return true;
+  } catch (err) {
+    console.error("deleteFinancialTransaction error:", err);
+    return false;
   }
 }
 

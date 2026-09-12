@@ -28,6 +28,9 @@ import {
   fetchNotifications,
   markNotificationRead,
   clearAllNotifications,
+  fetchFinancialTransactions,
+  createFinancialTransaction,
+  deleteFinancialTransaction,
 } from "../../lib/api";
 import {
   Student,
@@ -38,6 +41,7 @@ import {
   AttendanceRecord,
   AdminNotification,
   CheckInInput,
+  FinancialTransaction,
 } from "../../components/apps/types";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
 import {
@@ -74,6 +78,7 @@ export default function AppsPage() {
   const [schedules, setSchedules] = useState<ScheduleSession[]>([]);
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -117,12 +122,14 @@ export default function AppsPage() {
         fetchedSchedules,
         fetchedInvoices,
         fetchedAttendances,
+        fetchedFinancialTransactions,
       ] = await Promise.all([
         fetchStudents(),
         fetchCoaches(),
         fetchSchedules(),
         fetchInvoices(),
         fetchAttendances(),
+        fetchFinancialTransactions(),
       ]);
 
       // If role is Orang Tua, find corresponding student name to accurately query notifications
@@ -152,6 +159,7 @@ export default function AppsPage() {
       setInvoices(fetchedInvoices);
       setAttendances(fetchedAttendances);
       setNotifications(fetchedNotifications);
+      setFinancialTransactions(fetchedFinancialTransactions);
     } catch (err) {
       console.error("Error fetching database data:", err);
     } finally {
@@ -843,10 +851,49 @@ export default function AppsPage() {
   const handleAdminVerifyPayment = async (invoiceId: string, confirm: boolean) => {
     try {
       await verifyInvoicePayment(invoiceId, confirm);
-      const updatedInvoices = await fetchInvoices();
+      const [updatedInvoices, updatedTransactions] = await Promise.all([
+        fetchInvoices(),
+        fetchFinancialTransactions(),
+      ]);
       setInvoices(updatedInvoices);
+      setFinancialTransactions(updatedTransactions);
     } catch (err) {
       console.error("Failed to verify payment:", err);
+    }
+  };
+
+  // Handler: Create manual income / expense transaction (Admin view) to PostgreSQL DB
+  const handleAddFinancialTransaction = async (data: {
+    type: "income" | "expense";
+    category: string;
+    title: string;
+    amount: number;
+    date: string;
+    notes?: string;
+  }) => {
+    try {
+      const created = await createFinancialTransaction(data);
+      if (created) {
+        const updated = await fetchFinancialTransactions();
+        setFinancialTransactions(updated);
+      }
+    } catch (err) {
+      console.error("Failed to create financial transaction:", err);
+      throw err;
+    }
+  };
+
+  // Handler: Delete financial transaction (Admin view) from PostgreSQL DB
+  const handleDeleteFinancialTransaction = async (id: string) => {
+    try {
+      const success = await deleteFinancialTransaction(id);
+      if (success) {
+        const updated = await fetchFinancialTransactions();
+        setFinancialTransactions(updated);
+      }
+    } catch (err) {
+      console.error("Failed to delete financial transaction:", err);
+      throw err;
     }
   };
 
@@ -1116,6 +1163,9 @@ export default function AppsPage() {
             onAddCoach={handleAddPelatihSubmit}
             onUpdateCoach={handleUpdateCoach}
             onDeleteCoach={handleDeleteCoach}
+            financialTransactions={financialTransactions}
+            onAddFinancialTransaction={handleAddFinancialTransaction}
+            onDeleteFinancialTransaction={handleDeleteFinancialTransaction}
           />
         </div>
       </main>

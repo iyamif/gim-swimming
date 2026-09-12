@@ -6,6 +6,7 @@ import {
   ScheduleSession,
   AttendanceRecord,
   AdminNotification,
+  FinancialTransaction,
 } from "../types";
 import DashboardOverviewTab from "./DashboardOverviewTab";
 import KeuanganTab from "./KeuanganTab";
@@ -81,6 +82,16 @@ interface AppsBodyProps {
     pay_per_session?: number;
   }) => Promise<void> | void;
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
+  financialTransactions?: FinancialTransaction[];
+  onAddFinancialTransaction?: (data: {
+    type: "income" | "expense";
+    category: string;
+    title: string;
+    amount: number;
+    date: string;
+    notes?: string;
+  }) => Promise<void> | void;
+  onDeleteFinancialTransaction?: (id: string) => Promise<void> | void;
 }
 
 export default function AppsBody({
@@ -94,6 +105,9 @@ export default function AppsBody({
   schedules,
   attendances = [],
   notifications = [],
+  financialTransactions = [],
+  onAddFinancialTransaction,
+  onDeleteFinancialTransaction,
   showInstallBtn,
   onInstallClick,
   onLogout,
@@ -139,7 +153,11 @@ export default function AppsBody({
           sessionRole={sessionRole}
           students={students}
           coaches={coaches}
+          schedules={schedules}
           attendances={attendances}
+          financialTransactions={financialTransactions}
+          onAddFinancialTransaction={onAddFinancialTransaction}
+          onDeleteFinancialTransaction={onDeleteFinancialTransaction}
           sessionUser={sessionUser}
           onVerifyPayment={onVerifyPayment}
           setActiveTab={setActiveTab}
@@ -151,6 +169,8 @@ export default function AppsBody({
           schedules={schedules}
           coaches={coaches}
           students={students}
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
           onAddSchedule={onAddSchedule}
           onUpdateSchedule={onUpdateSchedule}
           onDeleteSchedule={onDeleteSchedule}
