@@ -18,14 +18,6 @@ export default function Navbar() {
       setIsLoggedIn(true);
       setUsername(savedUser);
     }
-
-    // Auto open login modal if redirected from /apps due to missing/cleared session cache
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("login") === "true") {
-        setIsLoginModalOpen(true);
-      }
-    }
   }, []);
 
   const handleLoginSuccess = (name: string, role: string) => {

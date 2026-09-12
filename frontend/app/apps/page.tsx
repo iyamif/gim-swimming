@@ -98,7 +98,7 @@ export default function AppsPage() {
     localStorage.removeItem("gim_swimming_token");
     setSessionUser("");
     setSessionRole("");
-    router.replace("/?login=true");
+    router.replace("/");
   };
 
   // Load all real data from PostgreSQL Backend
@@ -562,8 +562,8 @@ export default function AppsPage() {
 
     if (!user || !role) {
       // If cache/session is null (e.g. after iOS update, fresh install, or logout),
-      // redirect immediately to landing page with login modal open instead of showing a blank screen.
-      router.replace("/?login=true");
+      // redirect immediately to the main homepage "/"
+      router.replace("/");
       return;
     }
 
