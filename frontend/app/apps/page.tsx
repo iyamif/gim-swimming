@@ -96,7 +96,9 @@ export default function AppsPage() {
     localStorage.removeItem("gim_swimming_user");
     localStorage.removeItem("gim_swimming_role");
     localStorage.removeItem("gim_swimming_token");
-    router.push("/");
+    setSessionUser("");
+    setSessionRole("");
+    router.replace("/?login=true");
   };
 
   // Load all real data from PostgreSQL Backend
@@ -554,51 +556,60 @@ export default function AppsPage() {
   // Authenticate user session on mount & fetch real DB data
   useEffect(() => {
     setMounted(true);
-    const user = localStorage.getItem("gim_swimming_user");
-    const role = localStorage.getItem("gim_swimming_role");
-    const token = localStorage.getItem("gim_swimming_token");
+    const user = typeof window !== "undefined" ? localStorage.getItem("gim_swimming_user") : null;
+    const role = typeof window !== "undefined" ? localStorage.getItem("gim_swimming_role") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("gim_swimming_token") : null;
 
-    if (user && role) {
-      setSessionUser(user);
-      setSessionRole(role.toLowerCase().trim());
-      loadAllData();
-
-      // Verify token with backend & synchronize avatar from database if token exists
-      if (token) {
-        fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store",
-        })
-          .then((res) => {
-            if (!res.ok) {
-              console.warn("Session check returned status:", res.status);
-              return null;
-            }
-            return res.json();
-          })
-          .then((resp) => {
-            if (!resp) return;
-            const userData = resp?.data?.user || resp?.data;
-            if (userData) {
-              const uname = userData.username || user;
-              if (userData.avatar !== undefined) {
-                if (userData.avatar) {
-                  localStorage.setItem(`gim_avatar_${uname}`, userData.avatar);
-                } else {
-                  localStorage.removeItem(`gim_avatar_${uname}`);
-                }
-                window.dispatchEvent(new Event("avatar_updated"));
-              }
-            }
-          })
-          .catch((err) => {
-            console.warn("Backend auth token check warning:", err);
-          });
-      }
+    if (!user || !role) {
+      // If cache/session is null (e.g. after iOS update, fresh install, or logout),
+      // redirect immediately to landing page with login modal open instead of showing a blank screen.
+      router.replace("/?login=true");
+      return;
     }
-  }, [loadAllData]);
+
+    setSessionUser(user);
+    const normalizedRole = role.toLowerCase().trim();
+    setSessionRole(normalizedRole);
+    loadAllData(normalizedRole, user);
+
+    // Verify token with backend & synchronize avatar from database if token exists
+    if (token) {
+      fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.warn("Session check returned status:", res.status);
+            if (res.status === 401) {
+              handleLogout();
+            }
+            return null;
+          }
+          return res.json();
+        })
+        .then((resp) => {
+          if (!resp) return;
+          const userData = resp?.data?.user || resp?.data;
+          if (userData) {
+            const uname = userData.username || user;
+            if (userData.avatar !== undefined) {
+              if (userData.avatar) {
+                localStorage.setItem(`gim_avatar_${uname}`, userData.avatar);
+              } else {
+                localStorage.removeItem(`gim_avatar_${uname}`);
+              }
+              window.dispatchEvent(new Event("avatar_updated"));
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn("Backend auth token check warning:", err);
+        });
+    }
+  }, [loadAllData, router]);
 
   // RBAC Access Helper
   const hasAccess = (tabName: string): boolean => {
@@ -964,7 +975,24 @@ export default function AppsPage() {
   };
 
   if (!mounted || !sessionUser) {
-    return null;
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#061827] text-white">
+        <div className="flex flex-col items-center space-y-4 animate-pulse">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.png"
+            alt="GIM Swimming"
+            className="h-20 w-20 object-contain drop-shadow-2xl animate-float-movement"
+          />
+          <div className="flex items-center space-x-2 text-cyan-400">
+            <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+            <span className="text-xs font-semibold tracking-wider uppercase text-cyan-200">
+              Memeriksa Sesi Pengguna...
+            </span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ==========================================
