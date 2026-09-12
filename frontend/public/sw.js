@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gim-swimming-v12";
+const CACHE_VERSION = "gim-swimming-v13";
 const CACHE_STATIC_NAME = `gim-static-${CACHE_VERSION}`;
 const CACHE_PAGES_NAME = `gim-pages-${CACHE_VERSION}`;
 
@@ -23,7 +23,7 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// Activate: Delete old caches & immediately claim control of all open windows/PWA clients
+// Activate: Delete all previous outdated caches & immediately claim control of all open windows/PWA clients
 self.addEventListener("activate", (event) => {
   console.log("[SW] Activating new service worker version:", CACHE_VERSION);
   const allowedCaches = [CACHE_STATIC_NAME, CACHE_PAGES_NAME];
@@ -35,7 +35,7 @@ self.addEventListener("activate", (event) => {
         return Promise.all(
           keys.map((key) => {
             if (!allowedCaches.includes(key)) {
-              console.log("[SW] Deleting old cache:", key);
+              console.log("[SW] Deleting stale cache bucket:", key);
               return caches.delete(key);
             }
           })
@@ -264,10 +264,12 @@ self.addEventListener("message", (event) => {
         self.navigator.clearAppBadge().catch(() => {});
       }
     }
-  } else if (event.data.type === "CLEAR_BADGE") {
-    if ("clearAppBadge" in self.navigator) {
-      self.navigator.clearAppBadge().catch(() => {});
-    }
+  } else if (event.data.type === "CLEAR_ALL_CACHES") {
+    caches.keys().then((keys) => {
+      return Promise.all(keys.map((k) => caches.delete(k)));
+    }).then(() => {
+      console.log("[SW] All caches cleared on client request.");
+    });
   }
 });
 

@@ -49,6 +49,39 @@ export default function RootLayout({
         <meta name="theme-color" content="#1d4ed8" />
         <meta name="msapplication-navbutton-color" content="#1d4ed8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function autoRecover(msg) {
+                  try {
+                    var str = (msg || '').toString();
+                    if (str.indexOf('Loading chunk') !== -1 || str.indexOf('ChunkLoadError') !== -1 || str.indexOf('Failed to fetch dynamically imported module') !== -1 || str.indexOf('undefined is not an object') !== -1) {
+                      var last = sessionStorage.getItem('pwa_auto_heal');
+                      var now = Date.now();
+                      if (!last || now - parseInt(last, 10) > 10000) {
+                        sessionStorage.setItem('pwa_auto_heal', now.toString());
+                        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_ALL_CACHES' });
+                        }
+                        if ('caches' in window) {
+                          caches.keys().then(function(keys) {
+                            keys.forEach(function(k) { caches.delete(k); });
+                          });
+                        }
+                        setTimeout(function() {
+                          window.location.reload();
+                        }, 250);
+                      }
+                    }
+                  } catch(e) {}
+                }
+                window.addEventListener('error', function(e) { autoRecover(e.message || (e.error && e.error.message)); });
+                window.addEventListener('unhandledrejection', function(e) { autoRecover(e.reason && (e.reason.message || e.reason)); });
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-white">
         {children}
