@@ -28,6 +28,7 @@ type AuthService interface {
 	Login(ctx context.Context, input model.LoginInput) (string, *model.User, error)
 	ValidateToken(tokenStr string) (*Claims, error)
 	SetupPassword(ctx context.Context, userID int64, newPassword string) (*model.User, error)
+	ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) (*model.User, error)
 	UpdateAvatar(ctx context.Context, username string, avatar string) error
 }
 
@@ -144,6 +145,36 @@ func (s *authService) SetupPassword(ctx context.Context, userID int64, newPasswo
 	}
 
 	return updatedUser, nil
+}
+
+// ChangePassword verifies current password and updates with new password
+func (s *authService) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) (*model.User, error) {
+	if len(newPassword) < 6 {
+		return nil, errors.New("kata sandi baru minimal harus 6 karakter")
+	}
+
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, errors.New("pengguna tidak ditemukan")
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+		return nil, errors.New("kata sandi saat ini tidak sesuai")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengenkripsi kata sandi: %v", err)
+	}
+
+	if err := s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword)); err != nil {
+		return nil, fmt.Errorf("gagal menyimpan kata sandi baru: %v", err)
+	}
+
+	user.Password = ""
+	user.MustChangePassword = false
+	return user, nil
 }
 
 // generateToken generates a JWT token for a user

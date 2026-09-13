@@ -1,24 +1,47 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { Student, Coach, ScheduleSession } from "../types";
 import {
-  uploadAvatarFile,
   updateAvatarPreset,
   isImageAvatar,
   getAvatarImageUrl,
+  changeUserPassword,
+  fetchCurrentUser,
 } from "../../../lib/api";
 import PushNotificationCard from "../PushNotificationCard";
 import {
   Camera,
-  Sparkles,
+  LogOut,
+  User,
+  Shield,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle2,
   AlertTriangle,
+  Mail,
+  Phone,
+  RotateCw,
+  Download,
+  Check,
   Smile,
   X,
+  Globe,
+  Bell,
+  HelpCircle,
   MessageCircle,
-  Download,
-  LogOut,
   ChevronRight,
-  Trash2,
-  User,
+  ChevronLeft,
+  Info,
+  Building2,
+  ExternalLink,
+  ChevronDown,
+  Calendar,
+  CreditCard,
+  MapPin,
+  Sparkles,
 } from "lucide-react";
 
 interface ProfilTabProps {
@@ -34,22 +57,18 @@ interface ProfilTabProps {
   setActiveTab?: (tab: string) => void;
 }
 
-const PRESET_AVATARS = [
-  "🏊‍♂️", "🏊‍♀️", "🤽‍♂️", "🏄‍♂️", "🤿", "🐬", "🏆", "🥇", "⭐", "👤"
-];
+type ProfileView = "main" | "profilku" | "password" | "notifikasi" | "faq";
 
-// Helper to compress and convert any uploaded image to an ultra-lightweight WebP/JPEG Base64 Data URL (~15-30KB)
-function compressImage(file: File, maxDimension = 300, quality = 0.82): Promise<{ file: File; dataUrl: string }> {
+const PRESET_EMOJIS = ["🏊‍♂️", "🏊‍♀️", "🤽‍♂️", "🏄‍♂️", "🤿", "🐬", "🏆", "🥇", "⭐", "👤"];
+
+// Lightweight image compression
+function compressImage(file: File, maxDimension = 360, quality = 0.85): Promise<{ file: File; dataUrl: string }> {
   return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onerror = () => {
-      resolve({ file, dataUrl: "" });
-    };
+    reader.onerror = () => resolve({ file, dataUrl: "" });
     reader.onload = (e) => {
       const img = new Image();
-      img.onerror = () => {
-        resolve({ file, dataUrl: (e.target?.result as string) || "" });
-      };
+      img.onerror = () => resolve({ file, dataUrl: (e.target?.result as string) || "" });
       img.onload = () => {
         let width = img.width;
         let height = img.height;
@@ -68,15 +87,12 @@ function compressImage(file: File, maxDimension = 300, quality = 0.82): Promise<
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          return resolve({ file, dataUrl: (e.target?.result as string) || "" });
-        }
+        if (!ctx) return resolve({ file, dataUrl: (e.target?.result as string) || "" });
 
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Prefer modern WebP format with JPEG fallback
         let dataUrl = "";
         try {
           dataUrl = canvas.toDataURL("image/webp", quality);
@@ -89,9 +105,7 @@ function compressImage(file: File, maxDimension = 300, quality = 0.82): Promise<
 
         canvas.toBlob(
           (blob) => {
-            if (!blob) {
-              return resolve({ file, dataUrl });
-            }
+            if (!blob) return resolve({ file, dataUrl });
             const cleanName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
             const optimizedFile = new File([blob], cleanName, {
               type: blob.type || "image/webp",
@@ -119,58 +133,85 @@ export default function ProfilTab({
   onInstallClick,
   onLogout,
   onRefresh,
-  setActiveTab,
 }: ProfilTabProps) {
+  // Navigation inside Profile Tab: 'main' | 'profilku' | 'password' | 'notifikasi' | 'faq'
+  const [currentView, setCurrentView] = useState<ProfileView>("main");
+
+  // Avatar states
   const [currentAvatar, setCurrentAvatar] = useState<string>("");
   const [previewAvatar, setPreviewAvatar] = useState<string>("");
   const [isCustomImage, setIsCustomImage] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const [avatarSuccess, setAvatarSuccess] = useState(false);
   const [showEmojiDrawer, setShowEmojiDrawer] = useState(false);
-  const [isViewingFullPhoto, setIsViewingFullPhoto] = useState(false);
-  const [isRefreshingLocal, setIsRefreshingLocal] = useState(false);
+
+  // User backend details
+  const [currentUserData, setCurrentUserData] = useState<any>(null);
+
+  // Language state: 'ID' | 'EN'
+  const [language, setLanguage] = useState<"ID" | "EN">("ID");
+
+  // Change Password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // FAQ expanded items
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(0);
+
+  // Logout modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Long press timer tracking for Instagram-style hold gesture
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isLongPressTriggeredRef = useRef(false);
-
-  const loadAvatar = () => {
+  // Load avatar and user details
+  const loadUserData = () => {
     if (sessionUser) {
       const saved = localStorage.getItem(`gim_avatar_${sessionUser}`) || "";
       setCurrentAvatar(saved);
       setPreviewAvatar(saved);
       setIsCustomImage(isImageAvatar(saved));
     }
+    fetchCurrentUser()
+      .then((u) => {
+        if (u) {
+          setCurrentUserData(u);
+          if (u.avatar && !currentAvatar) {
+            setCurrentAvatar(u.avatar);
+            setPreviewAvatar(u.avatar);
+            setIsCustomImage(isImageAvatar(u.avatar));
+          }
+        }
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
-    loadAvatar();
-    const handleAvatarUpdate = () => loadAvatar();
+    loadUserData();
+    const handleAvatarUpdate = () => loadUserData();
     window.addEventListener("avatar_updated", handleAvatarUpdate);
     return () => window.removeEventListener("avatar_updated", handleAvatarUpdate);
   }, [sessionUser]);
 
-  // Save new avatar directly to PostgreSQL database
-  const saveAvatarDirectly = async (avatarDataUrl: string) => {
+  // Save Avatar handler
+  const saveAvatar = async (dataUrl: string) => {
     if (!sessionUser) return;
     try {
-      setIsSaving(true);
-      setErrorMessage("");
-
-      const finalAvatar = await updateAvatarPreset(avatarDataUrl);
+      setIsSavingAvatar(true);
+      setAvatarError("");
+      const finalAvatar = await updateAvatarPreset(dataUrl);
 
       if (finalAvatar) {
         localStorage.setItem(`gim_avatar_${sessionUser}`, finalAvatar);
-        localStorage.setItem(`gim_avatar_${sessionUser.toLowerCase()}`, finalAvatar);
-        localStorage.setItem(
-          `gim_avatar_${sessionUser.charAt(0).toUpperCase() + sessionUser.slice(1)}`,
-          finalAvatar
-        );
       } else {
         localStorage.removeItem(`gim_avatar_${sessionUser}`);
-        localStorage.removeItem(`gim_avatar_${sessionUser.toLowerCase()}`);
       }
 
       setCurrentAvatar(finalAvatar);
@@ -178,96 +219,114 @@ export default function ProfilTab({
       setIsCustomImage(isImageAvatar(finalAvatar));
       window.dispatchEvent(new Event("avatar_updated"));
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
+      setAvatarSuccess(true);
+      setTimeout(() => setAvatarSuccess(false), 2500);
     } catch (err: any) {
-      console.error("Save avatar error:", err);
-      setErrorMessage(err.message || "Gagal memperbarui foto profil");
+      setAvatarError(err.message || "Gagal menyimpan foto profil");
     } finally {
-      setIsSaving(false);
+      setIsSavingAvatar(false);
     }
   };
 
-  // Instant upload from gallery selection
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFile = e.target.files?.[0];
     if (!rawFile) return;
-
     try {
-      setIsSaving(true);
-      setErrorMessage("");
+      setIsSavingAvatar(true);
       const { dataUrl } = await compressImage(rawFile, 400, 0.85);
-      await saveAvatarDirectly(dataUrl);
-    } catch (err: any) {
-      console.error("Error processing image file:", err);
-      setErrorMessage("Gagal memproses gambar");
-      setIsSaving(false);
+      await saveAvatar(dataUrl);
+      setShowEmojiDrawer(false);
+    } catch {
+      setAvatarError("Gagal memproses gambar");
+      setIsSavingAvatar(false);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const handleSelectPreset = async (emoji: string) => {
-    await saveAvatarDirectly(emoji);
-    setShowEmojiDrawer(false);
-  };
-
-  const handleResetAvatar = async () => {
-    await saveAvatarDirectly("");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  // Instagram-style Gesture: Press Start (Touch / Mouse Down)
-  const handlePressStart = () => {
-    isLongPressTriggeredRef.current = false;
-    longPressTimerRef.current = setTimeout(() => {
-      isLongPressTriggeredRef.current = true;
-      // Trigger subtle haptic feedback on mobile if supported
-      if (typeof navigator !== "undefined" && navigator.vibrate) {
-        navigator.vibrate(40);
-      }
-      setIsViewingFullPhoto(true);
-    }, 450); // 450ms hold threshold
-  };
-
-  // Instagram-style Gesture: Press End (Touch End / Mouse Up)
-  const handlePressEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
-
-  // Instagram-style Gesture: Click (Tap)
-  const handleAvatarClick = (e: React.MouseEvent) => {
+  // Submit Password Form
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLongPressTriggeredRef.current) {
-      isLongPressTriggeredRef.current = false;
+    setPasswordError("");
+    setPasswordSuccess(false);
+
+    if (!currentPassword) {
+      setPasswordError("Masukkan kata sandi saat ini");
       return;
     }
-    // Normal tap: immediately open device gallery / camera
-    fileInputRef.current?.click();
-  };
+    if (newPassword.length < 6) {
+      setPasswordError("Kata sandi baru minimal 6 karakter");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Konfirmasi kata sandi baru tidak cocok");
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPasswordError("Kata sandi baru tidak boleh sama dengan kata sandi saat ini");
+      return;
+    }
 
-  const handleManualRefresh = async () => {
-    if (onRefresh && !isRefreshingLocal) {
-      setIsRefreshingLocal(true);
-      try {
-        await onRefresh();
-      } finally {
-        setTimeout(() => setIsRefreshingLocal(false), 500);
-      }
+    try {
+      setIsChangingPassword(true);
+      await changeUserPassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordSuccess(false), 4000);
+    } catch (err: any) {
+      setPasswordError(err.message || "Gagal memperbarui kata sandi. Pastikan kata sandi saat ini benar.");
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
   const initialLetter = sessionUser ? sessionUser.charAt(0).toUpperCase() : "A";
-  const isAdmin = sessionRole.toLowerCase().trim() === "admin";
-  const isCoach = sessionRole.toLowerCase().trim() === "pelatih";
-  const userEmail = `${sessionUser.toLowerCase().replace(/\s+/g, "")}@gimswimming.com`;
+  const roleLower = sessionRole.toLowerCase().trim();
+  const isAdmin = roleLower === "admin";
+  const isCoach = roleLower === "pelatih";
+
+  const roleLabel = isAdmin ? "Administrator" : isCoach ? "Pelatih Renang" : "Wali Murid / Siswa";
+
+  // Phone lookup
+  const matchedCoach = coaches.find((c) => c.name.toLowerCase().includes(sessionUser.toLowerCase()));
+  const matchedStudent = students.find(
+    (s) =>
+      s.name.toLowerCase().includes(sessionUser.toLowerCase()) ||
+      s.parent.toLowerCase().includes(sessionUser.toLowerCase())
+  );
+  const userPhone = matchedCoach?.phone || matchedStudent?.phone || "+62 812-3456-7890";
+  const userEmail = currentUserData?.email || `${sessionUser.toLowerCase().replace(/\s+/g, "")}@gimswimming.com`;
+  const userMemberId = `GIM-${isAdmin ? "ADM" : isCoach ? "CCH" : "STU"}-${currentUserData?.id ? String(currentUserData.id).padStart(3, "0") : "001"}`;
+
+  // FAQ Items Data
+  const FAQ_ITEMS = [
+    {
+      q: "Bagaimana cara melihat jadwal latihan & sesi renang?",
+      a: "Buka menu 'Jadwal' di bar navigasi bawah untuk melihat jadwal harian lengkap dengan waktu sesi, pelatih penanggung jawab, dan lokasi kolam renang.",
+    },
+    {
+      q: "Bagaimana sistem presensi kehadiran sesi?",
+      a: "Pelatih dapat melakukan absensi pada menu 'Presensi' dengan verifikasi kamera foto selfie dan radius koordinat GPS kolam yang akurat.",
+    },
+    {
+      q: "Bagaimana cara pembayaran tagihan SPP bulanan?",
+      a: "Orang tua murid dapat melihat rincian tagihan di menu 'Tagihan/Keuangan' dan mengunggah bukti transfer untuk diverifikasi langsung oleh Admin.",
+    },
+    {
+      q: "Bagaimana jika saya lupa kata sandi akun?",
+      a: "Silakan hubungi Customer Support via WhatsApp atau minta Admin Akademi untuk mengatur ulang kata sandi login Anda.",
+    },
+    {
+      q: "Apakah aplikasi ini dapat diinstal di smartphone?",
+      a: "Ya! GIM Swimming mendukung Progressive Web App (PWA). Cukup klik 'Pasang Aplikasi' di menu profil untuk menambahkannya ke layar utama ponsel Anda.",
+    },
+  ];
 
   return (
-    <div className="space-y-4 pb-28 md:pb-12 bg-[#f8fafc] min-h-full">
-      {/* Hidden File Input for Device Gallery / Camera */}
+    <div className="min-h-full bg-white sm:bg-[#f8fafc] pb-28 md:pb-12 font-sans">
+      {/* Hidden File Input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -276,375 +335,677 @@ export default function ProfilTab({
         className="hidden"
       />
 
-      {/* ==========================================
-          1. TOP VIBRANT BLUE HEADER (HERO BACKDROP)
-          ========================================== */}
-      <div className="relative w-full bg-[#1d4ed8] text-white h-32 sm:h-36 pt-[max(1.5rem,calc(env(safe-area-inset-top)+0.5rem))] px-5 sm:px-8 shadow-md overflow-hidden">
-        {/* Subtle geometric circles */}
-        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
-        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
-        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+      {/* Main Container Card */}
+      <div className="max-w-md mx-auto bg-white sm:shadow-lg sm:rounded-3xl sm:my-4 overflow-hidden border-0 sm:border sm:border-slate-100">
+        {/* ========================================================
+            VIEW 1: MAIN PROFILE SETTINGS (EXACT MATCH WITH IMAGE)
+            ======================================================== */}
+        {currentView === "main" && (
+          <div className="animate-fadeIn">
+            {/* Top Header with Curved Blue Accent & Avatar */}
+            <div className="relative bg-gradient-to-b from-blue-700 via-blue-600 to-blue-500 pt-8 pb-12 px-6 text-center text-white rounded-b-[2.5rem] shadow-sm">
+              <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full border border-white/10 pointer-events-none" />
+              <div className="absolute top-2 left-2 h-24 w-24 rounded-full border border-white/10 pointer-events-none" />
 
-        {/* Soft Ambient Depth Glow at Bottom */}
-        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
-      </div>
-
-      {/* ==========================================
-          2. MAIN CONTENT CONTAINER (3-CARD LAYOUT)
-          ========================================== */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-14 sm:-mt-16 relative z-20 animate-fadeIn">
-        {/* Toast / Notification Alert */}
-        {saveSuccess && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md animate-fadeIn">
-            <Sparkles size={14} className="text-emerald-600" />
-            <span>Foto profil berhasil diperbarui!</span>
-          </div>
-        )}
-
-        {errorMessage && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md animate-fadeIn">
-            <AlertTriangle size={14} className="text-rose-600" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* ==========================================
-            CARD 1: INSTAGRAM-STYLE AVATAR CARD
-            ========================================== */}
-        <div className="rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 pt-0 pb-6 px-6 text-center relative">
-          {/* Overlapping Avatar with Instagram Gestures */}
-          <div className="relative -top-12 -mb-8 inline-block mx-auto select-none">
-            <div
-              onClick={handleAvatarClick}
-              onMouseDown={handlePressStart}
-              onMouseUp={handlePressEnd}
-              onMouseLeave={handlePressEnd}
-              onTouchStart={handlePressStart}
-              onTouchEnd={handlePressEnd}
-              onTouchCancel={handlePressEnd}
-              className="relative h-24 w-24 sm:h-26 sm:w-26 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white font-black text-3xl flex items-center justify-center border-4 border-white shadow-xl overflow-hidden mx-auto cursor-pointer active:scale-95 transition-transform duration-150 group"
-              title="Ketuk untuk ganti foto dari galeri • Tahan untuk melihat foto"
-            >
-              {isCustomImage && previewAvatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={getAvatarImageUrl(previewAvatar)}
-                  alt={sessionUser}
-                  className="h-full w-full object-cover select-none pointer-events-none"
-                />
-              ) : previewAvatar ? (
-                <span className="select-none">{previewAvatar}</span>
-              ) : (
-                <span className="select-none">{initialLetter}</span>
-              )}
-
-              {/* Uploading Spinner Overlay */}
-              {isSaving && (
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white">
-                  <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-1" />
-                  <span className="text-[9px] font-bold">Menyimpan</span>
-                </div>
-              )}
-            </div>
-
-            {/* Camera Badge Bottom Right (Click to open gallery directly) */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center border-2 border-white shadow-lg cursor-pointer transition active:scale-90"
-              title="Pilih Foto dari Galeri"
-            >
-              <Camera size={14} />
-            </button>
-          </div>
-
-          {/* Name & Role Text directly below avatar */}
-          <div className="mt-2 space-y-1">
-            <h3 className="text-base sm:text-lg font-black text-slate-900 capitalize tracking-tight">
-              {sessionUser}
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">
-              {isAdmin
-                ? "Administrator Utama - GIM Swimming"
-                : isCoach
-                  ? "Senior Coach - Level 3"
-                  : "Wali Murid - GIM Swimming"}
-            </p>
-
-            {/* Instagram-style Gesture Guidance Pill */}
-            <div className="pt-2 flex items-center justify-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100/90 text-slate-600 border border-slate-200/60">
-                <Camera size={12} className="text-slate-500" />
-                <span>Ketuk untuk ganti foto • Tahan untuk melihat</span>
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setShowEmojiDrawer((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200/80 transition cursor-pointer"
-              >
-                <Smile size={12} />
-                <span>Pilih Karakter Emoji</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ==========================================
-            EMOJI PRESET DRAWER (EXPANDABLE)
-            ========================================== */}
-        {showEmojiDrawer && (
-          <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-3 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                <Smile size={14} className="text-cyan-600" />
-                <span>Pilih Karakter Emoji Avatar</span>
-              </h4>
-              <button
-                type="button"
-                onClick={() => setShowEmojiDrawer(false)}
-                className="text-xs text-slate-400 hover:text-slate-600 font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <span>Tutup</span>
-                <X size={14} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2">
-              {PRESET_AVATARS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => handleSelectPreset(emoji)}
-                  className={`flex h-11 items-center justify-center rounded-2xl text-xl transition-all duration-150 cursor-pointer border ${previewAvatar === emoji && !isCustomImage
-                      ? "bg-blue-50 border-blue-500 ring-2 ring-blue-400/30 scale-105"
-                      : "bg-slate-50 hover:bg-slate-100 border-slate-200/80"
-                    }`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ==========================================
-            CARD 2: DETAIL INFORMASI LENGKAP ADMIN
-            ========================================== */}
-        <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Informasi Lengkap Akun
-          </h4>
-
-          <div className="space-y-3 text-xs">
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Nama Pengguna</span>
-              <span className="font-bold text-slate-900 capitalize">{sessionUser}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Peran &amp; Otoritas</span>
-              <span className="font-bold text-blue-600">
-                {isAdmin
-                  ? "Administrator Utama (Full Control)"
-                  : isCoach
-                    ? "Instruktur Pelatih Renang"
-                    : "Wali Murid / Siswa"}
-              </span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Email Resmi</span>
-              <span className="font-bold text-slate-900">{userEmail}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Akses Modul</span>
-              <span className="font-bold text-emerald-600">
-                {isAdmin
-                  ? "Jadwal, Siswa, Pelatih, Keuangan & Presensi"
-                  : isCoach
-                    ? "Jadwal Sesi & Input Presensi Harian"
-                    : "Dashboard & Progres Report Siswa"}
-              </span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Total Siswa Terdaftar</span>
-              <span className="font-bold text-slate-900">{students.length} Siswa Aktif</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Total Pelatih / Coach</span>
-              <span className="font-bold text-slate-900">{coaches.length} Instruktur</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Sesi Terjadwal</span>
-              <span className="font-bold text-slate-900">{schedules.length} Sesi Terjadwal</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500">Sistem Aplikasi</span>
-              <span className="font-bold text-slate-900">GIM Swimming Academy v2.0</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ==========================================
-            CARD 2.5: PUSH NOTIFICATION & APP BADGE STATUS
-            ========================================== */}
-        <PushNotificationCard
-          sessionUser={sessionUser}
-          sessionRole={sessionRole}
-        />
-
-        {/* ==========================================
-            CARD 3: PENGATURAN, BANTUAN & LOGOUT
-            ========================================== */}
-        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3">
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Pengaturan &amp; Bantuan
-          </h4>
-
-          <div className="space-y-2">
-            <a
-              href={`https://wa.me/6281234567890?text=Halo%20Dukungan%20Teknis%20GIM%20Swimming,%20saya%20${sessionUser}%20memerlukan%20bantuan`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
-            >
-              <span className="flex items-center gap-2">
-                <MessageCircle size={15} className="text-emerald-600" />
-                <span>Hubungi Dukungan Teknis GIM</span>
-              </span>
-              <ChevronRight size={15} className="text-slate-400" />
-            </a>
-
-            {showInstallBtn && onInstallClick && (
-              <button
-                type="button"
-                onClick={onInstallClick}
-                className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 text-xs font-bold transition border border-slate-100 cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <Download size={15} className="text-cyan-600" />
-                  <span>Pasang Aplikasi (Install PWA)</span>
-                </span>
-                <ChevronRight size={15} className="text-slate-400" />
-              </button>
-            )}
-
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-100 flex items-center justify-center gap-2 mt-2"
-              >
-                <LogOut size={14} />
-                <span>Keluar dari Akun ({sessionUser})</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ==========================================
-          INSTAGRAM-STYLE FULLSCREEN AVATAR LIGHTBOX VIEWER
-          ========================================== */}
-      {isViewingFullPhoto && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
-          {/* Dark Glassmorphism Backdrop Overlay */}
-          <div
-            className="fixed inset-0 bg-slate-950/85 backdrop-blur-md transition-opacity"
-            onClick={() => setIsViewingFullPhoto(false)}
-          />
-
-          {/* Centered Modal Box */}
-          <div className="relative z-10 w-full max-w-xs sm:max-w-sm rounded-3xl bg-slate-900/95 border border-white/15 p-6 shadow-2xl text-center flex flex-col items-center animate-zoomIn">
-            {/* Close Button Top Right */}
-            <button
-              onClick={() => setIsViewingFullPhoto(false)}
-              className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition cursor-pointer"
-              title="Tutup"
-            >
-              <X size={16} />
-            </button>
-
-            {/* User Title */}
-            <div className="mb-4">
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 mb-1.5">
-                {sessionRole}
-              </span>
-              <h3 className="text-base sm:text-lg font-black text-white capitalize tracking-tight">
-                {sessionUser}
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Foto Profil GIM Swimming
-              </p>
-            </div>
-
-            {/* High-res Large Avatar Display */}
-            <div className="relative mb-5">
-              <div className="h-44 w-44 sm:h-52 sm:w-52 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 p-1 shadow-2xl shadow-blue-500/25">
-                <div className="h-full w-full rounded-full overflow-hidden bg-slate-900 flex items-center justify-center border-2 border-white/20">
-                  {isCustomImage && previewAvatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={getAvatarImageUrl(previewAvatar)}
-                      alt={sessionUser}
-                      className="h-full w-full object-cover select-none pointer-events-none"
-                    />
-                  ) : previewAvatar ? (
-                    <span className="text-6xl sm:text-7xl select-none">{previewAvatar}</span>
-                  ) : (
-                    <span className="text-5xl sm:text-6xl font-black text-white select-none">{initialLetter}</span>
-                  )}
+              {/* User Name & Role */}
+              <div className="relative z-10 space-y-1">
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white capitalize drop-shadow-xs">
+                  {sessionUser}
+                </h2>
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-extrabold bg-white/20 text-blue-50 backdrop-blur-xs">
+                  <span>{roleLabel}</span>
+                  <span>•</span>
+                  <span className="font-mono">{userMemberId}</span>
                 </div>
               </div>
-              <span className="absolute bottom-1.5 right-1.5 h-5 w-5 rounded-full bg-emerald-400 border-3 border-slate-900 shadow-md" />
             </div>
 
-            {/* Action Buttons */}
-            <div className="w-full space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsViewingFullPhoto(false);
-                  setTimeout(() => fileInputRef.current?.click(), 120);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Camera size={14} />
-                <span>Ganti Foto dari Galeri</span>
-              </button>
+            {/* Circular Avatar Overlapping the Curved Header */}
+            <div className="relative -mt-12 flex justify-center z-20">
+              <div className="relative">
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-24 w-24 rounded-full bg-gradient-to-tr from-blue-700 to-cyan-500 p-1 shadow-lg shadow-blue-700/20 cursor-pointer active:scale-95 transition"
+                  title="Klik untuk ganti foto dari galeri"
+                >
+                  <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden border-2 border-white">
+                    {isCustomImage && previewAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={getAvatarImageUrl(previewAvatar)}
+                        alt={sessionUser}
+                        className="h-full w-full object-cover select-none"
+                      />
+                    ) : previewAvatar ? (
+                      <span className="text-4xl select-none">{previewAvatar}</span>
+                    ) : (
+                      <span className="text-3xl font-black text-blue-600 select-none">{initialLetter}</span>
+                    )}
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsViewingFullPhoto(false);
-                  setShowEmojiDrawer(true);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 border border-white/10 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Smile size={14} />
-                <span>Pilih Karakter Emoji</span>
-              </button>
-
-              {previewAvatar && (
+                {/* Camera Edit Badge */}
                 <button
                   type="button"
-                  onClick={async () => {
-                    await handleResetAvatar();
-                    setIsViewingFullPhoto(false);
-                  }}
-                  className="w-full py-2 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center border-2 border-white shadow-md cursor-pointer transition active:scale-90"
+                  title="Ganti Foto Profil"
                 >
-                  <Trash2 size={14} />
-                  <span>Hapus Foto Profil</span>
+                  <Camera size={15} />
                 </button>
-              )}
+              </div>
+            </div>
 
+            {/* Alerts / Feedback Toasts */}
+            {avatarSuccess && (
+              <div className="mx-5 mt-3 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 animate-fadeIn">
+                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                <span>Foto profil berhasil diperbarui!</span>
+              </div>
+            )}
+            {avatarError && (
+              <div className="mx-5 mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 animate-fadeIn">
+                <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+                <span>{avatarError}</span>
+              </div>
+            )}
+
+            {/* List Item Settings Menu */}
+            <div className="mt-4 divide-y divide-slate-100 text-slate-800">
+              {/* SECTION 1: PROFIL & PREFERENSI */}
+              <div>
+                {/* 1. Profilku */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("profilku")}
+                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-slate-500">
+                      <User size={20} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">Profilku</span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </button>
+
+                {/* 2. Bahasa (with ID | EN Toggle Pill) */}
+                <div className="w-full flex items-center justify-between px-6 py-3.5 border-t border-slate-100">
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-slate-500">
+                      <Globe size={20} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">Bahasa</span>
+                  </div>
+                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("ID")}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-black transition cursor-pointer ${
+                        language === "ID"
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      ID
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("EN")}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-black transition cursor-pointer ${
+                        language === "EN"
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      EN
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Notifikasi */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("notifikasi")}
+                  className="w-full flex items-center justify-between px-6 py-4 border-t border-slate-100 hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-slate-500">
+                      <Bell size={20} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">Notifikasi</span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </button>
+
+                {/* 4. Ubah Password */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("password")}
+                  className="w-full flex items-center justify-between px-6 py-4 border-t border-slate-100 hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-slate-500">
+                      <Lock size={20} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">Ubah Password</span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </button>
+              </div>
+
+              {/* SUBTLE SECTION DIVIDER */}
+              <div className="h-3 bg-slate-100/90 border-t border-b border-slate-200/50" />
+
+              {/* SECTION 2: BANTUAN & SUPPORT */}
+              <div>
+                {/* 5. FAQ */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("faq")}
+                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 active:bg-slate-100 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-slate-500">
+                      <HelpCircle size={20} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">FAQ</span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </button>
+
+                {/* 6. Hubungi Customer Support (WhatsApp Direct) */}
+                <a
+                  href={`https://wa.me/6281234567890?text=Halo%20Admin%20GIM%20Swimming,%20saya%20${sessionUser}%20memerlukan%20bantuan%20aplikasi`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between px-6 py-4 border-t border-slate-100 hover:bg-emerald-50/50 active:bg-emerald-50 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-emerald-600">
+                      <MessageCircle size={20} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-bold text-emerald-700">Hubungi Customer Support</span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </a>
+              </div>
+
+              {/* SUBTLE SECTION DIVIDER */}
+              <div className="h-3 bg-slate-100/90 border-t border-b border-slate-200/50" />
+
+              {/* SECTION 3: SESI & INFO APLIKASI */}
+              <div>
+                {/* 7. Pasang Aplikasi (PWA) */}
+                {showInstallBtn && onInstallClick && (
+                  <button
+                    type="button"
+                    onClick={onInstallClick}
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-blue-50/50 active:bg-blue-50 transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-blue-600">
+                        <Download size={20} strokeWidth={1.8} />
+                      </div>
+                      <span className="text-sm font-bold text-blue-700">Pasang Aplikasi (PWA)</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-400" />
+                  </button>
+                )}
+
+                {/* 8. Keluar */}
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLogoutModal(true)}
+                    className={`w-full flex items-center justify-between px-6 py-4 hover:bg-rose-50/40 active:bg-rose-50 transition cursor-pointer ${
+                      showInstallBtn ? "border-t border-slate-100" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="text-slate-500">
+                        <LogOut size={20} strokeWidth={1.8} />
+                      </div>
+                      <span className="text-sm font-bold text-slate-700">Keluar</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-400" />
+                  </button>
+                )}
+
+                {/* 9. Versi Aplikasi */}
+                <div className="w-full flex items-center justify-between px-6 py-4 border-t border-slate-100 text-slate-500">
+                  <div className="flex items-center gap-3.5">
+                    <div className="text-slate-400">
+                      <RotateCw size={19} strokeWidth={1.8} />
+                    </div>
+                    <span className="text-sm font-medium text-slate-600">Versi Aplikasi</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-slate-400">2.4.0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            VIEW 2: HALAMAN "PROFILKU" (FULL SUB-PAGE)
+            ======================================================== */}
+        {currentView === "profilku" && (
+          <div className="animate-fadeIn">
+            {/* Top Back Navigation Bar */}
+            <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100 sticky top-0 z-20">
               <button
                 type="button"
-                onClick={() => setIsViewingFullPhoto(false)}
-                className="w-full py-2 px-4 rounded-xl bg-transparent hover:bg-white/5 text-slate-400 font-bold text-xs transition cursor-pointer"
+                onClick={() => setCurrentView("main")}
+                className="flex items-center gap-1 text-slate-700 hover:text-blue-600 font-bold text-xs p-1 -ml-1 transition cursor-pointer"
               >
-                Tutup
+                <ChevronLeft size={20} />
+                <span>Kembali</span>
+              </button>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">Profilku</h3>
+              <div className="w-14" />
+            </div>
+
+            {/* Profile Detail Content */}
+            <div className="p-5 sm:p-6 space-y-4 text-slate-800">
+              {/* Avatar Summary Card */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-blue-50/70 border border-blue-100">
+                <div className="relative shrink-0">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-700 to-blue-500 text-white font-black text-2xl flex items-center justify-center border-2 border-white shadow-md overflow-hidden cursor-pointer hover:opacity-90 transition"
+                  >
+                    {isCustomImage && previewAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={getAvatarImageUrl(previewAvatar)}
+                        alt={sessionUser}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : previewAvatar ? (
+                      <span className="text-3xl">{previewAvatar}</span>
+                    ) : (
+                      <span>{initialLetter}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center border border-white shadow-xs cursor-pointer"
+                  >
+                    <Camera size={11} />
+                  </button>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-base font-black text-slate-900 capitalize truncate">{sessionUser}</h4>
+                  <p className="text-xs text-blue-700 font-bold">{roleLabel}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    >
+                      Ganti Foto
+                    </button>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiDrawer((v) => !v)}
+                      className="text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:underline cursor-pointer"
+                    >
+                      {showEmojiDrawer ? "Tutup Emoji" : "Pilih Emoji"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emoji Drawer */}
+              {showEmojiDrawer && (
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 animate-fadeIn">
+                  <p className="text-[11px] font-bold text-slate-500">Pilih Karakter Emoji Avatar:</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {PRESET_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => {
+                          saveAvatar(emoji);
+                          setShowEmojiDrawer(false);
+                        }}
+                        className="h-10 rounded-xl bg-white hover:bg-blue-50 border border-slate-200 text-xl flex items-center justify-center cursor-pointer transition hover:scale-105"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Information Rows */}
+              <div className="space-y-3 text-xs pt-1">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">ID Anggota</span>
+                  <span className="font-mono font-black text-blue-700 text-xs sm:text-sm">{userMemberId}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Tingkat Akses</span>
+                  <span className="font-extrabold text-slate-800">{roleLabel}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Email Resmi</span>
+                  <span className="font-bold text-slate-800 truncate max-w-[200px]">{userEmail}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Kontak WhatsApp</span>
+                  <span className="font-bold text-slate-800">{userPhone}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Afiliasi Klub</span>
+                  <span className="font-bold text-slate-800">GIM Swimming Subang (PRSI Jabar)</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Venue Latihan Utama</span>
+                  <span className="font-bold text-slate-800">Hotel Nalendra Plaza &amp; Yonif 312</span>
+                </div>
+              </div>
+
+              {/* Quick Action to Change Password */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("password")}
+                  className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Lock size={15} />
+                  <span>Ubah Kata Sandi Akun</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            VIEW 3: HALAMAN "UBAH PASSWORD" (FULL SUB-PAGE)
+            ======================================================== */}
+        {currentView === "password" && (
+          <div className="animate-fadeIn">
+            {/* Top Back Navigation Bar */}
+            <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100 sticky top-0 z-20">
+              <button
+                type="button"
+                onClick={() => setCurrentView("main")}
+                className="flex items-center gap-1 text-slate-700 hover:text-blue-600 font-bold text-xs p-1 -ml-1 transition cursor-pointer"
+              >
+                <ChevronLeft size={20} />
+                <span>Kembali</span>
+              </button>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">Ubah Password</h3>
+              <div className="w-14" />
+            </div>
+
+            {/* Change Password Form Content */}
+            <div className="p-5 sm:p-6 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100 text-blue-900 text-xs flex items-start gap-2.5">
+                <Shield size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                <p className="font-medium text-blue-800">
+                  Pastikan kata sandi baru Anda unik dan memiliki panjang minimal 6 karakter.
+                </p>
+              </div>
+
+              {passwordSuccess && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm animate-fadeIn">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>Kata sandi akun Anda berhasil diperbarui!</span>
+                </div>
+              )}
+
+              {passwordError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm animate-fadeIn">
+                  <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+                {/* Kata Sandi Lama */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">Kata Sandi Saat Ini</label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Masukkan kata sandi lama"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xs sm:text-sm font-medium focus:bg-white focus:border-blue-600 outline-none transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword((v) => !v)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Kata Sandi Baru */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">Kata Sandi Baru</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xs sm:text-sm font-medium focus:bg-white focus:border-blue-600 outline-none transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword((v) => !v)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Konfirmasi Kata Sandi Baru */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 flex justify-between">
+                    <span>Konfirmasi Kata Sandi Baru</span>
+                    {confirmPassword && (
+                      <span className={`text-[11px] font-bold ${newPassword === confirmPassword ? "text-emerald-600" : "text-rose-600"}`}>
+                        {newPassword === confirmPassword ? "✓ Cocok" : "✗ Belum sama"}
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Ketik ulang kata sandi baru"
+                      className="w-full pl-3.5 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xs sm:text-sm font-medium focus:bg-white focus:border-blue-600 outline-none transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={isChangingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
+                  className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/20 transition active:scale-98 cursor-pointer flex items-center justify-center gap-2 mt-2"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <RotateCw size={16} className="animate-spin" />
+                      <span>Menyimpan Kata Sandi...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>Simpan Kata Sandi</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            VIEW 4: HALAMAN "NOTIFIKASI" (FULL SUB-PAGE)
+            ======================================================== */}
+        {currentView === "notifikasi" && (
+          <div className="animate-fadeIn">
+            {/* Top Back Navigation Bar */}
+            <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100 sticky top-0 z-20">
+              <button
+                type="button"
+                onClick={() => setCurrentView("main")}
+                className="flex items-center gap-1 text-slate-700 hover:text-blue-600 font-bold text-xs p-1 -ml-1 transition cursor-pointer"
+              >
+                <ChevronLeft size={20} />
+                <span>Kembali</span>
+              </button>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">Notifikasi</h3>
+              <div className="w-14" />
+            </div>
+
+            {/* Notification Card Content */}
+            <div className="p-5 sm:p-6 space-y-4">
+              <PushNotificationCard sessionUser={sessionUser} sessionRole={sessionRole} />
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 space-y-2">
+                <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Bell size={14} className="text-blue-600" />
+                  <span>Jenis Pemberitahuan:</span>
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-slate-500 font-medium">
+                  <li>Pengingat sesi jadwal latihan renang</li>
+                  <li>Konfirmasi verifikasi pembayaran SPP</li>
+                  <li>Pengumuman resmi dari manajemen GIM Swimming</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            VIEW 5: HALAMAN "FAQ" (FULL SUB-PAGE)
+            ======================================================== */}
+        {currentView === "faq" && (
+          <div className="animate-fadeIn">
+            {/* Top Back Navigation Bar */}
+            <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100 sticky top-0 z-20">
+              <button
+                type="button"
+                onClick={() => setCurrentView("main")}
+                className="flex items-center gap-1 text-slate-700 hover:text-blue-600 font-bold text-xs p-1 -ml-1 transition cursor-pointer"
+              >
+                <ChevronLeft size={20} />
+                <span>Kembali</span>
+              </button>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">FAQ &amp; Panduan</h3>
+              <div className="w-14" />
+            </div>
+
+            {/* FAQ Accordion Content */}
+            <div className="p-5 sm:p-6 space-y-3">
+              {FAQ_ITEMS.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-slate-200/80 overflow-hidden bg-slate-50/70 transition"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedFaq(expandedFaq === idx ? null : idx)}
+                    className="w-full flex items-center justify-between p-4 text-left font-bold text-xs text-slate-800 hover:bg-slate-100/60 transition cursor-pointer"
+                  >
+                    <span>{item.q}</span>
+                    <ChevronDown
+                      size={16}
+                      className={`text-slate-400 transition-transform duration-200 shrink-0 ml-2 ${
+                        expandedFaq === idx ? "rotate-180 text-blue-600" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {expandedFaq === idx && (
+                    <div className="px-4 pb-4 text-xs text-slate-600 font-medium border-t border-slate-150 pt-3 bg-white animate-fadeIn">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Helpdesk banner */}
+              <div className="pt-3">
+                <a
+                  href={`https://wa.me/6281234567890?text=Halo%20Admin%20GIM%20Swimming,%20saya%20${sessionUser}%20memerlukan%20bantuan`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-between transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MessageCircle size={18} className="text-emerald-600" />
+                    <span>Masih ada pertanyaan? Hubungi Customer Care</span>
+                  </div>
+                  <ExternalLink size={14} className="text-emerald-600" />
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================
+          MODAL: KONFIRMASI LOGOUT (STANDAR AMAN)
+          ======================================================== */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+            onClick={() => setShowLogoutModal(false)}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl text-center space-y-3">
+            <div className="h-12 w-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <LogOut size={22} />
+            </div>
+            <h4 className="text-base font-black text-slate-900">Keluar Akun?</h4>
+            <p className="text-xs text-slate-500">
+              Apakah Anda yakin ingin keluar dari akun <strong className="capitalize text-slate-700">{sessionUser}</strong>?
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutModal(false);
+                  onLogout?.();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                Ya, Keluar
               </button>
             </div>
           </div>

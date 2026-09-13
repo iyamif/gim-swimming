@@ -152,6 +152,45 @@ func (h *AuthHandler) SetupPassword(c *gin.Context) {
 	})
 }
 
+// ChangePassword handles secure password change for authenticated users
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userIdVal, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak terotentikasi"})
+		return
+	}
+
+	userIdStr, ok := userIdVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca ID pengguna"})
+		return
+	}
+
+	intId, err := strconv.ParseInt(userIdStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pengguna tidak valid"})
+		return
+	}
+
+	var input model.ChangePasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kata sandi saat ini dan kata sandi baru (min 6 karakter) wajib diisi"})
+		return
+	}
+
+	updatedUser, err := h.authService.ChangePassword(c.Request.Context(), intId, input.CurrentPassword, input.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Kata sandi berhasil diubah!",
+		"data":    updatedUser,
+	})
+}
+
 // UpdateAvatar handles JSON update for user avatar (emoji or preset)
 func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 	usernameVal, exists := c.Get("username")

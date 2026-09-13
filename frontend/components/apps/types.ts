@@ -5,6 +5,8 @@ export interface AttendanceLog {
 
 export interface Student {
   id: string;
+  user_id?: number | string;
+  userId?: number | string;
   name: string;
   class: string;
   attendanceRate: string;
@@ -22,6 +24,8 @@ export interface Student {
 
 export interface Coach {
   id: string;
+  user_id?: number | string;
+  userId?: number | string;
   name: string;
   spec: string;
   phone: string;

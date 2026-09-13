@@ -43,6 +43,12 @@ type SetupPasswordInput struct {
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
+// ChangePasswordInput represents payload for user changing their existing password
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
 // UpdateAvatarInput represents avatar update payload
 type UpdateAvatarInput struct {
 	Avatar string `json:"avatar"`

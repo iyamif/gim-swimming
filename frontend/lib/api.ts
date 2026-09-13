@@ -102,6 +102,8 @@ export async function fetchStudents(): Promise<Student[]> {
     const json = await res.json();
     return (json.data || []).map((s: any) => ({
       id: String(s.id),
+      user_id: s.user_id || s.userId || undefined,
+      userId: s.user_id || s.userId || undefined,
       name: s.name,
       class: s.class,
       attendanceRate: s.attendanceRate || "100%",
@@ -299,6 +301,8 @@ export async function fetchCoaches(): Promise<Coach[]> {
       const payRate = Number(c.pay_per_session) || 100000;
       return {
         id: String(c.id),
+        user_id: c.user_id || c.userId || undefined,
+        userId: c.user_id || c.userId || undefined,
         name: c.name,
         spec: c.spec,
         phone: c.phone,
@@ -749,6 +753,24 @@ export async function setupInitialPassword(newPassword: string): Promise<{ succe
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(json.error || "Gagal mengatur kata sandi baru");
+  }
+
+  return json;
+}
+
+export async function changeUserPassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string; data?: any }> {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/change-password`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error || "Gagal mengubah kata sandi");
   }
 
   return json;
