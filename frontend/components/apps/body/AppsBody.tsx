@@ -7,6 +7,8 @@ import {
   AttendanceRecord,
   AdminNotification,
   FinancialTransaction,
+  PoolVenue,
+  ClassProgram,
 } from "../types";
 import DashboardOverviewTab from "./DashboardOverviewTab";
 import KeuanganTab from "./KeuanganTab";
@@ -33,6 +35,8 @@ interface AppsBodyProps {
   schedules: ScheduleSession[];
   attendances?: AttendanceRecord[];
   notifications?: AdminNotification[];
+  pools?: PoolVenue[];
+  classPrograms?: ClassProgram[];
   showInstallBtn?: boolean;
   onInstallClick?: () => void;
   onLogout?: () => void;
@@ -108,6 +112,8 @@ export default function AppsBody({
   attendances = [],
   notifications = [],
   financialTransactions = [],
+  pools = [],
+  classPrograms = [],
   onAddFinancialTransaction,
   onDeleteFinancialTransaction,
   showInstallBtn,
@@ -171,6 +177,8 @@ export default function AppsBody({
           schedules={schedules}
           coaches={coaches}
           students={students}
+          pools={pools}
+          classPrograms={classPrograms}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
           onAddSchedule={onAddSchedule}
@@ -187,6 +195,8 @@ export default function AppsBody({
           schedules={schedules}
           coaches={coaches}
           attendances={attendances}
+          pools={pools}
+          classPrograms={classPrograms}
           onUpdateStudentStatus={onUpdateStudentStatus}
           onUpdateStudent={onUpdateStudent}
           onDeleteStudent={onDeleteStudent}
@@ -201,6 +211,8 @@ export default function AppsBody({
           schedules={schedules}
           students={students}
           attendances={attendances}
+          pools={pools}
+          classPrograms={classPrograms}
           onUpdateCoach={onUpdateCoach}
           onDeleteCoach={onDeleteCoach}
           setActiveTab={setActiveTab}
@@ -259,6 +271,8 @@ export default function AppsBody({
       {activeTab === "create" && (
         <RegistrasiTab
           coaches={coaches}
+          pools={pools}
+          classPrograms={classPrograms}
           onAddStudent={onAddStudent}
           onAddCoach={onAddCoach}
           sessionRole={sessionRole}

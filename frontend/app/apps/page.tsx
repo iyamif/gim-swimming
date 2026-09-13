@@ -31,6 +31,8 @@ import {
   fetchFinancialTransactions,
   createFinancialTransaction,
   deleteFinancialTransaction,
+  fetchPools,
+  fetchClassPrograms,
 } from "../../lib/api";
 import {
   Student,
@@ -42,6 +44,8 @@ import {
   AdminNotification,
   CheckInInput,
   FinancialTransaction,
+  PoolVenue,
+  ClassProgram,
 } from "../../components/apps/types";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
 import {
@@ -79,6 +83,8 @@ export default function AppsPage() {
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>([]);
+  const [pools, setPools] = useState<PoolVenue[]>([]);
+  const [classPrograms, setClassPrograms] = useState<ClassProgram[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -125,6 +131,8 @@ export default function AppsPage() {
         fetchedInvoices,
         fetchedAttendances,
         fetchedFinancialTransactions,
+        fetchedPools,
+        fetchedClassPrograms,
       ] = await Promise.all([
         fetchStudents(),
         fetchCoaches(),
@@ -132,7 +140,18 @@ export default function AppsPage() {
         fetchInvoices(),
         fetchAttendances(),
         fetchFinancialTransactions(),
+        fetchPools(),
+        fetchClassPrograms(),
       ]);
+
+      setStudents(fetchedStudents);
+      setCoaches(fetchedCoaches);
+      setSchedules(fetchedSchedules);
+      setInvoices(fetchedInvoices);
+      setAttendances(fetchedAttendances);
+      setFinancialTransactions(fetchedFinancialTransactions);
+      setPools(fetchedPools);
+      setClassPrograms(fetchedClassPrograms);
 
       // If role is Orang Tua, find corresponding student name to accurately query notifications
       let queryName = user;
@@ -1203,6 +1222,8 @@ export default function AppsPage() {
             onUpdateCoach={handleUpdateCoach}
             onDeleteCoach={handleDeleteCoach}
             financialTransactions={financialTransactions}
+            pools={pools}
+            classPrograms={classPrograms}
             onAddFinancialTransaction={handleAddFinancialTransaction}
             onDeleteFinancialTransaction={handleDeleteFinancialTransaction}
           />

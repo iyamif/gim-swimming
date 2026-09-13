@@ -8,15 +8,14 @@ import {
   Plus,
   Edit2,
   Trash2,
-  Check,
   X,
-  Compass,
+  Sliders,
+  ExternalLink,
   DollarSign,
   Calendar,
-  AlertCircle,
-  Sliders,
-  Sparkles,
-  Info,
+  Compass,
+  CheckCircle2,
+  Search,
 } from "lucide-react";
 import {
   fetchPools,
@@ -41,6 +40,7 @@ export default function GeneralTab({
   onRefresh,
 }: GeneralTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<"pools" | "programs">("pools");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // State: Pools
   const [pools, setPools] = useState<PoolVenue[]>([]);
@@ -212,229 +212,336 @@ export default function GeneralTab({
     }
   };
 
+  // Filtered lists
+  const filteredPools = pools.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.address || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredPrograms = programs.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="space-y-6 pb-20 sm:pb-8">
-      {/* Top Banner Card */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 p-6 sm:p-8 text-white shadow-xl shadow-blue-950/20">
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
+      {/* ==========================================
+          1. TOP VIBRANT BLUE HEADER (MATCHING KEUANGAN)
+          ========================================== */}
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+        {/* Subtle Concentric Decorative Rings */}
+        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
+        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
+        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+
+        {/* Ambient Depth Glow */}
+        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
+
+        <div className="max-w-3xl mx-auto relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-black uppercase tracking-widest">
-              <Sliders size={16} />
-              <span>Pengaturan Master Data</span>
+            <div className="flex items-center gap-1.5 text-cyan-200 text-xs font-bold uppercase tracking-wider mb-1">
+              <Sliders size={14} />
+              <span>Pengaturan Akademi</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mt-1 tracking-tight">
-              General Master Data
-            </h1>
-            <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-              Kelola daftar lokasi kolam renang (koordinat GPS & radius presensi)
-              serta daftar program kelas renang (biaya SPP & kuota sesi).
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Master Data
+            </h2>
+            <p className="text-xs text-cyan-100 font-medium mt-1">
+              Kelola Lokasi Kolam Renang, Koordinat GPS, dan Program Kelas
             </p>
           </div>
 
-          <div className="flex bg-black/30 p-1.5 rounded-2xl backdrop-blur-md border border-white/10 shrink-0">
-            <button
-              onClick={() => setActiveSubTab("pools")}
-              className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs sm:text-sm font-black transition-all ${
-                activeSubTab === "pools"
-                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              <MapPin size={16} />
-              <span>Lokasi Kolam ({pools.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveSubTab("programs")}
-              className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs sm:text-sm font-black transition-all ${
-                activeSubTab === "programs"
-                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30"
-                  : "text-slate-300 hover:text-white"
-              }`}
-            >
-              <Layers size={16} />
-              <span>Program Kelas ({programs.length})</span>
-            </button>
-          </div>
+          {/* Top Quick Action Button */}
+          <button
+            onClick={() =>
+              activeSubTab === "pools"
+                ? handleOpenPoolModal()
+                : handleOpenProgramModal()
+            }
+            className="flex items-center justify-center gap-2 bg-white hover:bg-cyan-50 text-blue-700 font-black text-xs sm:text-sm px-4 py-2.5 rounded-2xl shadow-lg shadow-black/10 transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <Plus size={16} className="stroke-[3]" />
+            <span>
+              {activeSubTab === "pools" ? "+ Tambah Kolam" : "+ Tambah Program"}
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* SUBTAB 1: LOKASI KOLAM RENANG */}
-      {/* ========================================================= */}
-      {activeSubTab === "pools" && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <MapPin size={20} className="text-blue-600" />
-                <span>Daftar Lokasi Kolam Renang</span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Titik koordinat digunakan untuk memvalidasi radius presensi pelatih & siswa.
-              </p>
-            </div>
+      {/* ==========================================
+          2. FLOATING CONTENT CONTAINER
+          ========================================== */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-5 -mt-6 relative z-10">
+        {/* Navigation Tabs Capsule */}
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-md shadow-slate-200/40 flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              setActiveSubTab("pools");
+              setSearchQuery("");
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              activeSubTab === "pools"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+          >
+            <MapPin size={16} />
+            <span>Lokasi Kolam ({pools.length})</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveSubTab("programs");
+              setSearchQuery("");
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              activeSubTab === "programs"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+          >
+            <Layers size={16} />
+            <span>Program Kelas ({programs.length})</span>
+          </button>
+        </div>
 
+        {/* Quick Search Bar */}
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            type="text"
+            placeholder={
+              activeSubTab === "pools"
+                ? "Cari nama kolam renang atau alamat..."
+                : "Cari nama program kelas..."
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
+          />
+          {searchQuery && (
             <button
-              onClick={() => handleOpenPoolModal()}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
             >
-              <Plus size={16} />
-              <span>+ Tambah Lokasi Kolam</span>
+              <X size={14} />
             </button>
-          </div>
+          )}
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {pools.map((pool) => (
-              <div
-                key={pool.id}
-                className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4 hover:border-blue-300 transition"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black shrink-0">
-                      <MapPin size={20} />
+        {/* ========================================================= */}
+        {/* SUBTAB 1: LOKASI KOLAM RENANG */}
+        {/* ========================================================= */}
+        {activeSubTab === "pools" && (
+          <div className="space-y-3.5">
+            {filteredPools.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 text-center border border-slate-100 shadow-sm space-y-3">
+                <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 mx-auto flex items-center justify-center font-bold">
+                  <MapPin size={24} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-black text-slate-800">
+                    Tidak Ada Lokasi Kolam
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {searchQuery
+                      ? "Tidak ada lokasi kolam yang cocok dengan pencarian."
+                      : "Belum ada master data kolam renang yang tersimpan."}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleOpenPoolModal()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition"
+                >
+                  <Plus size={14} />
+                  <span>Tambah Kolam Pertama</span>
+                </button>
+              </div>
+            ) : (
+              filteredPools.map((pool) => (
+                <div
+                  key={pool.id}
+                  className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black shrink-0">
+                        <MapPin size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm sm:text-base font-black text-slate-900 leading-snug">
+                          {pool.name}
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                          {pool.address || "Alamat belum diatur"}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-100">
-                      Radius {pool.radius_meters || 200}m
+
+                    <span className="shrink-0 text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100 flex items-center gap-1">
+                      <Compass size={12} />
+                      <span>Radius {pool.radius_meters || 200}m</span>
                     </span>
                   </div>
 
-                  <h4 className="text-base font-black text-slate-900 leading-snug">
-                    {pool.name}
-                  </h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    {pool.address || "Alamat belum diatur"}
+                  {/* Coordinates & Actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-slate-100/80">
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span>
+                        Lat: <strong>{pool.latitude}</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        Long: <strong>{pool.longitude}</strong>
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps?q=${pool.latitude},${pool.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:text-blue-800 ml-1 inline-flex items-center gap-0.5 font-sans font-bold"
+                        title="Buka di Google Maps"
+                      >
+                        <ExternalLink size={11} />
+                        <span>Maps</span>
+                      </a>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleOpenPoolModal(pool)}
+                        className="flex items-center gap-1.5 text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        <Edit2 size={13} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeletePool(pool.id, pool.name)}
+                        className="flex items-center gap-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        <Trash2 size={13} />
+                        <span>Hapus</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* SUBTAB 2: PROGRAM KELAS RENANG */}
+        {/* ========================================================= */}
+        {activeSubTab === "programs" && (
+          <div className="space-y-3.5">
+            {filteredPrograms.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 text-center border border-slate-100 shadow-sm space-y-3">
+                <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center font-bold">
+                  <Layers size={24} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-black text-slate-800">
+                    Tidak Ada Program Kelas
                   </p>
-
-                  <div className="bg-slate-50 p-2.5 rounded-xl text-[11px] font-mono text-slate-600 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400 font-sans">Lat:</span>
-                      <span className="font-bold">{pool.latitude}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400 font-sans">Long:</span>
-                      <span className="font-bold">{pool.longitude}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    onClick={() => handleOpenPoolModal(pool)}
-                    className="flex items-center gap-1 text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-xs font-bold transition"
-                  >
-                    <Edit2 size={13} />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeletePool(pool.id, pool.name)}
-                    className="flex items-center gap-1 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-2.5 py-1.5 rounded-xl text-xs font-bold transition"
-                  >
-                    <Trash2 size={13} />
-                    <span>Hapus</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* SUBTAB 2: PROGRAM KELAS RENANG */}
-      {/* ========================================================= */}
-      {activeSubTab === "programs" && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <Layers size={20} className="text-indigo-600" />
-                <span>Daftar Program Kelas Renang</span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kategori program latihan dan tarif SPP bulanan default untuk pendaftaran siswa.
-              </p>
-            </div>
-
-            <button
-              onClick={() => handleOpenProgramModal()}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm"
-            >
-              <Plus size={16} />
-              <span>+ Tambah Program Kelas</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {programs.map((prog) => (
-              <div
-                key={prog.id}
-                className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4 hover:border-indigo-300 transition"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black shrink-0">
-                      <Layers size={20} />
-                    </div>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      {prog.sessions_per_week || 2} Sesi / Mgg
-                    </span>
-                  </div>
-
-                  <h4 className="text-base font-black text-slate-900">{prog.name}</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed min-h-[40px]">
-                    {prog.description || "Program pelatihan renang terstruktur"}
+                  <p className="text-xs text-slate-400">
+                    {searchQuery
+                      ? "Tidak ada program kelas yang cocok dengan pencarian."
+                      : "Belum ada master data program kelas yang tersimpan."}
                   </p>
+                </div>
+                <button
+                  onClick={() => handleOpenProgramModal()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition"
+                >
+                  <Plus size={14} />
+                  <span>Tambah Program Pertama</span>
+                </button>
+              </div>
+            ) : (
+              filteredPrograms.map((prog) => (
+                <div
+                  key={prog.id}
+                  className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black shrink-0">
+                        <Layers size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm sm:text-base font-black text-slate-900 leading-snug">
+                            {prog.name}
+                          </h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                            {prog.sessions_per_week || 2}x / Minggu
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          {prog.description || "Program kelas renang terstruktur"}
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Biaya SPP Bulanan
-                    </p>
-                    <p className="text-lg font-black text-blue-700 mt-0.5">
-                      Rp {prog.monthly_fee.toLocaleString("id-ID")}
-                    </p>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Tarif SPP
+                      </p>
+                      <p className="text-sm sm:text-base font-black text-blue-600">
+                        Rp {Math.round(prog.monthly_fee || 0).toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100/80">
+                    <button
+                      onClick={() => handleOpenProgramModal(prog)}
+                      className="flex items-center gap-1.5 text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                    >
+                      <Edit2 size={13} />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProgram(prog.id, prog.name)}
+                      className="flex items-center gap-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>Hapus</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    onClick={() => handleOpenProgramModal(prog)}
-                    className="flex items-center gap-1 text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-xl text-xs font-bold transition"
-                  >
-                    <Edit2 size={13} />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteProgram(prog.id, prog.name)}
-                    className="flex items-center gap-1 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-2.5 py-1.5 rounded-xl text-xs font-bold transition"
-                  >
-                    <Trash2 size={13} />
-                    <span>Hapus</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL: TAMBAH / EDIT KOLAM RENANG */}
       {/* ========================================================= */}
       {showPoolModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scaleUp">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <MapPin size={18} className="text-blue-600" />
-                <span>{editingPool ? "Edit Lokasi Kolam" : "Tambah Lokasi Kolam Baru"}</span>
-              </h3>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <MapPin size={18} />
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
+                  {editingPool ? "Edit Lokasi Kolam" : "Tambah Lokasi Kolam Baru"}
+                </h3>
+              </div>
               <button
                 onClick={() => setShowPoolModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -449,7 +556,7 @@ export default function GeneralTab({
                   value={poolName}
                   onChange={(e) => setPoolName(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                 />
               </div>
 
@@ -462,7 +569,7 @@ export default function GeneralTab({
                   placeholder="e.g. Jl. Mayjen Sutoyo No.7, Subang"
                   value={poolAddress}
                   onChange={(e) => setPoolAddress(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                 />
               </div>
 
@@ -478,7 +585,7 @@ export default function GeneralTab({
                     value={poolLat}
                     onChange={(e) => setPoolLat(Number(e.target.value))}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                   />
                 </div>
                 <div>
@@ -492,7 +599,7 @@ export default function GeneralTab({
                     value={poolLng}
                     onChange={(e) => setPoolLng(Number(e.target.value))}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                   />
                 </div>
               </div>
@@ -504,14 +611,14 @@ export default function GeneralTab({
                 <input
                   type="number"
                   min={50}
-                  max={1000}
+                  max={2000}
                   value={poolRadius}
                   onChange={(e) => setPoolRadius(Number(e.target.value))}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Jarak maksimal pengguna dari titik kolam agar presensi dianggap valid (Rekomendasi: 200m).
+                  Jarak maksimal perangkat pelatih/siswa dari kolam agar absensi diterima (Default: 200m).
                 </p>
               </div>
 
@@ -519,14 +626,14 @@ export default function GeneralTab({
                 <button
                   type="button"
                   onClick={() => setShowPoolModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingPool}
-                  className="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 transition shadow-md shadow-blue-600/20 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 transition shadow-md shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
                 >
                   {savingPool ? "Menyimpan..." : "Simpan Lokasi"}
                 </button>
@@ -540,18 +647,24 @@ export default function GeneralTab({
       {/* MODAL: TAMBAH / EDIT PROGRAM KELAS */}
       {/* ========================================================= */}
       {showProgramModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scaleUp">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <Layers size={18} className="text-indigo-600" />
-                <span>{editingProgram ? "Edit Program Kelas" : "Tambah Program Kelas Baru"}</span>
-              </h3>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Layers size={18} />
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
+                  {editingProgram
+                    ? "Edit Program Kelas"
+                    : "Tambah Program Kelas Baru"}
+                </h3>
+              </div>
               <button
                 onClick={() => setShowProgramModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -562,11 +675,11 @@ export default function GeneralTab({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Prestasi / Reguler / Private"
+                  placeholder="e.g. Prestasi / Reguler / Private 1-on-1"
                   value={progName}
                   onChange={(e) => setProgName(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                 />
               </div>
 
@@ -576,25 +689,26 @@ export default function GeneralTab({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Deskripsi singkat kurikulum atau target kelas..."
+                  placeholder="Deskripsi kurikulum atau sasaran peserta kelas..."
                   value={progDesc}
                   onChange={(e) => setProgDesc(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 resize-none transition"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Biaya SPP (Rp) <span className="text-rose-500">*</span>
+                    Biaya SPP Bulanan (Rp) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
                     min={0}
+                    step={10000}
                     value={progFee}
                     onChange={(e) => setProgFee(Number(e.target.value))}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                   />
                 </div>
                 <div>
@@ -608,7 +722,7 @@ export default function GeneralTab({
                     value={progSessions}
                     onChange={(e) => setProgSessions(Number(e.target.value))}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                   />
                 </div>
               </div>
@@ -617,14 +731,14 @@ export default function GeneralTab({
                 <button
                   type="button"
                   onClick={() => setShowProgramModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingProgram}
-                  className="px-5 py-2 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 transition shadow-md shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
                 >
                   {savingProgram ? "Menyimpan..." : "Simpan Program"}
                 </button>

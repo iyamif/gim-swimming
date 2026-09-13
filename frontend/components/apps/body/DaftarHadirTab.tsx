@@ -17,7 +17,7 @@ import {
   Calendar,
   Trash2,
 } from "lucide-react";
-import { Student, Coach, ScheduleSession, AttendanceRecord } from "../types";
+import { Student, Coach, ScheduleSession, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 import SwipeableRow from "../SwipeableRow";
 
@@ -27,6 +27,8 @@ interface DaftarHadirTabProps {
   schedules?: ScheduleSession[];
   coaches?: Coach[];
   attendances?: AttendanceRecord[];
+  pools?: PoolVenue[];
+  classPrograms?: ClassProgram[];
   onUpdateStudentStatus?: (studentId: string, status: string) => Promise<void> | void;
   onUpdateStudent?: (studentId: string, data: Partial<Student>) => Promise<void> | void;
   onDeleteStudent?: (studentId: string) => Promise<void> | void;
@@ -39,11 +41,20 @@ export default function DaftarHadirTab({
   schedules = [],
   coaches = [],
   attendances = [],
+  pools = [],
+  classPrograms = [],
   onUpdateStudentStatus,
   onUpdateStudent,
   onDeleteStudent,
   setActiveTab,
 }: DaftarHadirTabProps) {
+  const availablePrograms = useMemo(() => {
+    if (classPrograms && classPrograms.length > 0) {
+      return classPrograms.map((p) => p.name);
+    }
+    return ["Prestasi", "Kids Swimming", "Private Class"];
+  }, [classPrograms]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
   // Default: Hanya munculkan siswa yang aktif saja
@@ -641,7 +652,7 @@ export default function DaftarHadirTab({
                 Program Kelas:
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {["ALL", "Prestasi", "Kids Swimming", "Private Class"].map((cls) => (
+                {["ALL", ...availablePrograms].map((cls) => (
                   <button
                     key={cls}
                     onClick={() => setSelectedClass(cls)}
@@ -932,9 +943,11 @@ export default function DaftarHadirTab({
                       onChange={(e) => setEditClass(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                     >
-                      <option value="Prestasi">Prestasi</option>
-                      <option value="Kids Swimming">Kids Swimming</option>
-                      <option value="Private Class">Private Class</option>
+                      {availablePrograms.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

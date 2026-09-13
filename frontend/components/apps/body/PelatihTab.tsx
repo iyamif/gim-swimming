@@ -19,7 +19,7 @@ import {
   Coins,
   Check,
 } from "lucide-react";
-import { Coach, ScheduleSession, Student, AttendanceRecord } from "../types";
+import { Coach, ScheduleSession, Student, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
 import SwipeableRow from "../SwipeableRow";
 
@@ -29,6 +29,8 @@ interface PelatihTabProps {
   schedules?: ScheduleSession[];
   students?: Student[];
   attendances?: AttendanceRecord[];
+  pools?: PoolVenue[];
+  classPrograms?: ClassProgram[];
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
   onUpdateCoach?: (coachId: string, data: {
     name: string;
@@ -48,10 +50,19 @@ export default function PelatihTab({
   schedules = [],
   students = [],
   attendances = [],
+  pools = [],
+  classPrograms = [],
   onDeleteCoach,
   onUpdateCoach,
   setActiveTab,
 }: PelatihTabProps) {
+  const availablePrograms = useMemo(() => {
+    if (classPrograms && classPrograms.length > 0) {
+      return classPrograms.map((p) => p.name);
+    }
+    return ["Kids Swimming", "Private Class", "Prestasi", "FINA"];
+  }, [classPrograms]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExpertise, setSelectedExpertise] = useState<string>("ALL");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -440,7 +451,7 @@ export default function PelatihTab({
               Pilih Bidang Pelatihan:
             </span>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {["ALL", "Kids Swimming", "Private Class", "Prestasi", "FINA"].map((exp) => (
+              {["ALL", ...availablePrograms].map((exp) => (
                 <button
                   key={exp}
                   onClick={() => setSelectedExpertise(exp)}
@@ -802,10 +813,11 @@ export default function PelatihTab({
                     onChange={(e) => setEditClass(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
                   >
-                    <option value="Prestasi">Prestasi</option>
-                    <option value="Kids Swimming">Kids Swimming</option>
-                    <option value="Private Class">Private Class</option>
-                    <option value="Adult Beginner">Adult Beginner</option>
+                    {availablePrograms.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

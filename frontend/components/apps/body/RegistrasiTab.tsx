@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Lock,
   AlertCircle,
@@ -8,10 +8,12 @@ import {
   Users,
   Check,
 } from "lucide-react";
-import { Coach } from "../types";
+import { Coach, PoolVenue, ClassProgram } from "../types";
 
 interface RegistrasiTabProps {
   coaches?: Coach[];
+  pools?: PoolVenue[];
+  classPrograms?: ClassProgram[];
   onAddStudent: (data: {
     name: string;
     age: string;
@@ -43,11 +45,21 @@ interface RegistrasiTabProps {
 
 export default function RegistrasiTab({
   coaches = [],
+  pools = [],
+  classPrograms = [],
   onAddStudent,
   onAddCoach,
   sessionRole = "admin",
   setActiveTab,
 }: RegistrasiTabProps) {
+  // Available Class Programs from Master Data
+  const availablePrograms = useMemo(() => {
+    if (classPrograms && classPrograms.length > 0) {
+      return classPrograms.map((p) => p.name);
+    }
+    return ["Prestasi", "Kids Swimming", "Private Class", "Adult Beginner"];
+  }, [classPrograms]);
+
   // Role selector: "pelatih" | "siswa"
   const [selectedRole, setSelectedRole] = useState<"pelatih" | "siswa">("pelatih");
 
@@ -73,13 +85,24 @@ export default function RegistrasiTab({
   const [studentCoachId, setStudentCoachId] = useState("");
   const [studentNotes, setStudentNotes] = useState("");
 
-  // Set default coach when coaches list loads
+  // Set default coach and class when lists load
   useEffect(() => {
     if (coaches && coaches.length > 0 && !studentCoachName) {
       setStudentCoachName(coaches[0].name);
       setStudentCoachId(String(coaches[0].id));
     }
   }, [coaches, studentCoachName]);
+
+  useEffect(() => {
+    if (availablePrograms.length > 0) {
+      if (!coachClass || !availablePrograms.includes(coachClass)) {
+        setCoachClass(availablePrograms[0]);
+      }
+      if (!studentClass || !availablePrograms.includes(studentClass)) {
+        setStudentClass(availablePrograms[0]);
+      }
+    }
+  }, [availablePrograms]);
 
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -461,10 +484,11 @@ export default function RegistrasiTab({
                       onChange={(e) => setCoachClass(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
-                      <option value="Prestasi">Prestasi</option>
-                      <option value="Kids Swimming">Kids Swimming Class</option>
-                      <option value="Private Class">Private Class (1-on-1)</option>
-                      <option value="Adult Beginner">Adult Beginner</option>
+                      {availablePrograms.map((pName) => (
+                        <option key={pName} value={pName}>
+                          {pName}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -537,10 +561,11 @@ export default function RegistrasiTab({
                       onChange={(e) => setStudentClass(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
-                      <option value="Prestasi">Prestasi</option>
-                      <option value="Kids Swimming">Kids Swimming Class</option>
-                      <option value="Private Class">Private Class (1-on-1)</option>
-                      <option value="Adult Beginner">Adult Beginner</option>
+                      {availablePrograms.map((pName) => (
+                        <option key={pName} value={pName}>
+                          {pName}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

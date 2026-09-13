@@ -334,50 +334,77 @@ export default function GajiSppTab({
   };
 
   return (
-    <div className="space-y-6 pb-20 sm:pb-8">
-      {/* Top Header Card with Gradient Accent */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-6 sm:p-8 text-white shadow-xl shadow-blue-950/20">
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
+      {/* ==========================================
+          1. TOP VIBRANT BLUE HEADER (MATCHING KEUANGAN)
+          ========================================== */}
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+        {/* Subtle Concentric Decorative Rings */}
+        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
+        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
+        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+
+        {/* Ambient Depth Glow */}
+        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
+
+        <div className="max-w-3xl mx-auto relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-black uppercase tracking-widest">
-              <Banknote size={16} />
-              <span>Manajemen Gaji & SPP Siswa</span>
+            <div className="flex items-center gap-1.5 text-cyan-200 text-xs font-bold uppercase tracking-wider mb-1">
+              <Banknote size={14} />
+              <span>Manajemen Keuangan Akademi</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mt-1 tracking-tight">
-              Pusat Penggajian & Tagihan SPP
-            </h1>
-            <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-              Kelola persetujuan gaji pelatih dan pembayaran SPP bulanan siswa.
-              Setiap persetujuan otomatis tercatat ke Laporan Keuangan.
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Gaji &amp; SPP
+            </h2>
+            <p className="text-xs text-cyan-100 font-medium mt-1">
+              Pusat Penggajian Pelatih &amp; Verifikasi Tagihan SPP Siswa
             </p>
           </div>
 
-          {/* Month Selector */}
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/10 shrink-0">
-            <Calendar size={18} className="text-cyan-300 ml-2" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-white font-bold text-sm focus:outline-none cursor-pointer pr-2"
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt} value={opt} className="bg-slate-900 text-white">
-                  {opt}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center gap-2.5">
+            {/* Month Selector */}
+            <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/20 shrink-0 text-white">
+              <Calendar size={15} className="text-cyan-200" />
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent text-white font-black text-xs sm:text-sm focus:outline-none cursor-pointer pr-1"
+              >
+                {monthOptions.map((opt) => (
+                  <option key={opt} value={opt} className="bg-slate-900 text-white">
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quick Action */}
+            {activeSegment === "spp" && (
+              <button
+                onClick={() => setShowManualModal(true)}
+                className="flex items-center justify-center gap-1.5 bg-white hover:bg-cyan-50 text-blue-700 font-black text-xs sm:text-sm px-3.5 py-2 rounded-2xl shadow-lg shadow-black/10 transition active:scale-95 cursor-pointer shrink-0"
+              >
+                <Plus size={15} className="stroke-[3]" />
+                <span>+ Tagihan</span>
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
+      {/* ==========================================
+          2. FLOATING CONTENT CONTAINER
+          ========================================== */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-5 -mt-6 relative z-10">
         {/* Segmented Switcher (SPP Siswa vs Gaji Pelatih) */}
-        <div className="mt-6 flex bg-black/30 p-1.5 rounded-2xl backdrop-blur-md max-w-md border border-white/10">
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-md shadow-slate-200/40 flex items-center gap-1.5">
           <button
             onClick={() => setActiveSegment("spp")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
               activeSegment === "spp"
-                ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30"
-                : "text-slate-300 hover:text-white"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
           >
             <CreditCard size={16} />
@@ -385,17 +412,16 @@ export default function GajiSppTab({
           </button>
           <button
             onClick={() => setActiveSegment("gaji")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
               activeSegment === "gaji"
-                ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30"
-                : "text-slate-300 hover:text-white"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
           >
             <Banknote size={16} />
             <span>Gaji Pelatih ({coaches.length})</span>
           </button>
         </div>
-      </div>
 
       {/* ========================================================= */}
       {/* SEGMENT 1: SPP SISWA */}
@@ -801,6 +827,7 @@ export default function GajiSppTab({
           </div>
         </div>
       )}
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL: PREVIEW BUKTI TRANSFER SPP */}

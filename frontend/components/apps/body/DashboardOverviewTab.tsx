@@ -349,13 +349,6 @@ export default function DashboardOverviewTab({
       action: () => setActiveTab && setActiveTab("jadwal"),
     },
     {
-      id: "perusahaan",
-      label: `Siswa (${students.length})`,
-      icon: <GraduationCap size={22} />,
-      bgCircle: "bg-cyan-50 border-cyan-100 text-cyan-600",
-      action: () => setActiveTab && setActiveTab("daftar_hadir"),
-    },
-    {
       id: "pengumuman",
       label: "Pengumuman",
       icon: <Megaphone size={22} />,

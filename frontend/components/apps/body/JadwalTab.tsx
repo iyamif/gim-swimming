@@ -24,7 +24,7 @@ import {
   Send,
   Info,
 } from "lucide-react";
-import { ScheduleSession, Student, Coach } from "../types";
+import { ScheduleSession, Student, Coach, PoolVenue, ClassProgram } from "../types";
 
 const MONTH_NAMES_INDO = [
   "Januari",
@@ -47,6 +47,8 @@ interface JadwalTabProps {
   schedules: ScheduleSession[];
   students: Student[];
   coaches: Coach[];
+  pools?: PoolVenue[];
+  classPrograms?: ClassProgram[];
   sessionUser?: string;
   sessionRole?: string;
   onAddSchedule: (newSchedule: Omit<ScheduleSession, "id">) => void;
@@ -59,6 +61,8 @@ export default function JadwalTab({
   schedules,
   students,
   coaches,
+  pools = [],
+  classPrograms = [],
   sessionUser = "",
   sessionRole = "admin",
   onAddSchedule,
@@ -164,6 +168,21 @@ export default function JadwalTab({
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth()); // 0-11
   const calendarRef = useRef<HTMLDivElement>(null);
 
+  // Available Programs & Pools from Master Data
+  const availablePrograms = useMemo(() => {
+    if (classPrograms && classPrograms.length > 0) {
+      return classPrograms.map((p) => p.name);
+    }
+    return ["Private Class", "Kids Swimming", "Prestasi"];
+  }, [classPrograms]);
+
+  const availablePools = useMemo(() => {
+    if (pools && pools.length > 0) {
+      return pools.map((p) => p.name);
+    }
+    return ["Nalendra", "312 Wera", "Ciater"];
+  }, [pools]);
+
   const [formTimeStart, setFormTimeStart] = useState("15:00");
   const [formTimeEnd, setFormTimeEnd] = useState("16:00");
   const [formClass, setFormClass] = useState("Private Class");
@@ -174,6 +193,15 @@ export default function JadwalTab({
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formTitle, setFormTitle] = useState("");
+
+  useEffect(() => {
+    if (availablePrograms.length > 0 && !availablePrograms.includes(formClass)) {
+      setFormClass(availablePrograms[0]);
+    }
+    if (availablePools.length > 0 && !availablePools.includes(formPoolArea)) {
+      setFormPoolArea(availablePools[0]);
+    }
+  }, [availablePrograms, availablePools]);
 
   // ==========================================
   // EDIT SCHEDULE STATE
@@ -1035,7 +1063,7 @@ export default function JadwalTab({
 
         {/* Filter by class */}
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          {["Semua", "Prestasi", "Private Class", "Kids"].map((cls) => (
+          {["Semua", ...availablePrograms].map((cls) => (
             <button
               key={cls}
               onClick={() => setFilterClass(cls)}
@@ -1319,9 +1347,11 @@ export default function JadwalTab({
                     onChange={(e) => handleEditClassChange(e.target.value)}
                     className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Private Class">Private Class (1-on-1 • 60 Menit)</option>
-                    <option value="Kids Swimming">Kids / Baby (1-on-1 • 30 Menit)</option>
-                    <option value="Prestasi">Prestasi (12x Pertemuan • Sen, Rab, Jum • 15:00 - 17:30 WIB)</option>
+                    {availablePrograms.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1339,8 +1369,11 @@ export default function JadwalTab({
                     onChange={(e) => setEditPoolArea(e.target.value)}
                     className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Nalendra">Nalendra</option>
-                    <option value="312 Wera">312 Wera</option>
+                    {availablePools.map((pool) => (
+                      <option key={pool} value={pool}>
+                        {pool}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1806,9 +1839,11 @@ export default function JadwalTab({
                     onChange={(e) => handleClassChange(e.target.value)}
                     className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Private Class">Private Class (1-on-1 • 60 Menit)</option>
-                    <option value="Kids Swimming">Kids / Baby (1-on-1 • 30 Menit)</option>
-                    <option value="Prestasi">Prestasi (12x Pertemuan • Sen, Rab, Jum • 15:00 - 17:30 WIB)</option>
+                    {availablePrograms.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1826,8 +1861,11 @@ export default function JadwalTab({
                     onChange={(e) => setFormPoolArea(e.target.value)}
                     className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
                   >
-                    <option value="Nalendra">Nalendra</option>
-                    <option value="312 Wera">312 Wera</option>
+                    {availablePools.map((pool) => (
+                      <option key={pool} value={pool}>
+                        {pool}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -2535,8 +2573,11 @@ export default function JadwalTab({
                   onChange={(e) => setReschedulePoolArea(e.target.value)}
                   className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-amber-500 focus:bg-white cursor-pointer transition"
                 >
-                  <option value="Nalendra">Nalendra</option>
-                  <option value="312 Wera">312 Wera</option>
+                  {availablePools.map((pool) => (
+                    <option key={pool} value={pool}>
+                      {pool}
+                    </option>
+                  ))}
                 </select>
               </div>
 
