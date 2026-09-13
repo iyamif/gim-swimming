@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
@@ -393,9 +393,50 @@ export default function DashboardOverviewTab({
   const todayISO = toLocalISO(new Date());
   const now = new Date();
   const todayFormatted = `${dayNamesFull[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-  const todayCoachSchedules = isCoachRole
-    ? displaySchedules.filter((s) => s.date === todayISO)
-    : [];
+
+  // Helper to check if coach has checked out / completed attendance for a schedule
+  const isScheduleCoachCheckedOut = useCallback(
+    (s: ScheduleSession) => {
+      if (s.status === "Completed") return true;
+      return attendances.some((a) => {
+        const isMatch = a.schedule_id === s.id;
+        const isCoach = a.person_type === "coach" || a.user_role === "pelatih";
+        const isCompleted =
+          a.status === "Selesai" ||
+          (a.notes && (a.notes.includes("Presensi Keluar") || a.notes.includes("Selesai")));
+        return isMatch && isCoach && isCompleted;
+      });
+    },
+    [attendances]
+  );
+
+  // Helper to check if coach has checked in (Presensi Masuk) for a schedule
+  const isScheduleCoachCheckedIn = useCallback(
+    (s: ScheduleSession) => {
+      return attendances.some((a) => {
+        const isMatch = a.schedule_id === s.id;
+        const isCoach = a.person_type === "coach" || a.user_role === "pelatih";
+        const isValidCheckIn = a.status === "Hadir" || a.status === "Terlambat";
+        return isMatch && isCoach && isValidCheckIn;
+      });
+    },
+    [attendances]
+  );
+
+  // Filter today's coach schedules: ONLY show active ones where coach has NOT checked out yet
+  const activeTodayCoachSchedules: ScheduleSession[] = useMemo(() => {
+    if (!isCoachRole) return [];
+    return displaySchedules.filter((s: ScheduleSession) => {
+      if (s.date !== todayISO) return false;
+      const isCheckedOut = isScheduleCoachCheckedOut(s);
+      return !isCheckedOut && s.status !== "Completed";
+    });
+  }, [isCoachRole, displaySchedules, todayISO, isScheduleCoachCheckedOut]);
+
+  // Determine if any active schedule has coach checked in (ongoing session)
+  const isCoachSessionOngoing = useMemo(() => {
+    return activeTodayCoachSchedules.some((s: ScheduleSession) => isScheduleCoachCheckedIn(s));
+  }, [activeTodayCoachSchedules, isScheduleCoachCheckedIn]);
 
   return (
     <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
@@ -814,9 +855,9 @@ export default function DashboardOverviewTab({
 
         {/* ==========================================
             JADWAL MELATIH HARI INI (PELATIH VIEW ONLY)
-            Hanya muncul jika hari ini ada jadwal melatih
+            Hanya muncul jika hari ini ada jadwal melatih yang belum selesai / belum checkout
             ========================================== */}
-        {isCoachRole && todayCoachSchedules.length > 0 && (
+        {isCoachRole && activeTodayCoachSchedules.length > 0 && (
           <div className="rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-4 relative overflow-hidden animate-fadeIn">
             {/* Ambient Depth Background Circles */}
             <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-xl pointer-events-none" />
@@ -838,12 +879,21 @@ export default function DashboardOverviewTab({
                     </span>
                   </div>
                   <p className="text-[11px] text-cyan-100 font-medium">
-                    {todayFormatted} • {todayCoachSchedules.length} Sesi Terjadwal
+                    {todayFormatted} • {activeTodayCoachSchedules.length} Sesi Terjadwal
                   </p>
                 </div>
               </div>
 
-              {setActiveTab && (
+              {/* Status Action / Badge: Jika pelatih sudah absen masuk, ganti tombol dengan status 'Sesi Sedang Berlangsung' */}
+              {isCoachSessionOngoing ? (
+                <div className="px-3 py-1.5 rounded-xl bg-emerald-500/30 border border-emerald-300/50 text-white text-[11px] font-black flex items-center gap-2 shadow-sm backdrop-blur-md">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                  </span>
+                  <span>Sesi Sedang Berlangsung</span>
+                </div>
+              ) : setActiveTab ? (
                 <button
                   onClick={() => setActiveTab("absensi")}
                   className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-cyan-50 text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
@@ -851,13 +901,15 @@ export default function DashboardOverviewTab({
                   <Clock size={13} />
                   <span>Input Presensi</span>
                 </button>
-              )}
+              ) : null}
             </div>
 
-            {/* List of Today's Sessions */}
+            {/* List of Today's Active Sessions */}
             <div className="space-y-3 relative z-10">
-              {todayCoachSchedules.map((schedule, idx) => {
+              {activeTodayCoachSchedules.map((schedule, idx) => {
                 const studentList = schedule.studentNames || [];
+                const isCheckedIn = isScheduleCoachCheckedIn(schedule);
+
                 return (
                   <div
                     key={schedule.id || idx}
@@ -876,9 +928,16 @@ export default function DashboardOverviewTab({
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] font-bold">
-                        <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white border border-white/30 flex items-center gap-1">
-                          <Clock size={11} /> {schedule.timeStart} - {schedule.timeEnd} WIB
-                        </span>
+                        {isCheckedIn ? (
+                          <span className="px-2.5 py-1 rounded-lg bg-emerald-500/30 text-emerald-100 border border-emerald-300/40 flex items-center gap-1.5 font-bold">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-ping" />
+                            <span>Sesi Berlangsung</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white border border-white/30 flex items-center gap-1">
+                            <Clock size={11} /> {schedule.timeStart} - {schedule.timeEnd} WIB
+                          </span>
+                        )}
                         <span className="px-2.5 py-1 rounded-lg bg-white/20 text-cyan-100 flex items-center gap-1">
                           <MapPin size={11} /> {schedule.poolArea}
                         </span>
