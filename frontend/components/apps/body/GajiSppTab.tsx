@@ -348,28 +348,26 @@ export default function GajiSppTab({
         <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
         <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
 
-        <div className="max-w-3xl mx-auto relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="max-w-3xl mx-auto relative z-10 space-y-3">
+          {/* Title Header */}
           <div>
-            <div className="flex items-center gap-1.5 text-cyan-200 text-xs font-bold uppercase tracking-wider mb-1">
-              <Banknote size={14} />
-              <span>Manajemen Keuangan Akademi</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
               Gaji &amp; SPP
             </h2>
-            <p className="text-xs text-cyan-100 font-medium mt-1">
-              Pusat Penggajian Pelatih &amp; Verifikasi Tagihan SPP Siswa
+            <p className="text-[11px] sm:text-xs text-cyan-100 font-medium">
+              Pusat Penggajian Pelatih &amp; Verifikasi SPP Siswa
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {/* Month Selector */}
-            <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/20 shrink-0 text-white">
-              <Calendar size={15} className="text-cyan-200" />
+          {/* Controls Bar: Space-Between antara Kalender dan Button Tagihan */}
+          <div className="flex items-center justify-between gap-3">
+            {/* Month Selector / Kalender */}
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl border border-white/20 text-white shrink-0">
+              <Calendar size={14} className="text-cyan-200" />
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent text-white font-black text-xs sm:text-sm focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent text-white font-bold text-xs sm:text-sm focus:outline-none cursor-pointer pr-1"
               >
                 {monthOptions.map((opt) => (
                   <option key={opt} value={opt} className="bg-slate-900 text-white">
@@ -379,454 +377,395 @@ export default function GajiSppTab({
               </select>
             </div>
 
-            {/* Quick Action */}
+            {/* Quick Action (+ Tagihan di ujung kanan) */}
             {activeSegment === "spp" && (
               <button
                 onClick={() => setShowManualModal(true)}
-                className="flex items-center justify-center gap-1.5 bg-white hover:bg-cyan-50 text-blue-700 font-black text-xs sm:text-sm px-3.5 py-2 rounded-2xl shadow-lg shadow-black/10 transition active:scale-95 cursor-pointer shrink-0"
+                className="flex items-center justify-center gap-1 bg-white hover:bg-cyan-50 text-blue-700 font-black text-xs sm:text-sm px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl shadow-md shadow-black/10 transition active:scale-95 cursor-pointer shrink-0"
               >
-                <Plus size={15} className="stroke-[3]" />
-                <span>+ Tagihan</span>
+                <Plus size={14} className="stroke-[3]" />
+                <span>Tagihan</span>
               </button>
             )}
           </div>
+
+          {/* Container Informasi di Header Biru Utama (Sejajar 4 Container Kecil) */}
+          {activeSegment === "gaji" ? (
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Estimasi Gaji
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-white mt-0.5 truncate" title={`Rp ${totalPayrollExpense.toLocaleString("id-ID")}`}>
+                  Rp {totalPayrollExpense >= 1000000 ? `${(totalPayrollExpense / 1000000).toFixed(1).replace(/\.0$/, "")}jt` : totalPayrollExpense.toLocaleString("id-ID")}
+                </p>
+              </div>
+
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center text-center sm:text-left">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Total Pelatih
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-white mt-0.5">
+                  {coaches.length} <span className="text-[9px] sm:text-[10px] font-normal text-cyan-100 hidden sm:inline">Pelatih</span>
+                </p>
+              </div>
+
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center text-center sm:text-left">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Dicairkan
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-emerald-300 mt-0.5">
+                  {approvedPayrollCount} <span className="text-[9px] sm:text-[10px] font-normal text-cyan-100">/{coachCalculations.length}</span>
+                </p>
+              </div>
+
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center text-center sm:text-left">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Approval
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-amber-300 mt-0.5">
+                  {coachCalculations.length - approvedPayrollCount} <span className="text-[9px] sm:text-[10px] font-normal text-cyan-100 hidden sm:inline">Pelatih</span>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Total Lunas
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-white mt-0.5 truncate" title={`Rp ${sppTotalLunas.toLocaleString("id-ID")}`}>
+                  Rp {sppTotalLunas >= 1000000 ? `${(sppTotalLunas / 1000000).toFixed(1).replace(/\.0$/, "")}jt` : sppTotalLunas.toLocaleString("id-ID")}
+                </p>
+              </div>
+
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center text-center sm:text-left">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Sudah Lunas
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-white mt-0.5">
+                  {countLunas} <span className="text-[9px] sm:text-[10px] font-normal text-cyan-100">/{invoices.length}</span>
+                </p>
+              </div>
+
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center text-center sm:text-left">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Review
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-amber-300 mt-0.5">
+                  {countPending} <span className="text-[9px] sm:text-[10px] font-normal text-cyan-100 hidden sm:inline">Siswa</span>
+                </p>
+              </div>
+
+              <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center text-center sm:text-left">
+                <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
+                  Belum Bayar
+                </span>
+                <p className="text-[11px] sm:text-xs md:text-sm font-black text-rose-300 mt-0.5">
+                  {countUnpaid} <span className="text-[9px] sm:text-[10px] font-normal text-cyan-100 hidden sm:inline">Siswa</span>
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ==========================================
           2. FLOATING CONTENT CONTAINER
           ========================================== */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-5 -mt-6 relative z-10">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-6 relative z-10">
         {/* Segmented Switcher (SPP Siswa vs Gaji Pelatih) */}
         <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-md shadow-slate-200/40 flex items-center gap-1.5">
           <button
             onClick={() => setActiveSegment("spp")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeSegment === "spp"
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${activeSegment === "spp"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+              }`}
           >
             <CreditCard size={16} />
             <span>SPP Siswa ({invoices.length})</span>
           </button>
           <button
             onClick={() => setActiveSegment("gaji")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeSegment === "gaji"
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${activeSegment === "gaji"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+              }`}
           >
             <Banknote size={16} />
             <span>Gaji Pelatih ({coaches.length})</span>
           </button>
         </div>
 
-      {/* ========================================================= */}
-      {/* SEGMENT 1: SPP SISWA */}
-      {/* ========================================================= */}
-      {activeSegment === "spp" && (
-        <div className="space-y-6">
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Total SPP Diterima
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
-                  Rp {sppTotalLunas.toLocaleString("id-ID")}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Bulan {selectedMonth}</p>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <TrendingUp size={24} />
-              </div>
-            </div>
+        {/* ========================================================= */}
+        {/* SEGMENT 1: SPP SISWA */}
+        {/* ========================================================= */}
+        {activeSegment === "spp" && (
+          <div className="space-y-4">
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Sudah Lunas
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                  {countLunas}{" "}
-                  <span className="text-sm font-bold text-slate-400">/ {invoices.length} Siswa</span>
-                </p>
-                <p className="text-[11px] text-emerald-600 font-bold mt-0.5">Telah Terverifikasi</p>
+            {/* Action Bar (Search, Status Filter, Create Manual Invoice) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa atau keterangan tagihan..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
               </div>
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <CheckCircle2 size={24} />
+
+              <div className="flex items-center gap-2 shrink-0">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="ALL">Semua Status</option>
+                  <option value="Menunggu Konfirmasi">Menunggu Review</option>
+                  <option value="Lunas">Lunas</option>
+                  <option value="Belum Dibayar">Belum Bayar</option>
+                </select>
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Menunggu Review
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-amber-600 mt-1">
-                  {countPending} Siswa
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Bukti transfer masuk</p>
+            {/* Invoices List */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <CreditCard size={18} className="text-blue-600" />
+                  <span>Daftar Tagihan & Pembayaran SPP Siswa</span>
+                </h3>
+                <span className="text-xs font-bold text-slate-500">
+                  Menampilkan {filteredInvoices.length} data
+                </span>
               </div>
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <Clock size={24} />
-              </div>
-            </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Belum Bayar
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-rose-600 mt-1">
-                  {countUnpaid} Siswa
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Menunggu pembayaran</p>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <AlertCircle size={24} />
-              </div>
-            </div>
-          </div>
+              {filteredInvoices.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText size={40} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-slate-700 font-bold text-sm">Tidak ada tagihan SPP ditemukan</p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    Sesuaikan kata kunci pencarian atau filter status Anda.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filteredInvoices.map((inv) => {
+                    const matchedStudent = students.find(
+                      (s) =>
+                        s.id === inv.studentId ||
+                        s.name.toLowerCase() === inv.name.toLowerCase()
+                    );
 
-          {/* Action Bar (Search, Status Filter, Create Manual Invoice) */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-            <div className="relative flex-1">
-              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari nama siswa atau keterangan tagihan..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="ALL">Semua Status</option>
-                <option value="Menunggu Konfirmasi">Menunggu Review</option>
-                <option value="Lunas">Lunas</option>
-                <option value="Belum Dibayar">Belum Bayar</option>
-              </select>
-
-              <button
-                onClick={() => setShowManualModal(true)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold hover:bg-blue-700 transition shadow-sm"
-              >
-                <Plus size={16} />
-                <span>+ Buat Tagihan</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Invoices List */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <CreditCard size={18} className="text-blue-600" />
-                <span>Daftar Tagihan & Pembayaran SPP Siswa</span>
-              </h3>
-              <span className="text-xs font-bold text-slate-500">
-                Menampilkan {filteredInvoices.length} data
-              </span>
-            </div>
-
-            {filteredInvoices.length === 0 ? (
-              <div className="p-12 text-center">
-                <FileText size={40} className="mx-auto text-slate-300 mb-3" />
-                <p className="text-slate-700 font-bold text-sm">Tidak ada tagihan SPP ditemukan</p>
-                <p className="text-slate-400 text-xs mt-1">
-                  Sesuaikan kata kunci pencarian atau filter status Anda.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {filteredInvoices.map((inv) => {
-                  const matchedStudent = students.find(
-                    (s) =>
-                      s.id === inv.studentId ||
-                      s.name.toLowerCase() === inv.name.toLowerCase()
-                  );
-
-                  return (
-                    <div
-                      key={inv.id}
-                      className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 transition"
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div className="h-11 w-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-base shrink-0">
-                          {inv.name ? inv.name.charAt(0).toUpperCase() : "S"}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-black text-slate-900">{inv.name}</p>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                              {matchedStudent?.class || "Prestasi"}
-                            </span>
+                    return (
+                      <div
+                        key={inv.id}
+                        className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 transition"
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <div className="h-11 w-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-base shrink-0">
+                            {inv.name ? inv.name.charAt(0).toUpperCase() : "S"}
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {inv.desc || "SPP Bulanan Les Renang"} • Wali: {matchedStudent?.parent || "-"} ({matchedStudent?.phone || "-"})
-                          </p>
-                          <p className="text-xs font-black text-blue-700 mt-1">
-                            Rp {inv.amount.toLocaleString("id-ID")}
-                          </p>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-black text-slate-900">{inv.name}</p>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                {matchedStudent?.class || "Prestasi"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {inv.desc || "SPP Bulanan Les Renang"} • Wali: {matchedStudent?.parent || "-"} ({matchedStudent?.phone || "-"})
+                            </p>
+                            <p className="text-xs font-black text-blue-700 mt-1">
+                              Rp {inv.amount.toLocaleString("id-ID")}
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
-                        {/* Status Badge */}
-                        {inv.status === "Lunas" && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-black border border-emerald-200">
-                            <CheckCircle2 size={14} />
-                            <span>Lunas</span>
-                          </span>
-                        )}
-                        {inv.status === "Menunggu Konfirmasi" && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-black border border-amber-200 animate-pulse">
-                            <Clock size={14} />
-                            <span>Review Bukti</span>
-                          </span>
-                        )}
-                        {inv.status === "Belum Dibayar" && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-black border border-rose-200">
-                            <AlertCircle size={14} />
-                            <span>Belum Bayar</span>
-                          </span>
-                        )}
+                        <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+                          {/* Status Badge */}
+                          {inv.status === "Lunas" && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-black border border-emerald-200">
+                              <CheckCircle2 size={14} />
+                              <span>Lunas</span>
+                            </span>
+                          )}
+                          {inv.status === "Menunggu Konfirmasi" && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-black border border-amber-200 animate-pulse">
+                              <Clock size={14} />
+                              <span>Review Bukti</span>
+                            </span>
+                          )}
+                          {inv.status === "Belum Dibayar" && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-black border border-rose-200">
+                              <AlertCircle size={14} />
+                              <span>Belum Bayar</span>
+                            </span>
+                          )}
 
-                        {/* Action Buttons */}
-                        {inv.uploadReceipt && (
-                          <button
-                            onClick={() => setPreviewInvoice(inv)}
-                            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition"
-                          >
-                            <Eye size={14} />
-                            <span>Lihat Bukti</span>
-                          </button>
-                        )}
+                          {/* Action Buttons */}
+                          {inv.uploadReceipt && (
+                            <button
+                              onClick={() => setPreviewInvoice(inv)}
+                              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition"
+                            >
+                              <Eye size={14} />
+                              <span>Lihat Bukti</span>
+                            </button>
+                          )}
 
-                        {inv.status === "Menunggu Konfirmasi" && (
-                          <div className="flex items-center gap-1.5">
+                          {inv.status === "Menunggu Konfirmasi" && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleApproveInvoice(inv)}
+                                className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm"
+                              >
+                                <Check size={14} />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                onClick={() => handleRejectInvoice(inv)}
+                                className="flex items-center gap-1 bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-xs font-bold transition"
+                              >
+                                <X size={14} />
+                                <span>Tolak</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {inv.status === "Belum Dibayar" && (
                             <button
                               onClick={() => handleApproveInvoice(inv)}
-                              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm"
+                              className="flex items-center gap-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition border border-slate-200"
+                              title="Tandai sudah lunas secara manual"
                             >
                               <Check size={14} />
-                              <span>Approve</span>
+                              <span>Set Lunas</span>
                             </button>
-                            <button
-                              onClick={() => handleRejectInvoice(inv)}
-                              className="flex items-center gap-1 bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-xs font-bold transition"
-                            >
-                              <X size={14} />
-                              <span>Tolak</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {inv.status === "Belum Dibayar" && (
-                          <button
-                            onClick={() => handleApproveInvoice(inv)}
-                            className="flex items-center gap-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition border border-slate-200"
-                            title="Tandai sudah lunas secara manual"
-                          >
-                            <Check size={14} />
-                            <span>Set Lunas</span>
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* SEGMENT 2: GAJI PELATIH */}
-      {/* ========================================================= */}
-      {activeSegment === "gaji" && (
-        <div className="space-y-6">
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Total Estimasi Gaji
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-blue-700 mt-1">
-                  Rp {totalPayrollExpense.toLocaleString("id-ID")}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Bulan {selectedMonth}</p>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                <Banknote size={24} />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Total Pelatih
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                  {coaches.length} Instruktur
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Terdaftar aktif</p>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                <Users size={24} />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Status Pencairan
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
-                  {approvedPayrollCount}{" "}
-                  <span className="text-sm font-bold text-slate-400">/ {coachCalculations.length} Approved</span>
-                </p>
-                <p className="text-[11px] text-emerald-600 font-bold mt-0.5">
-                  {coachCalculations.length - approvedPayrollCount} Menunggu Approval
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <CheckCircle2 size={24} />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Honor Standar / Sesi
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                  Rp 100.000
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Per kehadiran mengajar</p>
-              </div>
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <Award size={24} />
-              </div>
-            </div>
-          </div>
-
-          {/* Coach Payroll Grid Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {coachCalculations.map((item) => {
-              const isApproved = item.status === "Approved";
-
-              return (
-                <div
-                  key={item.coach.id}
-                  className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4 hover:border-blue-200 transition"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 font-black text-lg flex items-center justify-center shrink-0">
-                        {item.coach.name ? item.coach.name.charAt(0).toUpperCase() : "P"}
-                      </div>
-                      <div>
-                        <h4 className="text-base font-black text-slate-900">{item.coach.name}</h4>
-                        <p className="text-xs text-slate-500">
-                          {item.coach.spec || "Instruktur Renang"} • Kelas: {item.coach.class || "Prestasi"}
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {item.coach.phone || item.coach.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    {isApproved ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black border border-emerald-200 shrink-0">
-                        <CheckCircle2 size={13} />
-                        <span>Approved</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-black border border-amber-200 shrink-0">
-                        <Clock size={13} />
-                        <span>Menunggu Approval</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Calculations breakdown */}
-                  <div className="bg-slate-50 p-3.5 rounded-xl space-y-2 text-xs">
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>Total Sesi Selesai Mengajar:</span>
-                      <span className="font-bold text-slate-900">{item.completedSessions} Sesi</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>Honor per Sesi:</span>
-                      <span className="font-bold text-slate-900">
-                        Rp {item.payPerSession.toLocaleString("id-ID")}
-                      </span>
-                    </div>
-                    {item.bonus > 0 && (
-                      <div className="flex justify-between items-center text-slate-600">
-                        <span>Bonus / Penyesuaian:</span>
-                        <span className="font-bold text-emerald-600">
-                          + Rp {item.bonus.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-                    )}
-                    <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black text-slate-900">
-                      <span>Total Gaji Periode Ini:</span>
-                      <span className="text-blue-700 text-base">
-                        Rp {item.totalAmount.toLocaleString("id-ID")}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Approve / Paid status actions */}
-                  <div className="flex items-center justify-between pt-1 gap-2">
-                    <p className="text-[11px] text-slate-400">
-                      {isApproved && item.approvedAt
-                        ? `Dicairkan: ${new Date(item.approvedAt).toLocaleDateString("id-ID")}`
-                        : "Klik tombol untuk menyetujui gaji"}
-                    </p>
-
-                    {isApproved ? (
-                      <button
-                        disabled
-                        className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-xl text-xs font-bold cursor-default"
-                      >
-                        <Check size={15} />
-                        <span>Gaji Telah Cair</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleApproveCoachPayroll(item)}
-                        disabled={approvingPayrollId === item.coach.id}
-                        className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md shadow-blue-500/20 transition disabled:opacity-50"
-                      >
-                        <CheckCircle2 size={15} />
-                        <span>
-                          {approvingPayrollId === item.coach.id
-                            ? "Memproses..."
-                            : "Setujui & Bayar Gaji"}
-                        </span>
-                      </button>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ========================================================= */}
+        {/* SEGMENT 2: GAJI PELATIH */}
+        {/* ========================================================= */}
+        {activeSegment === "gaji" && (
+          <div className="space-y-4">
+
+            {/* Coach Payroll Grid Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {coachCalculations.map((item) => {
+                const isApproved = item.status === "Approved";
+
+                return (
+                  <div
+                    key={item.coach.id}
+                    className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4 hover:border-blue-200 transition"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 font-black text-lg flex items-center justify-center shrink-0">
+                          {item.coach.name ? item.coach.name.charAt(0).toUpperCase() : "P"}
+                        </div>
+                        <div>
+                          <h4 className="text-base font-black text-slate-900">{item.coach.name}</h4>
+                          <p className="text-xs text-slate-500">
+                            {item.coach.spec || "Instruktur Renang"} • Kelas: {item.coach.class || "Prestasi"}
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {item.coach.phone || item.coach.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isApproved ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black border border-emerald-200 shrink-0">
+                          <CheckCircle2 size={13} />
+                          <span>Approved</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-black border border-amber-200 shrink-0">
+                          <Clock size={13} />
+                          <span>Menunggu Approval</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Calculations breakdown */}
+                    <div className="bg-slate-50 p-3.5 rounded-xl space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>Total Sesi Selesai Mengajar:</span>
+                        <span className="font-bold text-slate-900">{item.completedSessions} Sesi</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>Honor per Sesi:</span>
+                        <span className="font-bold text-slate-900">
+                          Rp {item.payPerSession.toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                      {item.bonus > 0 && (
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>Bonus / Penyesuaian:</span>
+                          <span className="font-bold text-emerald-600">
+                            + Rp {item.bonus.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                      )}
+                      <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black text-slate-900">
+                        <span>Total Gaji Periode Ini:</span>
+                        <span className="text-blue-700 text-base">
+                          Rp {item.totalAmount.toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Approve / Paid status actions */}
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <p className="text-[11px] text-slate-400">
+                        {isApproved && item.approvedAt
+                          ? `Dicairkan: ${new Date(item.approvedAt).toLocaleDateString("id-ID")}`
+                          : "Klik tombol untuk menyetujui gaji"}
+                      </p>
+
+                      {isApproved ? (
+                        <button
+                          disabled
+                          className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-xl text-xs font-bold cursor-default"
+                        >
+                          <Check size={15} />
+                          <span>Gaji Telah Cair</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleApproveCoachPayroll(item)}
+                          disabled={approvingPayrollId === item.coach.id}
+                          className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md shadow-blue-500/20 transition disabled:opacity-50"
+                        >
+                          <CheckCircle2 size={15} />
+                          <span>
+                            {approvingPayrollId === item.coach.id
+                              ? "Memproses..."
+                              : "Setujui & Bayar Gaji"}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ========================================================= */}
