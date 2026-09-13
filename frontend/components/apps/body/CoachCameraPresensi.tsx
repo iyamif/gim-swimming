@@ -174,10 +174,6 @@ export default function CoachCameraPresensi({
     );
   }, [schedules, selectedScheduleId, autoNearestSchedule]);
 
-  // Initial Mode Selection Step: null means user must choose "masuk" or "keluar" first
-  const [chosenMode, setChosenMode] = useState<"masuk" | "keluar" | null>(null);
-  const [showCheckoutWarningModal, setShowCheckoutWarningModal] = useState<boolean>(false);
-
   // Check if coach already checked in for this active schedule
   const isAlreadyCheckedIn = useMemo(() => {
     if (!activeSchedule) return false;
@@ -199,6 +195,19 @@ export default function CoachCameraPresensi({
         (a.status === "Selesai" || (a.notes && a.notes.includes("Presensi Keluar")))
     );
   }, [attendances, activeSchedule]);
+
+  // Direct camera mode: "masuk" if not checked in, "keluar" if already checked in
+  const [chosenMode, setChosenMode] = useState<"masuk" | "keluar">("masuk");
+  const [showCheckoutWarningModal, setShowCheckoutWarningModal] = useState<boolean>(false);
+
+  // Sync mode automatically when schedule or attendance state changes
+  useEffect(() => {
+    if (isAlreadyCheckedIn && !isAlreadyCheckedOut) {
+      setChosenMode("keluar");
+    } else {
+      setChosenMode("masuk");
+    }
+  }, [isAlreadyCheckedIn, isAlreadyCheckedOut, activeSchedule]);
 
   // Geolocation & Radius Simulation states
   const [currentLat, setCurrentLat] = useState<number | null>(null);
@@ -1052,9 +1061,9 @@ export default function CoachCameraPresensi({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => setChosenMode(null)}
+              onClick={onClose}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
-              title="Kembali Pilih Jenis Presensi"
+              title="Kembali"
             >
               <ArrowLeft size={18} />
             </button>
@@ -1068,8 +1077,14 @@ export default function CoachCameraPresensi({
                   {chosenMode === "masuk" ? "Awal Sesi" : "Selesai Sesi"}
                 </span>
               </h1>
-              <p className="text-[10px] text-cyan-200 font-semibold drop-shadow-sm">
-                Role Pelatih • {sessionUser || "Pelatih GIM"}
+              <p className="text-[10px] text-cyan-200 font-semibold drop-shadow-sm flex items-center gap-1.5 mt-0.5">
+                {isAlreadyCheckedIn && chosenMode === "keluar" ? (
+                  <span className="text-emerald-300 font-bold flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Presensi Masuk Selesai • Lanjut Sesi Keluar
+                  </span>
+                ) : (
+                  <span>Role Pelatih • {sessionUser || "Pelatih GIM"}</span>
+                )}
               </p>
             </div>
           </div>

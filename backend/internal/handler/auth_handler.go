@@ -308,3 +308,46 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 		"avatar":  avatarDataUrl,
 	})
 }
+
+// SendResetOTP handles request to send password reset OTP to user's email
+func (h *AuthHandler) SendResetOTP(c *gin.Context) {
+	var input model.SendResetOTPInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Silakan masukkan alamat email yang valid"})
+		return
+	}
+
+	maskedEmail, msg, err := h.authService.SendResetPasswordOTP(c.Request.Context(), input.Email)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": msg,
+		"email":   maskedEmail,
+	})
+}
+
+// ResetPasswordWithOTP handles verifying OTP and setting new password
+func (h *AuthHandler) ResetPasswordWithOTP(c *gin.Context) {
+	var input model.ResetPasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid: pastikan email, kode OTP 6-digit, dan kata sandi baru (min 6 karakter) terisi"})
+		return
+	}
+
+	updatedUser, err := h.authService.ResetPasswordWithOTP(c.Request.Context(), input.Email, input.OTP, input.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Kata sandi Anda berhasil diperbarui! Silakan gunakan kata sandi baru untuk login.",
+		"data":    updatedUser,
+	})
+}
+

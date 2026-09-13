@@ -645,7 +645,7 @@ export default function AppsPage() {
       keuangan: ["admin"],
       daftar_hadir: ["admin", "pelatih"],
       pelatih: ["admin", "pelatih"],
-      absensi: ["admin", "pelatih"],
+      absensi: ["pelatih"], // Admin tidak perlu absen, hanya pelatih yang melakukan presensi
       kehadiran: ["admin", "pelatih"],
       general: ["admin"],
       pengumuman: ["admin", "pelatih"],

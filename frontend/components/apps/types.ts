@@ -14,7 +14,11 @@ export interface Student {
   status: string;
   avatar?: string;
   phone?: string;
+  email?: string;
   age?: string;
+  gender?: string;
+  address?: string;
+  notes?: string;
   coach_id?: string;
   coach_name?: string;
   coachId?: string;

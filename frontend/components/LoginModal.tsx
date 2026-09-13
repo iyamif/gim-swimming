@@ -2,8 +2,31 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, AlertCircle, Lock, User, Loader2, CheckCircle2, Scan } from "lucide-react";
-import { API_BASE_URL, getApiBaseUrl, setupInitialPassword } from "../lib/api";
+import {
+  X,
+  AlertCircle,
+  Lock,
+  User,
+  Loader2,
+  CheckCircle2,
+  Scan,
+  Mail,
+  Send,
+  Eye,
+  EyeOff,
+  KeyRound,
+  ShieldCheck,
+  ChevronLeft,
+  RotateCw,
+  Check,
+} from "lucide-react";
+import {
+  API_BASE_URL,
+  getApiBaseUrl,
+  setupInitialPassword,
+  requestPasswordResetOTP,
+  resetPasswordWithOTP,
+} from "../lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -21,7 +44,7 @@ const getRoleFromUsername = (name: string): string => {
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState<"login" | "face-scan" | "setup-password" | "success">("login");
+  const [step, setStep] = useState<"login" | "face-scan" | "setup-password" | "forgot-password" | "success">("login");
   const [currentUserData, setCurrentUserData] = useState<{ username: string; role: string; must_change_password?: boolean } | null>(null);
 
   useEffect(() => {
@@ -36,6 +59,21 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   const [loading, setLoading] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
 
+  // Lupa Password (Reset via Email OTP) States
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
+  const [isForgotSendingOtp, setIsForgotSendingOtp] = useState(false);
+  const [isForgotResetting, setIsForgotResetting] = useState(false);
+  const [forgotOtpSent, setForgotOtpSent] = useState(false);
+  const [forgotOtpCountdown, setForgotOtpCountdown] = useState(0);
+  const [forgotMaskedEmail, setForgotMaskedEmail] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+
   // Face ID Scan States
   const [scanStatus, setScanStatus] = useState("Menghubungkan ke sensor biometrik...");
   const [scanProgress, setScanProgress] = useState(0);
@@ -45,6 +83,15 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // OTP Countdown timer for forgot password resend
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (forgotOtpCountdown > 0) {
+      timer = setTimeout(() => setForgotOtpCountdown((c) => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [forgotOtpCountdown]);
 
   // Reset states when modal is opened/closed
   useEffect(() => {
@@ -62,6 +109,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setScanProgress(0);
       setScanStatus("Menghubungkan ke sensor biometrik...");
       setIsScanning(false);
+      setForgotEmail("");
+      setForgotOtp("");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+      setForgotError("");
+      setForgotSuccess("");
+      setForgotOtpSent(false);
+      setForgotOtpCountdown(0);
     } else {
       stopCamera();
     }
@@ -179,6 +234,69 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     } catch (err: any) {
       setSetupLoading(false);
       setSetupError(err.message || "Gagal menyimpan kata sandi baru.");
+    }
+  };
+
+  // Send OTP to email for forgot password
+  const handleForgotSendOTP = async () => {
+    if (!forgotEmail.trim()) {
+      setForgotError("Silakan masukkan alamat email atau username Anda.");
+      return;
+    }
+    setForgotError("");
+    try {
+      setIsForgotSendingOtp(true);
+      const res = await requestPasswordResetOTP(forgotEmail.trim());
+      setForgotOtpSent(true);
+      setForgotMaskedEmail(res.data?.masked_email || forgotEmail.trim());
+      setForgotOtpCountdown(60);
+    } catch (err: any) {
+      setForgotError(err.message || "Gagal mengirim kode verifikasi. Pastikan email terdaftar.");
+    } finally {
+      setIsForgotSendingOtp(false);
+    }
+  };
+
+  // Reset password using OTP
+  const handleForgotResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+
+    if (!forgotEmail.trim()) {
+      setForgotError("Silakan masukkan email akun Anda.");
+      return;
+    }
+    if (!forgotOtp.trim() || forgotOtp.trim().length !== 6) {
+      setForgotError("Silakan masukkan 6-digit kode verifikasi yang dikirim ke email.");
+      return;
+    }
+    if (forgotNewPassword.length < 6) {
+      setForgotError("Kata sandi baru minimal harus 6 karakter.");
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError("Konfirmasi kata sandi baru tidak cocok.");
+      return;
+    }
+
+    try {
+      setIsForgotResetting(true);
+      await resetPasswordWithOTP(forgotEmail.trim(), forgotOtp.trim(), forgotNewPassword);
+      setForgotSuccess("Kata sandi berhasil diperbarui! Mengalihkan ke menu masuk...");
+      setForgotOtp("");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+      setTimeout(() => {
+        setUsernameOrEmail(forgotEmail.trim());
+        setPassword("");
+        setStep("login");
+        setForgotSuccess("");
+      }, 2000);
+    } catch (err: any) {
+      setForgotError(err.message || "Gagal mereset kata sandi. Pastikan kode verifikasi benar.");
+    } finally {
+      setIsForgotResetting(false);
     }
   };
 
@@ -407,9 +525,22 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   <label className="block text-xs font-bold text-slate-700">
                     Kata Sandi
                   </label>
-                  <a href="#" className="text-xs font-bold text-cyan-500 hover:text-cyan-400 transition">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(usernameOrEmail.includes("@") ? usernameOrEmail : "");
+                      setForgotOtp("");
+                      setForgotNewPassword("");
+                      setForgotConfirmPassword("");
+                      setForgotError("");
+                      setForgotSuccess("");
+                      setForgotOtpSent(false);
+                      setStep("forgot-password");
+                    }}
+                    className="text-xs font-bold text-cyan-500 hover:text-cyan-400 transition cursor-pointer"
+                  >
                     Lupa Password?
-                  </a>
+                  </button>
                 </div>
                 <input
                   type="password"
@@ -464,45 +595,187 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 </button>
               </div>
             </form>
+          </div>
+        )}
 
-            {/* Demo Roles Quick Picker */}
-            {/* <div className="mt-5 p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Pilih Akun Demo untuk Review (Klik untuk Mengisi)
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUsernameOrEmail("admin@gimswimming.com");
-                    setPassword("password123");
-                  }}
-                  className="px-2.5 py-1.5 text-xs font-bold text-cyan-600 bg-cyan-50 border border-cyan-100 rounded-lg hover:bg-cyan-100/80 transition cursor-pointer"
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUsernameOrEmail("pelatih@gimswimming.com");
-                    setPassword("password123");
-                  }}
-                  className="px-2.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100/80 transition cursor-pointer"
-                >
-                  Pelatih
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUsernameOrEmail("ortu@gimswimming.com");
-                    setPassword("password123");
-                  }}
-                  className="px-2.5 py-1.5 text-xs font-bold text-purple-600 bg-purple-50 border border-purple-100 rounded-lg hover:bg-purple-100/80 transition cursor-pointer"
-                >
-                  Orang Tua
-                </button>
+        {/* STEP: Lupa Kata Sandi (Reset via Email OTP) */}
+        {step === "forgot-password" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("login");
+                  setForgotError("");
+                  setForgotSuccess("");
+                }}
+                className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-cyan-600 transition cursor-pointer"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Kembali ke Login
+              </button>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-600 border border-cyan-100">
+                Reset Password
+              </span>
+            </div>
+
+            <div className="text-center mb-5">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-500 border border-cyan-100 shadow-sm">
+                <KeyRound className="h-6 w-6 text-cyan-500" />
               </div>
-            </div> */}
+              <h3 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
+                Lupa Kata Sandi?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-[300px] mx-auto">
+                Masukkan email atau username terdaftar Anda. Kami akan mengirimkan 6-digit kode verifikasi OTP.
+              </p>
+            </div>
+
+            {forgotError && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-650 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                <span>{forgotError}</span>
+              </div>
+            )}
+
+            {forgotSuccess && (
+              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                <span>{forgotSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotResetSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Email / Username Terdaftar
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="nama@email.com atau username"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleForgotSendOTP}
+                    disabled={isForgotSendingOtp || forgotOtpCountdown > 0 || !forgotEmail.trim()}
+                    className="shrink-0 px-3.5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-cyan-400/30 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isForgotSendingOtp ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Mengirim...
+                      </>
+                    ) : forgotOtpCountdown > 0 ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                        {forgotOtpCountdown}s
+                      </>
+                    ) : forgotOtpSent ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5" />
+                        Kirim Ulang
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5" />
+                        Kirim OTP
+                      </>
+                    )}
+                  </button>
+                </div>
+                {forgotOtpSent && (
+                  <p className="mt-1.5 text-[11px] font-medium text-emerald-600 flex items-center gap-1">
+                    <Check className="h-3.5 w-3.5 shrink-0" />
+                    Kode 6-digit terkirim ke {forgotMaskedEmail || forgotEmail} (berlaku 15 mnt)
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Kode Verifikasi OTP (6 Digit)
+                </label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={forgotOtp}
+                    onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
+                    placeholder="Contoh: 123456"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm font-mono tracking-widest text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Kata Sandi Baru
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type={showForgotNewPassword ? "text" : "password"}
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    placeholder="Minimal 6 karakter"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showForgotNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Konfirmasi Kata Sandi Baru
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type={showForgotConfirmPassword ? "text" : "password"}
+                    value={forgotConfirmPassword}
+                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                    placeholder="Ulangi kata sandi baru"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showForgotConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isForgotResetting}
+                className="w-full rounded-xl bg-cyan-500 hover:bg-cyan-600 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+              >
+                {isForgotResetting ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
+                    Menyimpan Kata Sandi...
+                  </>
+                ) : (
+                  "Verifikasi & Simpan Kata Sandi"
+                )}
+              </button>
+            </form>
           </div>
         )}
 

@@ -776,6 +776,44 @@ export async function changeUserPassword(currentPassword: string, newPassword: s
   return json;
 }
 
+export async function requestPasswordResetOTP(email: string): Promise<{ success: boolean; message: string; data?: { email: string; masked_email?: string; expires_in?: string } }> {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/send-reset-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error || "Gagal mengirim kode verifikasi reset kata sandi");
+  }
+
+  return json;
+}
+
+export async function resetPasswordWithOTP(email: string, otp: string, newPassword: string): Promise<{ success: boolean; message: string; data?: any }> {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      otp,
+      new_password: newPassword,
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error || "Gagal mereset kata sandi dengan kode verifikasi");
+  }
+
+  return json;
+}
+
 // ================= ATTENDANCES & NOTIFICATIONS =================
 
 export async function fetchAttendances(): Promise<AttendanceRecord[]> {

@@ -54,8 +54,21 @@ type UpdateAvatarInput struct {
 	Avatar string `json:"avatar"`
 }
 
+// SendResetOTPInput represents payload to request password reset OTP via email
+type SendResetOTPInput struct {
+	Email string `json:"email" binding:"required"`
+}
+
+// ResetPasswordInput represents payload to verify OTP and reset password
+type ResetPasswordInput struct {
+	Email       string `json:"email" binding:"required"`
+	OTP         string `json:"otp" binding:"required,min=4"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
 // AuthResponse represents authentication response containing JWT and user profile details
 type AuthResponse struct {
 	Token string `json:"token"`
 	User  *User  `json:"user"`
 }
+

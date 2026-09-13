@@ -26,6 +26,8 @@ import {
   X,
   Waves,
   Sliders,
+  LogOut,
+  CheckCircle2,
 } from "lucide-react";
 
 interface DashboardOverviewTabProps {
@@ -884,14 +886,26 @@ export default function DashboardOverviewTab({
                 </div>
               </div>
 
-              {/* Status Action / Badge: Jika pelatih sudah absen masuk, ganti tombol dengan status 'Sesi Sedang Berlangsung' */}
+              {/* Status Action / Badge: Jika pelatih sudah absen masuk, tampilkan 'Presensi Masuk Selesai' dan button 'Presensi Keluar' */}
               {isCoachSessionOngoing ? (
-                <div className="px-3 py-1.5 rounded-xl bg-emerald-500/30 border border-emerald-300/50 text-white text-[11px] font-black flex items-center gap-2 shadow-sm backdrop-blur-md">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                  </span>
-                  <span>Sesi Sedang Berlangsung</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/30 border border-emerald-300/50 text-white text-[11px] font-black flex items-center gap-1.5 shadow-sm backdrop-blur-md">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </span>
+                    <span>Presensi Masuk Selesai</span>
+                  </div>
+                  {setActiveTab && (
+                    <button
+                      onClick={() => setActiveTab("absensi")}
+                      className="px-3 py-1.5 rounded-xl bg-white text-emerald-700 hover:bg-emerald-50 text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      title="Ambil foto & presensi keluar selesai sesi"
+                    >
+                      <LogOut size={13} />
+                      <span>Presensi Keluar</span>
+                    </button>
+                  )}
                 </div>
               ) : setActiveTab ? (
                 <button

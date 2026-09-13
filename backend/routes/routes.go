@@ -77,6 +77,9 @@ func SetupRoutes(
 		{
 			authGroup.POST("/register", authHandler.Register)
 			authGroup.POST("/login", authHandler.Login)
+			authGroup.POST("/send-reset-otp", authHandler.SendResetOTP)
+			authGroup.POST("/forgot-password", authHandler.SendResetOTP)
+			authGroup.POST("/reset-password", authHandler.ResetPasswordWithOTP)
 		}
 
 		// Auth Routes (Protected)

@@ -277,6 +277,12 @@ export function MobileBottomNav({
     (n) => !n.is_read && (n.type?.includes("schedule") || n.title?.toLowerCase().includes("jadwal"))
   ).length;
 
+  const isAdmin = (sessionRole || "").toLowerCase().trim() === "admin";
+  const isPelatih = (sessionRole || "").toLowerCase().trim() === "pelatih";
+
+  // Check if today coach has already checked in/out (from local storage or event flag)
+  const isCoachCheckedIn = false; // dynamically passed if available or defaults
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 h-[calc(4.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-3 md:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.06)]">
       {/* 1. Home */}
@@ -304,26 +310,44 @@ export function MobileBottomNav({
         <span className="text-[10px] tracking-tight">Siswa</span>
       </button>
 
-      {/* 3. Center Floating Action Button (Presensi) */}
-      <div className="flex flex-col items-center justify-center -mt-7 flex-1">
+      {/* 3. PELATIH ONLY: Center Floating Action Button (Presensi) */}
+      {isPelatih && (
+        <div className="flex flex-col items-center justify-center -mt-7 flex-1">
+          <button
+            onClick={() => setActiveTab("absensi")}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/40 border-4 border-white active:scale-90 transition-transform duration-150 cursor-pointer"
+            title="Input Presensi Cepat"
+          >
+            <Clock size={24} />
+          </button>
+          <span
+            className={`text-[10px] mt-1 tracking-tight font-bold ${
+              activeTab === "absensi" ? "text-cyan-600" : "text-slate-500"
+            }`}
+          >
+            Presensi
+          </span>
+        </div>
+      )}
+
+      {/* 4. ADMIN: Jadwal Sesi Renang (Admin has direct Jadwal in bottom bar) */}
+      {isAdmin && (
         <button
-          onClick={() => setActiveTab("absensi")}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/40 border-4 border-white active:scale-90 transition-transform duration-150 cursor-pointer"
-          title="Input Presensi Cepat"
-        >
-          <Clock size={24} />
-        </button>
-        <span
-          className={`text-[10px] mt-1 tracking-tight font-bold ${
-            activeTab === "absensi" ? "text-cyan-600" : "text-slate-500"
+          onClick={() => setActiveTab("jadwal")}
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
           }`}
         >
-          Presensi
-        </span>
-      </div>
+          <div className="mb-0.5"><CalendarDays size={19} /></div>
+          <span className="text-[10px] tracking-tight">Jadwal</span>
+          {unreadSchedule > 0 && (
+            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+          )}
+        </button>
+      )}
 
-      {/* 4. Keuangan (Admin) / Jadwal (Pelatih) */}
-      {sessionRole === "pelatih" ? (
+      {/* 5. Pelatih: Jadwal / Admin: Keuangan */}
+      {isPelatih ? (
         <button
           onClick={() => setActiveTab("jadwal")}
           className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
@@ -348,7 +372,7 @@ export function MobileBottomNav({
         </button>
       )}
 
-      {/* 5. User Profile Button */}
+      {/* 6. User Profile Button */}
       <button
         onClick={() => setActiveTab("profile")}
         className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
