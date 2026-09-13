@@ -14,6 +14,7 @@ type AttendanceLog struct {
 // Student represents a student record in PostgreSQL
 type Student struct {
 	ID             int64           `json:"id"`
+	UserID         *int64          `json:"user_id,omitempty"`
 	Name           string          `json:"name"`
 	Class          string          `json:"class"`
 	AttendanceRate string          `json:"attendanceRate"`
@@ -31,6 +32,7 @@ type Student struct {
 
 // CreateStudentInput represents payload for registering a new student
 type CreateStudentInput struct {
+	UserID         *int64 `json:"user_id,omitempty"`
 	Name           string `json:"name" binding:"required"`
 	Class          string `json:"class" binding:"required"`
 	Parent         string `json:"parent" binding:"required"`
@@ -56,6 +58,7 @@ type UpdateStudentStatusInput struct {
 
 // UpdateStudentInput represents payload for updating full student details
 type UpdateStudentInput struct {
+	UserID         *int64 `json:"user_id,omitempty"`
 	Name           string `json:"name"`
 	Class          string `json:"class"`
 	Parent         string `json:"parent"`

@@ -19,7 +19,7 @@ import (
 // AppService defines all application business logic operations
 type AppService interface {
 	// Students & Attendance
-	GetStudents(ctx context.Context) ([]model.Student, error)
+	GetStudents(ctx context.Context, role, username, userID string) ([]model.Student, error)
 	CreateStudent(ctx context.Context, input *model.CreateStudentInput) (*model.Student, error)
 	UpdateStudent(ctx context.Context, id int64, input *model.UpdateStudentInput) (*model.Student, error)
 	UpdateStudentStatus(ctx context.Context, id int64, status string) error
@@ -33,13 +33,13 @@ type AppService interface {
 	DeleteCoach(ctx context.Context, id int64) error
 
 	// Schedules
-	GetSchedules(ctx context.Context) ([]model.ScheduleSession, error)
+	GetSchedules(ctx context.Context, role, username, userID string) ([]model.ScheduleSession, error)
 	CreateSchedule(ctx context.Context, input *model.CreateScheduleInput) (*model.ScheduleSession, error)
 	UpdateSchedule(ctx context.Context, id string, input *model.UpdateScheduleInput) (*model.ScheduleSession, error)
 	DeleteSchedule(ctx context.Context, id string) error
 
 	// Invoices
-	GetInvoices(ctx context.Context) ([]model.Invoice, error)
+	GetInvoices(ctx context.Context, role, username, userID string) ([]model.Invoice, error)
 	CreateInvoice(ctx context.Context, input *model.CreateInvoiceInput) (*model.Invoice, error)
 	VerifyInvoice(ctx context.Context, id string, confirm bool) error
 	UploadInvoiceReceipt(ctx context.Context, id string, receiptURL string) error
@@ -71,9 +71,12 @@ type AppService interface {
 	DeleteClassProgram(ctx context.Context, id string) error
 
 	// Coach Payrolls (Gaji Pelatih)
-	GetCoachPayrolls(ctx context.Context, month string) ([]model.CoachPayroll, error)
+	GetCoachPayrolls(ctx context.Context, month, role, username, userID string) ([]model.CoachPayroll, error)
 	CreateOrUpdateCoachPayroll(ctx context.Context, input *model.CreateCoachPayrollInput) (*model.CoachPayroll, error)
 	ApproveCoachPayroll(ctx context.Context, id string, notes string) (*model.CoachPayroll, error)
+
+	// User Synchronization / Backfill
+	BackfillUserLinks(ctx context.Context) error
 }
 
 type appService struct {
@@ -119,9 +122,61 @@ func NewAppService(
 	}
 }
 
-// GetStudents returns all students with their attendance history
-func (s *appService) GetStudents(ctx context.Context) ([]model.Student, error) {
-	return s.studentRepo.FindAll(ctx)
+// GetStudents returns students filtered by user role and identity
+func (s *appService) GetStudents(ctx context.Context, role, username, userID string) ([]model.Student, error) {
+	allStudents, err := s.studentRepo.FindAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanRole := strings.ToLower(strings.TrimSpace(role))
+	if cleanRole == "" || cleanRole == model.RoleAdmin {
+		return allStudents, nil
+	}
+
+	var parsedUID int64
+	if userID != "" {
+		parsedUID, _ = strconv.ParseInt(userID, 10, 64)
+	}
+
+	if cleanRole == model.RolePelatih {
+		var coach *model.Coach
+		if parsedUID > 0 {
+			coach, _ = s.coachRepo.FindByUserID(ctx, parsedUID)
+		}
+		coachName := username
+		if coach != nil {
+			coachName = coach.Name
+		}
+
+		var filtered []model.Student
+		for _, st := range allStudents {
+			if (coach != nil && (st.CoachID == fmt.Sprint(coach.ID) || strings.EqualFold(st.CoachName, coach.Name))) ||
+				(coachName != "" && (strings.EqualFold(st.CoachName, coachName) || strings.Contains(strings.ToLower(st.CoachName), strings.ToLower(coachName)))) {
+				filtered = append(filtered, st)
+			}
+		}
+		return filtered, nil
+	}
+
+	if cleanRole == model.RoleOrangTua {
+		var filtered []model.Student
+		cleanUser := strings.ToLower(strings.TrimSpace(username))
+
+		for _, st := range allStudents {
+			if (parsedUID > 0 && st.UserID != nil && *st.UserID == parsedUID) ||
+				(cleanUser != "" && (strings.EqualFold(strings.ToLower(st.Parent), cleanUser) ||
+					strings.EqualFold(strings.ToLower(st.Name), cleanUser) ||
+					strings.EqualFold(strings.ToLower(strings.ReplaceAll(st.Name, " ", "")), cleanUser) ||
+					strings.EqualFold(strings.ToLower(strings.ReplaceAll(st.Parent, " ", "")), cleanUser) ||
+					(len(cleanUser) >= 3 && strings.Contains(strings.ToLower(st.Name), cleanUser)))) {
+				filtered = append(filtered, st)
+			}
+		}
+		return filtered, nil
+	}
+
+	return allStudents, nil
 }
 
 // CreateStudent registers a new student and generates initial registration invoice
@@ -164,28 +219,24 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 		UpdatedAt:      time.Now(),
 	}
 
-	if err := s.studentRepo.Create(ctx, student); err != nil {
-		return nil, err
-	}
-
 	// Auto-create user login account for the student/parent if not existing
 	rawUsername := strings.ToLower(strings.Fields(input.Name)[0])
 	reg := regexp.MustCompile("[^a-z0-9_]")
 	username := reg.ReplaceAllString(rawUsername, "")
 	if username == "" {
-		username = fmt.Sprintf("siswa%d", student.ID)
+		username = fmt.Sprintf("siswa%d", time.Now().Unix()%10000)
 	}
 
 	// Make username unique if already taken
 	existingUser, _ := s.userRepo.FindByUsername(ctx, username)
 	if existingUser != nil {
-		username = fmt.Sprintf("%s%d", username, student.ID)
+		username = fmt.Sprintf("%s%d", username, time.Now().Unix()%10000)
 	}
 
 	email := fmt.Sprintf("%s@gimswimming.com", username)
 	hashed, err := bcrypt.GenerateFromPassword([]byte("gim123"), bcrypt.DefaultCost)
 	if err == nil {
-		_ = s.userRepo.Create(ctx, &model.User{
+		newUser := &model.User{
 			Username:           username,
 			Email:              email,
 			Password:           string(hashed),
@@ -193,7 +244,14 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 			MustChangePassword: true,
 			CreatedAt:          time.Now(),
 			UpdatedAt:          time.Now(),
-		})
+		}
+		if err := s.userRepo.Create(ctx, newUser); err == nil && newUser.ID > 0 {
+			student.UserID = &newUser.ID
+		}
+	}
+
+	if err := s.studentRepo.Create(ctx, student); err != nil {
+		return nil, err
 	}
 
 	// Auto-create initial registration invoice
@@ -492,9 +550,62 @@ func (s *appService) DeleteCoach(ctx context.Context, id int64) error {
 	return s.coachRepo.Delete(ctx, id)
 }
 
-// GetSchedules returns all schedules
-func (s *appService) GetSchedules(ctx context.Context) ([]model.ScheduleSession, error) {
-	return s.scheduleRepo.FindAll(ctx)
+// GetSchedules returns schedules filtered by user role and identity
+func (s *appService) GetSchedules(ctx context.Context, role, username, userID string) ([]model.ScheduleSession, error) {
+	allSchedules, err := s.scheduleRepo.FindAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanRole := strings.ToLower(strings.TrimSpace(role))
+	if cleanRole == "" || cleanRole == model.RoleAdmin {
+		return allSchedules, nil
+	}
+
+	var parsedUID int64
+	if userID != "" {
+		parsedUID, _ = strconv.ParseInt(userID, 10, 64)
+	}
+
+	if cleanRole == model.RolePelatih {
+		var coach *model.Coach
+		if parsedUID > 0 {
+			coach, _ = s.coachRepo.FindByUserID(ctx, parsedUID)
+		}
+		coachName := username
+		if coach != nil {
+			coachName = coach.Name
+		}
+
+		var filtered []model.ScheduleSession
+		for _, sch := range allSchedules {
+			if (coach != nil && (sch.CoachID == fmt.Sprint(coach.ID) || strings.EqualFold(sch.CoachName, coach.Name))) ||
+				(coachName != "" && (strings.EqualFold(sch.CoachName, coachName) || strings.Contains(strings.ToLower(sch.CoachName), strings.ToLower(coachName)))) {
+				filtered = append(filtered, sch)
+			}
+		}
+		return filtered, nil
+	}
+
+	if cleanRole == model.RoleOrangTua {
+		myStudents, _ := s.GetStudents(ctx, role, username, userID)
+		myClassMap := make(map[string]bool)
+		for _, st := range myStudents {
+			if st.Class != "" {
+				myClassMap[strings.ToLower(strings.TrimSpace(st.Class))] = true
+			}
+		}
+
+		var filtered []model.ScheduleSession
+		for _, sch := range allSchedules {
+			if myClassMap[strings.ToLower(strings.TrimSpace(sch.Class))] {
+				filtered = append(filtered, sch)
+			}
+		}
+		return filtered, nil
+	}
+
+	return allSchedules, nil
 }
 
 // timeStringToMinutes converts "15:00" or "15:00 WIB" to minutes from 00:00
@@ -827,9 +938,42 @@ func (s *appService) DeleteSchedule(ctx context.Context, id string) error {
 	return s.scheduleRepo.Delete(ctx, id)
 }
 
-// GetInvoices returns list of tuition invoices
-func (s *appService) GetInvoices(ctx context.Context) ([]model.Invoice, error) {
-	return s.invoiceRepo.FindAll(ctx)
+// GetInvoices returns tuition invoices filtered by user role and identity
+func (s *appService) GetInvoices(ctx context.Context, role, username, userID string) ([]model.Invoice, error) {
+	allInvoices, err := s.invoiceRepo.FindAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanRole := strings.ToLower(strings.TrimSpace(role))
+	if cleanRole == "" || cleanRole == model.RoleAdmin {
+		return allInvoices, nil
+	}
+
+	if cleanRole == model.RoleOrangTua {
+		myStudents, _ := s.GetStudents(ctx, role, username, userID)
+		myStudentIDMap := make(map[string]bool)
+		myStudentNameMap := make(map[string]bool)
+		for _, st := range myStudents {
+			myStudentIDMap[fmt.Sprint(st.ID)] = true
+			myStudentNameMap[strings.ToLower(strings.TrimSpace(st.Name))] = true
+		}
+
+		var filtered []model.Invoice
+		for _, inv := range allInvoices {
+			if myStudentIDMap[inv.StudentID] || myStudentNameMap[strings.ToLower(strings.TrimSpace(inv.Name))] {
+				filtered = append(filtered, inv)
+			}
+		}
+		return filtered, nil
+	}
+
+	if cleanRole == model.RolePelatih {
+		// Pelatih role does not manage student invoices
+		return []model.Invoice{}, nil
+	}
+
+	return allInvoices, nil
 }
 
 // CreateInvoice generates a new invoice
@@ -1377,8 +1521,42 @@ func (s *appService) DeleteClassProgram(ctx context.Context, id string) error {
 
 // ================= COACH PAYROLLS (GAJI PELATIH) =================
 
-func (s *appService) GetCoachPayrolls(ctx context.Context, month string) ([]model.CoachPayroll, error) {
-	return s.payrollRepo.FindAll(ctx, month)
+func (s *appService) GetCoachPayrolls(ctx context.Context, month, role, username, userID string) ([]model.CoachPayroll, error) {
+	allPayrolls, err := s.payrollRepo.FindAll(ctx, month)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanRole := strings.ToLower(strings.TrimSpace(role))
+	if cleanRole == "" || cleanRole == model.RoleAdmin {
+		return allPayrolls, nil
+	}
+
+	if cleanRole == model.RolePelatih {
+		var parsedUID int64
+		if userID != "" {
+			parsedUID, _ = strconv.ParseInt(userID, 10, 64)
+		}
+		var coach *model.Coach
+		if parsedUID > 0 {
+			coach, _ = s.coachRepo.FindByUserID(ctx, parsedUID)
+		}
+		coachName := username
+		if coach != nil {
+			coachName = coach.Name
+		}
+
+		var filtered []model.CoachPayroll
+		for _, p := range allPayrolls {
+			if (coach != nil && (p.CoachID == fmt.Sprint(coach.ID) || strings.EqualFold(p.CoachName, coach.Name))) ||
+				(coachName != "" && (strings.EqualFold(p.CoachName, coachName) || strings.Contains(strings.ToLower(p.CoachName), strings.ToLower(coachName)))) {
+				filtered = append(filtered, p)
+			}
+		}
+		return filtered, nil
+	}
+
+	return []model.CoachPayroll{}, nil
 }
 
 func (s *appService) CreateOrUpdateCoachPayroll(ctx context.Context, input *model.CreateCoachPayrollInput) (*model.CoachPayroll, error) {
@@ -1443,6 +1621,56 @@ func (s *appService) ApproveCoachPayroll(ctx context.Context, id string, notes s
 	}
 
 	return payroll, nil
+}
+
+// BackfillUserLinks ensures existing coaches and students are associated with user accounts
+func (s *appService) BackfillUserLinks(ctx context.Context) error {
+	// 1. Link coaches
+	coaches, err := s.coachRepo.FindAll(ctx)
+	if err == nil {
+		for _, c := range coaches {
+			if c.UserID == nil || *c.UserID == 0 {
+				nameParts := strings.Fields(c.Name)
+				rawUsername := strings.ToLower(nameParts[0])
+				if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
+					rawUsername = strings.ToLower(nameParts[1])
+				}
+				reg := regexp.MustCompile("[^a-z0-9_]")
+				username := reg.ReplaceAllString(rawUsername, "")
+				if username == "" {
+					username = "coach"
+				}
+				u, _ := s.userRepo.FindByUsername(ctx, username)
+				if u == nil && c.Email != "" {
+					u, _ = s.userRepo.FindByEmail(ctx, c.Email)
+				}
+				if u != nil {
+					_ = s.coachRepo.LinkUser(ctx, c.ID, u.ID)
+				}
+			}
+		}
+	}
+
+	// 2. Link students
+	students, err := s.studentRepo.FindAll(ctx)
+	if err == nil {
+		for _, st := range students {
+			if st.UserID == nil || *st.UserID == 0 {
+				rawUsername := strings.ToLower(strings.Fields(st.Name)[0])
+				reg := regexp.MustCompile("[^a-z0-9_]")
+				username := reg.ReplaceAllString(rawUsername, "")
+				u, _ := s.userRepo.FindByUsername(ctx, username)
+				if u == nil && st.Parent != "" {
+					parentUser := reg.ReplaceAllString(strings.ToLower(strings.Fields(st.Parent)[0]), "")
+					u, _ = s.userRepo.FindByUsername(ctx, parentUser)
+				}
+				if u != nil {
+					_ = s.studentRepo.LinkUser(ctx, st.ID, u.ID)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func formatRupiah(amount float64) string {

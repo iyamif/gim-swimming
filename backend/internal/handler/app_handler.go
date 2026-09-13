@@ -19,11 +19,44 @@ func NewAppHandler(appService service.AppService) *AppHandler {
 	return &AppHandler{appService: appService}
 }
 
+// getUserContext extracts role, username, and userId from gin context or query parameters
+func getUserContext(c *gin.Context) (role, username, userID string) {
+	if r, exists := c.Get("role"); exists {
+		if s, ok := r.(string); ok {
+			role = s
+		}
+	}
+	if u, exists := c.Get("username"); exists {
+		if s, ok := u.(string); ok {
+			username = s
+		}
+	}
+	if uid, exists := c.Get("userId"); exists {
+		if s, ok := uid.(string); ok {
+			userID = s
+		}
+	}
+	if role == "" {
+		role = c.Query("role")
+	}
+	if username == "" {
+		username = c.Query("name")
+		if username == "" {
+			username = c.Query("user")
+		}
+	}
+	if userID == "" {
+		userID = c.Query("userId")
+	}
+	return role, username, userID
+}
+
 // ================= STUDENTS & ATTENDANCE =================
 
 // GetStudents handles GET /api/v1/students
 func (h *AppHandler) GetStudents(c *gin.Context) {
-	students, err := h.appService.GetStudents(c.Request.Context())
+	role, username, userID := getUserContext(c)
+	students, err := h.appService.GetStudents(c.Request.Context(), role, username, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -301,7 +334,8 @@ func (h *AppHandler) DeleteCoach(c *gin.Context) {
 
 // GetSchedules handles GET /api/v1/schedules
 func (h *AppHandler) GetSchedules(c *gin.Context) {
-	schedules, err := h.appService.GetSchedules(c.Request.Context())
+	role, username, userID := getUserContext(c)
+	schedules, err := h.appService.GetSchedules(c.Request.Context(), role, username, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -408,7 +442,8 @@ func (h *AppHandler) DeleteSchedule(c *gin.Context) {
 
 // GetInvoices handles GET /api/v1/invoices
 func (h *AppHandler) GetInvoices(c *gin.Context) {
-	invoices, err := h.appService.GetInvoices(c.Request.Context())
+	role, username, userID := getUserContext(c)
+	invoices, err := h.appService.GetInvoices(c.Request.Context(), role, username, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -956,7 +991,8 @@ func (h *AppHandler) DeleteClassProgram(c *gin.Context) {
 // GetCoachPayrolls handles GET /api/v1/payrolls
 func (h *AppHandler) GetCoachPayrolls(c *gin.Context) {
 	month := c.Query("month")
-	payrolls, err := h.appService.GetCoachPayrolls(c.Request.Context(), month)
+	role, username, userID := getUserContext(c)
+	payrolls, err := h.appService.GetCoachPayrolls(c.Request.Context(), month, role, username, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

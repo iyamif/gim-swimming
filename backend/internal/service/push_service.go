@@ -331,12 +331,12 @@ func (s *pushService) SendSchedulePushNotification(ctx context.Context, session 
 				}
 
 				coachPayload := &model.WebPushPayload{
-					Title:   "Jadwal Pelatihan Baru 🏊‍♂️",
-					Body:    fmt.Sprintf("Halo Pelatih %s, Anda memiliki jadwal '%s' pada %s pukul %s di %s bersama siswa: %s.", sess.CoachName, sess.Title, formattedDate, timeRange, sess.PoolArea, studentNamesStr),
-					Message: fmt.Sprintf("Jadwal '%s' pada %s pukul %s di %s.", sess.Title, formattedDate, timeRange, sess.PoolArea),
-					Icon:    "/icon.png",
-					Badge:   "/icon.png",
-					Tag:     fmt.Sprintf("schedule-%s", sess.ID),
+					Title:       "Jadwal Pelatihan Baru",
+					Body:        fmt.Sprintf("Halo Pelatih %s, Anda memiliki jadwal '%s' pada %s pukul %s di %s bersama siswa: %s.", sess.CoachName, sess.Title, formattedDate, timeRange, sess.PoolArea, studentNamesStr),
+					Message:     fmt.Sprintf("Jadwal '%s' pada %s pukul %s di %s.", sess.Title, formattedDate, timeRange, sess.PoolArea),
+					Icon:        "/icon.png",
+					Badge:       "/icon.png",
+					Tag:         fmt.Sprintf("schedule-%s", sess.ID),
 					UnreadCount: unreadCount,
 					Data: map[string]interface{}{
 						"url":         "/apps",
@@ -373,12 +373,12 @@ func (s *pushService) SendSchedulePushNotification(ctx context.Context, session 
 					}
 
 					studentPayload := &model.WebPushPayload{
-						Title:   "Jadwal Latihan Renang Baru 🏊‍♂️",
-						Body:    fmt.Sprintf("Halo %s, Anda memiliki jadwal latihan baru '%s' pada %s pukul %s di %s bersama Pelatih %s.", studentName, sess.Title, formattedDate, timeRange, sess.PoolArea, sess.CoachName),
-						Message: fmt.Sprintf("Jadwal '%s' pada %s pukul %s di %s bersama Pelatih %s.", sess.Title, formattedDate, timeRange, sess.PoolArea, sess.CoachName),
-						Icon:    "/icon.png",
-						Badge:   "/icon.png",
-						Tag:     fmt.Sprintf("schedule-%s", sess.ID),
+						Title:       "Jadwal Latihan Renang Baru 🏊‍♂️",
+						Body:        fmt.Sprintf("Halo %s, Anda memiliki jadwal latihan baru '%s' pada %s pukul %s di %s bersama Pelatih %s.", studentName, sess.Title, formattedDate, timeRange, sess.PoolArea, sess.CoachName),
+						Message:     fmt.Sprintf("Jadwal '%s' pada %s pukul %s di %s bersama Pelatih %s.", sess.Title, formattedDate, timeRange, sess.PoolArea, sess.CoachName),
+						Icon:        "/icon.png",
+						Badge:       "/icon.png",
+						Tag:         fmt.Sprintf("schedule-%s", sess.ID),
 						UnreadCount: unreadCount,
 						Data: map[string]interface{}{
 							"url":         "/apps",
@@ -619,7 +619,7 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_2h", sess.ID, "pelatih", sess.CoachName)
 				if !alreadyNotified {
 					coachNotif := &model.AdminNotification{
-						Title:        "Pengingat Jadwal Hari Ini (2 Jam Lagi) ⏱️🏊‍♂️",
+						Title:        "Pengingat Jadwal Hari Ini",
 						Message:      fmt.Sprintf("Halo Pelatih %s, jadwal sesi latihan '%s' di %s akan dimulai pukul %s (2 jam lagi). Mohon persiapkan diri dan hadir tepat waktu.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
 						Type:         "schedule_reminder_2h",
 						TargetRole:   "pelatih",
@@ -670,14 +670,14 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_2h", sess.ID, "orang tua", studentName)
 				if !alreadyNotified {
 					studentNotif := &model.AdminNotification{
-						Title:        "Pengingat Jadwal Hari Ini (2 Jam Lagi) ⏱️🏊‍♂️",
-						Message:      fmt.Sprintf("Halo %s, jadwal latihan renang '%s' bersama Pelatih %s di %s akan dimulai pukul %s (2 jam lagi). Persiapkan baju renang dan perlengkapanmu!", studentName, sess.Title, sess.CoachName, sess.PoolArea, sess.TimeStart),
-						Type:         "schedule_reminder_2h",
-						TargetRole:   "orang tua",
-						TargetName:   studentName,
-						ScheduleID:   sess.ID,
-						IsRead:       false,
-						CreatedAt:    now,
+						Title:      "Pengingat Jadwal Hari Ini",
+						Message:    fmt.Sprintf("Halo %s, jadwal latihan renang '%s' bersama Pelatih %s di %s akan dimulai 2 jam lagi. Persiapkan baju renang dan perlengkapanmu!", studentName, sess.Title, sess.CoachName, sess.PoolArea, sess.TimeStart),
+						Type:       "schedule_reminder_2h",
+						TargetRole: "orang tua",
+						TargetName: studentName,
+						ScheduleID: sess.ID,
+						IsRead:     false,
+						CreatedAt:  now,
 					}
 					_ = s.attRepo.CreateNotification(ctx, studentNotif)
 
@@ -775,14 +775,14 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_30m", sess.ID, "orang tua", studentName)
 				if !alreadyNotified {
 					studentNotif := &model.AdminNotification{
-						Title:        "Pengingat Sesi Renang (30 Menit Lagi) ⏱️🏊‍♂️",
-						Message:      fmt.Sprintf("Halo %s, sesi latihan renang '%s' bersama Pelatih %s di %s akan dimulai pukul %s (30 menit lagi). Jangan lupa persiapkan perlengkapan renang!", studentName, sess.Title, sess.CoachName, sess.PoolArea, sess.TimeStart),
-						Type:         "schedule_reminder_30m",
-						TargetRole:   "orang tua",
-						TargetName:   studentName,
-						ScheduleID:   sess.ID,
-						IsRead:       false,
-						CreatedAt:    now,
+						Title:      "Pengingat Sesi Renang",
+						Message:    fmt.Sprintf("Halo %s, sesi latihan renang '%s' bersama Pelatih %s di %s akan dimulai pukul 30 menit lagi. Jangan lupa persiapkan perlengkapan renang!", studentName, sess.Title, sess.CoachName, sess.PoolArea, sess.TimeStart),
+						Type:       "schedule_reminder_30m",
+						TargetRole: "orang tua",
+						TargetName: studentName,
+						ScheduleID: sess.ID,
+						IsRead:     false,
+						CreatedAt:  now,
 					}
 					_ = s.attRepo.CreateNotification(ctx, studentNotif)
 
@@ -832,7 +832,7 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 					alreadyWarned, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_late_checkin", sess.ID, "pelatih", sess.CoachName)
 					if !alreadyWarned {
 						coachWarning := &model.AdminNotification{
-							Title:        "Peringatan Presensi Pelatih ⚠️⏱️",
+							Title:        "Peringatan Presensi Pelatih",
 							Message:      fmt.Sprintf("Sesi latihan '%s' telah dimulai pukul %s (10 menit lalu). Ambil presensi terlebih dahulu sebelum sesi dimulai!", sess.Title, sess.TimeStart),
 							Type:         "schedule_reminder_late_checkin",
 							TargetRole:   "pelatih",
@@ -886,14 +886,14 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 					alreadyWarned, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_late_checkin", sess.ID, "orang tua", studentName)
 					if !alreadyWarned {
 						studentWarning := &model.AdminNotification{
-							Title:        "Peringatan Presensi Siswa ⚠️⏱️",
-							Message:      fmt.Sprintf("Sesi renang '%s' sudah dimulai pukul %s. Ambil presensi terlebih dahulu sebelum sesi dimulai!", sess.Title, sess.TimeStart),
-							Type:         "schedule_reminder_late_checkin",
-							TargetRole:   "orang tua",
-							TargetName:   studentName,
-							ScheduleID:   sess.ID,
-							IsRead:       false,
-							CreatedAt:    now,
+							Title:      "Peringatan Presensi Siswa",
+							Message:    fmt.Sprintf("Sesi renang '%s' sudah dimulai pukul %s. Ambil presensi terlebih dahulu sebelum sesi dimulai!", sess.Title, sess.TimeStart),
+							Type:       "schedule_reminder_late_checkin",
+							TargetRole: "orang tua",
+							TargetName: studentName,
+							ScheduleID: sess.ID,
+							IsRead:     false,
+							CreatedAt:  now,
 						}
 						_ = s.attRepo.CreateNotification(ctx, studentWarning)
 
@@ -1004,5 +1004,3 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 		}
 	}
 }
-
-

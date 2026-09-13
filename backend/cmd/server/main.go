@@ -71,6 +71,9 @@ func main() {
 	pushService := service.NewPushService(cfg, pushRepo, attendanceRepo)
 	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, financialRepo, poolRepo, classProgRepo, payrollRepo, pushService)
 
+	// Backfill any unlinked students/coaches to users
+	_ = appService.BackfillUserLinks(context.Background())
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, userRepo)
 	appHandler := handler.NewAppHandler(appService)

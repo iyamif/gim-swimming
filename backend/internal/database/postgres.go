@@ -75,6 +75,7 @@ func runMigrations() error {
 
 	CREATE TABLE IF NOT EXISTS students (
 		id SERIAL PRIMARY KEY,
+		user_id INT REFERENCES users(id) ON DELETE SET NULL,
 		name VARCHAR(255) NOT NULL,
 		class VARCHAR(100) NOT NULL,
 		attendance_rate VARCHAR(50) DEFAULT '100%',
@@ -275,9 +276,11 @@ func runMigrations() error {
 	-- Add column migrations if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+	ALTER TABLE students ADD COLUMN IF NOT EXISTS user_id INT REFERENCES users(id) ON DELETE SET NULL;
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS coach_id VARCHAR(50) DEFAULT '';
 	ALTER TABLE students ADD COLUMN IF NOT EXISTS coach_name VARCHAR(255) DEFAULT '';
+	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS user_id INT REFERENCES users(id) ON DELETE SET NULL;
 	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 	ALTER TABLE students ALTER COLUMN avatar TYPE TEXT;
@@ -319,6 +322,29 @@ func runMigrations() error {
 
 	-- Clean up invalid or corrupted push subscriptions
 	DELETE FROM push_subscriptions WHERE endpoint = '' OR p256dh = '' OR auth = '';
+
+	-- Automatically link existing coaches to users by user_id/username/email/name
+	UPDATE coaches c
+	SET user_id = u.id
+	FROM users u
+	WHERE c.user_id IS NULL
+	  AND (
+	    LOWER(REPLACE(c.name, ' ', '')) = LOWER(REPLACE(u.username, ' ', ''))
+	    OR LOWER(REPLACE(REPLACE(c.name, 'coach', ''), ' ', '')) = LOWER(REPLACE(u.username, ' ', ''))
+	    OR LOWER(c.email) = LOWER(u.email)
+	    OR (LOWER(u.username) = 'adi' AND LOWER(c.name) LIKE '%adi%')
+	  );
+
+	-- Automatically link existing students to users by user_id/parent/student name
+	UPDATE students s
+	SET user_id = u.id
+	FROM users u
+	WHERE s.user_id IS NULL
+	  AND (
+	    LOWER(REPLACE(s.name, ' ', '')) = LOWER(REPLACE(u.username, ' ', ''))
+	    OR LOWER(REPLACE(s.parent, ' ', '')) = LOWER(REPLACE(u.username, ' ', ''))
+	    OR LOWER(SPLIT_PART(s.name, ' ', 1)) = LOWER(u.username)
+	  );
 	`
 
 	_, err := DB.Exec(query)

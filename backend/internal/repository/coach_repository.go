@@ -14,6 +14,8 @@ type CoachRepository interface {
 	Update(ctx context.Context, coach *model.Coach) error
 	FindAll(ctx context.Context) ([]model.Coach, error)
 	FindByID(ctx context.Context, id int64) (*model.Coach, error)
+	FindByUserID(ctx context.Context, userID int64) (*model.Coach, error)
+	LinkUser(ctx context.Context, coachID int64, userID int64) error
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -31,13 +33,14 @@ func (r *pgCoachRepository) Create(ctx context.Context, coach *model.Coach) erro
 		coach.PayPerSession = 100000
 	}
 	query := `
-		INSERT INTO coaches (name, spec, phone, email, class, avatar, pay_per_session, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO coaches (user_id, name, spec, phone, email, class, avatar, pay_per_session, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id;
 	`
 	return r.db.QueryRowContext(
 		ctx,
 		query,
+		coach.UserID,
 		coach.Name,
 		coach.Spec,
 		coach.Phone,
@@ -56,12 +59,13 @@ func (r *pgCoachRepository) Update(ctx context.Context, coach *model.Coach) erro
 	}
 	query := `
 		UPDATE coaches
-		SET name = $1, spec = $2, phone = $3, email = $4, class = $5, avatar = $6, pay_per_session = $7, updated_at = $8
-		WHERE id = $9;
+		SET user_id = $1, name = $2, spec = $3, phone = $4, email = $5, class = $6, avatar = $7, pay_per_session = $8, updated_at = $9
+		WHERE id = $10;
 	`
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
+		coach.UserID,
 		coach.Name,
 		coach.Spec,
 		coach.Phone,
@@ -182,6 +186,59 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 	}
 
 	return &c, nil
+}
+
+func (r *pgCoachRepository) FindByUserID(ctx context.Context, userID int64) (*model.Coach, error) {
+	query := `
+		SELECT 
+			c.id, 
+			c.user_id, 
+			c.name, 
+			c.spec, 
+			c.phone, 
+			c.email, 
+			c.class, 
+			COALESCE(NULLIF(c.avatar, ''), COALESCE(u.avatar, '')), 
+			COALESCE(c.pay_per_session, 100000),
+			c.created_at, 
+			c.updated_at
+		FROM coaches c
+		LEFT JOIN users u ON c.user_id = u.id 
+		WHERE c.user_id = $1
+		LIMIT 1;
+	`
+	var c model.Coach
+	var uid sql.NullInt64
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&c.ID,
+		&uid,
+		&c.Name,
+		&c.Spec,
+		&c.Phone,
+		&c.Email,
+		&c.Class,
+		&c.Avatar,
+		&c.PayPerSession,
+		&c.CreatedAt,
+		&c.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if uid.Valid {
+		c.UserID = &uid.Int64
+	}
+
+	return &c, nil
+}
+
+func (r *pgCoachRepository) LinkUser(ctx context.Context, coachID int64, userID int64) error {
+	query := `UPDATE coaches SET user_id = $1, updated_at = NOW() WHERE id = $2;`
+	_, err := r.db.ExecContext(ctx, query, userID, coachID)
+	return err
 }
 
 func (r *pgCoachRepository) Delete(ctx context.Context, id int64) error {

@@ -1672,14 +1672,14 @@ export default function ParentBody({
                       <div className="shrink-0 ml-auto sm:ml-0">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${sess.status === "Terlambat"
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : sess.status === "Terjadwal"
-                                ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                : sess.status === "Sakit"
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : sess.status === "Izin"
-                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : sess.status === "Terjadwal"
+                              ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                              : sess.status === "Sakit"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : sess.status === "Izin"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             }`}
                         >
                           {sess.status === "Terlambat" ? (
@@ -1946,7 +1946,7 @@ export default function ParentBody({
               <div className="text-xs text-slate-600 leading-relaxed space-y-2">
                 <p>• <strong>Lokasi:</strong> Kolam Renang Nalendra (Jl. Sukajadi No. 12)</p>
                 <p>• <strong>Waktu Datang:</strong> Harap hadir 10 menit sebelum sesi latihan dimulai untuk pemanasan.</p>
-                <p>• <strong>Perlengkapan Wajib:</strong> Pakaian renang standar, kacamata renang (goggles), dan handuk pribadi.</p>
+                <p>• <strong>Perlengkapan Wajib:</strong> Pakaian renang standar, kacamata renang, dan handuk pribadi.</p>
               </div>
             </div>
           </div>
@@ -2029,21 +2029,19 @@ export default function ParentBody({
                         </div>
 
                         {existingAtt ? (
-                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${
-                            existingAtt.status === "Terlambat"
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${existingAtt.status === "Terlambat"
                               ? "bg-amber-50 text-amber-700 border-amber-200"
                               : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          }`}>
+                            }`}>
                             {existingAtt.status === "Terlambat" ? "✓ Hadir (Terlambat)" : "✓ Hadir Tepat Waktu"}
                           </span>
                         ) : (
-                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${
-                            !timeStat.isOpen
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${!timeStat.isOpen
                               ? "bg-slate-100 text-slate-600 border-slate-200"
                               : timeStat.isLate
                                 ? "bg-amber-100 text-amber-800 border-amber-300"
                                 : "bg-emerald-100 text-emerald-800 border-emerald-300"
-                          }`}>
+                            }`}>
                             {!timeStat.isOpen
                               ? `Buka: ${timeStat.openTimeString} WIB`
                               : timeStat.isLate
@@ -2065,11 +2063,10 @@ export default function ParentBody({
                         <button
                           type="button"
                           onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
-                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition cursor-pointer ${
-                            useSimulatedPoolLocation
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition cursor-pointer ${useSimulatedPoolLocation
                               ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
                               : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
-                          }`}
+                            }`}
                         >
                           {useSimulatedPoolLocation ? "✓ Simulasi Radius Aktif (< 2.0 km)" : "Mode Simulasi Kolam"}
                         </button>
@@ -2091,13 +2088,12 @@ export default function ParentBody({
                       <button
                         onClick={() => handlePerformCheckIn(targetSchedule)}
                         disabled={isCheckingIn || !timeStat.isOpen}
-                        className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all duration-200 flex items-center justify-center gap-2 shadow-md cursor-pointer ${
-                          !timeStat.isOpen
+                        className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all duration-200 flex items-center justify-center gap-2 shadow-md cursor-pointer ${!timeStat.isOpen
                             ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none"
                             : timeStat.isLate
                               ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-500/25"
                               : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-blue-600/25"
-                        }`}
+                          }`}
                       >
                         {isCheckingIn ? (
                           <>
@@ -2162,11 +2158,10 @@ export default function ParentBody({
                           <span className="text-xs font-black text-slate-900">
                             {item.title}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
-                            item.status === "Terlambat"
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${item.status === "Terlambat"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-emerald-100 text-emerald-800"
-                          }`}>
+                            }`}>
                             {item.status}
                           </span>
                         </div>
@@ -2932,13 +2927,12 @@ export default function ParentBody({
                     Rp {(invoice?.amount || 350000).toLocaleString("id-ID")}
                   </h3>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                  invoice?.status === "Lunas"
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${invoice?.status === "Lunas"
                     ? "bg-emerald-400 text-emerald-950 border-emerald-300"
                     : invoice?.status === "Menunggu Konfirmasi"
                       ? "bg-amber-400 text-amber-950 border-amber-300"
                       : "bg-rose-400 text-rose-950 border-rose-300"
-                }`}>
+                  }`}>
                   {invoice?.status || "Belum Dibayar"}
                 </span>
               </div>

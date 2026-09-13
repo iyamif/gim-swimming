@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/iyamif/gim-swimming/internal/model"
 )
@@ -13,6 +14,9 @@ type StudentRepository interface {
 	Create(ctx context.Context, student *model.Student) error
 	FindAll(ctx context.Context) ([]model.Student, error)
 	FindByID(ctx context.Context, id int64) (*model.Student, error)
+	FindByUserID(ctx context.Context, userID int64) ([]model.Student, error)
+	FindByParentPhone(ctx context.Context, phone string) ([]model.Student, error)
+	LinkUser(ctx context.Context, studentID int64, userID int64) error
 	GetLogsByStudentID(ctx context.Context, studentID int64) ([]model.AttendanceLog, error)
 	AddAttendanceLog(ctx context.Context, log *model.AttendanceLog) error
 	UpdateAttendanceRate(ctx context.Context, studentID int64, rate string) error
@@ -32,13 +36,14 @@ func NewStudentRepository(db *sql.DB) StudentRepository {
 
 func (r *pgStudentRepository) Create(ctx context.Context, student *model.Student) error {
 	query := `
-		INSERT INTO students (name, class, attendance_rate, parent, phone, age, coach_id, coach_name, status, avatar, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO students (user_id, name, class, attendance_rate, parent, phone, age, coach_id, coach_name, status, avatar, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id;
 	`
 	return r.db.QueryRowContext(
 		ctx,
 		query,
+		student.UserID,
 		student.Name,
 		student.Class,
 		student.AttendanceRate,
@@ -58,6 +63,7 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 	query := `
 		SELECT 
 			s.id, 
+			s.user_id,
 			s.name, 
 			s.class, 
 			s.attendance_rate, 
@@ -71,7 +77,7 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 			s.created_at, 
 			s.updated_at
 		FROM students s
-		LEFT JOIN users u ON LOWER(REPLACE(s.name, ' ', '')) = LOWER(u.username)
+		LEFT JOIN users u ON s.user_id = u.id OR LOWER(REPLACE(s.name, ' ', '')) = LOWER(u.username)
 		ORDER BY s.id ASC;
 	`
 	rows, err := r.db.QueryContext(ctx, query)
@@ -83,8 +89,10 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 	var students []model.Student
 	for rows.Next() {
 		var s model.Student
+		var userID sql.NullInt64
 		err := rows.Scan(
 			&s.ID,
+			&userID,
 			&s.Name,
 			&s.Class,
 			&s.AttendanceRate,
@@ -100,6 +108,9 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 		)
 		if err != nil {
 			return nil, err
+		}
+		if userID.Valid {
+			s.UserID = &userID.Int64
 		}
 
 		// Fetch attendance logs for each student
@@ -120,6 +131,7 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 	query := `
 		SELECT 
 			s.id, 
+			s.user_id,
 			s.name, 
 			s.class, 
 			s.attendance_rate, 
@@ -133,12 +145,14 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 			s.created_at, 
 			s.updated_at
 		FROM students s
-		LEFT JOIN users u ON LOWER(REPLACE(s.name, ' ', '')) = LOWER(u.username)
+		LEFT JOIN users u ON s.user_id = u.id OR LOWER(REPLACE(s.name, ' ', '')) = LOWER(u.username)
 		WHERE s.id = $1;
 	`
 	var s model.Student
+	var userID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&s.ID,
+		&userID,
 		&s.Name,
 		&s.Class,
 		&s.AttendanceRate,
@@ -158,6 +172,9 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 		}
 		return nil, err
 	}
+	if userID.Valid {
+		s.UserID = &userID.Int64
+	}
 
 	logs, _ := r.GetLogsByStudentID(ctx, s.ID)
 	if logs != nil {
@@ -167,6 +184,148 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 	}
 
 	return &s, nil
+}
+
+func (r *pgStudentRepository) FindByUserID(ctx context.Context, userID int64) ([]model.Student, error) {
+	query := `
+		SELECT 
+			s.id, 
+			s.user_id,
+			s.name, 
+			s.class, 
+			s.attendance_rate, 
+			s.parent, 
+			COALESCE(s.phone, ''), 
+			COALESCE(s.age, ''), 
+			COALESCE(s.coach_id, ''),
+			COALESCE(s.coach_name, ''),
+			s.status, 
+			COALESCE(NULLIF(s.avatar, ''), COALESCE(u.avatar, '')), 
+			s.created_at, 
+			s.updated_at
+		FROM students s
+		LEFT JOIN users u ON s.user_id = u.id
+		WHERE s.user_id = $1
+		ORDER BY s.id ASC;
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []model.Student
+	for rows.Next() {
+		var s model.Student
+		var uid sql.NullInt64
+		err := rows.Scan(
+			&s.ID,
+			&uid,
+			&s.Name,
+			&s.Class,
+			&s.AttendanceRate,
+			&s.Parent,
+			&s.Phone,
+			&s.Age,
+			&s.CoachID,
+			&s.CoachName,
+			&s.Status,
+			&s.Avatar,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if uid.Valid {
+			s.UserID = &uid.Int64
+		}
+
+		logs, err := r.GetLogsByStudentID(ctx, s.ID)
+		if err != nil {
+			s.Logs = []model.AttendanceLog{}
+		} else {
+			s.Logs = logs
+		}
+
+		students = append(students, s)
+	}
+
+	return students, nil
+}
+
+func (r *pgStudentRepository) FindByParentPhone(ctx context.Context, phone string) ([]model.Student, error) {
+	query := `
+		SELECT 
+			s.id, 
+			s.user_id,
+			s.name, 
+			s.class, 
+			s.attendance_rate, 
+			s.parent, 
+			COALESCE(s.phone, ''), 
+			COALESCE(s.age, ''), 
+			COALESCE(s.coach_id, ''),
+			COALESCE(s.coach_name, ''),
+			s.status, 
+			COALESCE(NULLIF(s.avatar, ''), COALESCE(u.avatar, '')), 
+			s.created_at, 
+			s.updated_at
+		FROM students s
+		LEFT JOIN users u ON s.user_id = u.id
+		WHERE s.phone = $1 OR s.phone = $2
+		ORDER BY s.id ASC;
+	`
+	rows, err := r.db.QueryContext(ctx, query, phone, strings.TrimPrefix(phone, "0"))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []model.Student
+	for rows.Next() {
+		var s model.Student
+		var uid sql.NullInt64
+		err := rows.Scan(
+			&s.ID,
+			&uid,
+			&s.Name,
+			&s.Class,
+			&s.AttendanceRate,
+			&s.Parent,
+			&s.Phone,
+			&s.Age,
+			&s.CoachID,
+			&s.CoachName,
+			&s.Status,
+			&s.Avatar,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if uid.Valid {
+			s.UserID = &uid.Int64
+		}
+
+		logs, err := r.GetLogsByStudentID(ctx, s.ID)
+		if err != nil {
+			s.Logs = []model.AttendanceLog{}
+		} else {
+			s.Logs = logs
+		}
+
+		students = append(students, s)
+	}
+
+	return students, nil
+}
+
+func (r *pgStudentRepository) LinkUser(ctx context.Context, studentID int64, userID int64) error {
+	query := `UPDATE students SET user_id = $1, updated_at = NOW() WHERE id = $2;`
+	_, err := r.db.ExecContext(ctx, query, userID, studentID)
+	return err
 }
 
 func (r *pgStudentRepository) GetLogsByStudentID(ctx context.Context, studentID int64) ([]model.AttendanceLog, error) {
@@ -226,12 +385,13 @@ func (r *pgStudentRepository) UpdateStatus(ctx context.Context, studentID int64,
 func (r *pgStudentRepository) Update(ctx context.Context, student *model.Student) error {
 	query := `
 		UPDATE students
-		SET name = $1, class = $2, parent = $3, phone = $4, age = $5, coach_id = $6, coach_name = $7, status = $8, updated_at = NOW()
-		WHERE id = $9;
+		SET user_id = $1, name = $2, class = $3, parent = $4, phone = $5, age = $6, coach_id = $7, coach_name = $8, status = $9, updated_at = NOW()
+		WHERE id = $10;
 	`
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
+		student.UserID,
 		student.Name,
 		student.Class,
 		student.Parent,
