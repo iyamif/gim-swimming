@@ -18,6 +18,8 @@ import ProfilTab from "./ProfilTab";
 import PelatihTab from "./PelatihTab";
 import KehadiranTab from "./KehadiranTab";
 import PengumumanTab from "./PengumumanTab";
+import GajiSppTab from "./GajiSppTab";
+import GeneralTab from "./GeneralTab";
 import PullToRefresh from "../PullToRefresh";
 
 interface AppsBodyProps {
@@ -223,10 +225,34 @@ export default function AppsBody({
         <KehadiranTab
           schedules={schedules}
           coaches={coaches}
+          students={students}
           attendances={attendances}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
           setActiveTab={setActiveTab}
+          onRefresh={onRefresh}
+        />
+      )}
+
+      {activeTab === "gaji_spp" && (
+        <GajiSppTab
+          students={students}
+          coaches={coaches}
+          invoices={invoices}
+          attendances={attendances}
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          onRefresh={onRefresh}
+          onVerifyPayment={onVerifyPayment}
+          setActiveTab={setActiveTab}
+        />
+      )}
+
+      {activeTab === "general" && (
+        <GeneralTab
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+          onRefresh={onRefresh}
         />
       )}
 
@@ -273,6 +299,8 @@ export default function AppsBody({
     <div
       className={`flex-1 overflow-y-auto ${activeTab === "dashboard" ||
           activeTab === "keuangan" ||
+          activeTab === "gaji_spp" ||
+          activeTab === "general" ||
           activeTab === "profile" ||
           activeTab === "daftar_hadir" ||
           activeTab === "pelatih" ||

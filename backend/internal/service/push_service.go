@@ -555,7 +555,11 @@ func min(a, b int) int {
 	return b
 }
 
-// CheckAndSendPreSessionReminders scans today's active schedules and dispatches in-app & push reminders 30 mins before session starts
+// CheckAndSendPreSessionReminders scans today's active schedules and dispatches:
+// 1. In-app & push reminders 2 hours before session
+// 2. In-app & push reminders 30 mins before session
+// 3. Late check-in warning 10 mins after session starts if attendee has not checked in
+// 4. Auto-Alpha (Tidak Hadir) mark after session time ends for attendees who did not check in
 func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, scheduleRepo repository.ScheduleRepository) {
 	if scheduleRepo == nil {
 		return
@@ -586,17 +590,136 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 			cleanStart = cleanStart[:5]
 		}
 
+		cleanEnd := strings.TrimSpace(strings.TrimSuffix(sess.TimeEnd, "WIB"))
+		cleanEnd = strings.TrimSpace(cleanEnd)
+		if len(cleanEnd) > 5 {
+			cleanEnd = cleanEnd[:5]
+		}
+
 		sessStartTime, err := time.ParseInLocation("2006-01-02 15:04", todayStr+" "+cleanStart, loc)
 		if err != nil {
 			continue
 		}
 
-		// Calculate remaining time until session starts
-		diff := sessStartTime.Sub(now)
+		sessEndTime, err := time.ParseInLocation("2006-01-02 15:04", todayStr+" "+cleanEnd, loc)
+		if err != nil {
+			// Default 1 hour duration if end time cannot be parsed
+			sessEndTime = sessStartTime.Add(1 * time.Hour)
+		}
 
-		// Target window: 30 minutes before session (diff between 0 and 35 minutes)
-		if diff >= -2*time.Minute && diff <= 35*time.Minute {
-			// 1. Notify Coach if not already notified
+		// Calculate time difference relative to start time
+		diffStart := sessStartTime.Sub(now)
+
+		// --------------------------------------------------------------------
+		// 1. TARGET WINDOW: 2 HOURS BEFORE SESSION (diff between 90m and 135m)
+		// --------------------------------------------------------------------
+		if diffStart >= 90*time.Minute && diffStart <= 135*time.Minute {
+			// Coach 2-Hour Reminder
+			if sess.CoachName != "" && s.attRepo != nil {
+				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_2h", sess.ID, "pelatih", sess.CoachName)
+				if !alreadyNotified {
+					coachNotif := &model.AdminNotification{
+						Title:        "Pengingat Jadwal Hari Ini (2 Jam Lagi) ⏱️🏊‍♂️",
+						Message:      fmt.Sprintf("Halo Pelatih %s, jadwal sesi latihan '%s' di %s akan dimulai pukul %s (2 jam lagi). Mohon persiapkan diri dan hadir tepat waktu.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
+						Type:         "schedule_reminder_2h",
+						TargetRole:   "pelatih",
+						TargetUserID: sess.CoachID,
+						TargetName:   sess.CoachName,
+						ScheduleID:   sess.ID,
+						IsRead:       false,
+						CreatedAt:    now,
+					}
+					_ = s.attRepo.CreateNotification(ctx, coachNotif)
+
+					coachSubs, err := s.pushRepo.FindForCoach(ctx, sess.CoachName, sess.CoachID)
+					if err == nil && len(coachSubs) > 0 {
+						unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, "pelatih", sess.CoachName, sess.CoachID)
+						if unreadCount <= 0 {
+							unreadCount = 1
+						}
+						coachPayload := &model.WebPushPayload{
+							Title:       coachNotif.Title,
+							Body:        coachNotif.Message,
+							Message:     coachNotif.Message,
+							Icon:        "/icon.png",
+							Badge:       "/icon.png",
+							Tag:         fmt.Sprintf("reminder-2h-%s-coach", sess.ID),
+							UnreadCount: unreadCount,
+							Data: map[string]interface{}{
+								"url":         "/apps",
+								"type":        "schedule_reminder",
+								"schedule_id": sess.ID,
+								"role":        "pelatih",
+								"tab":         "jadwal",
+							},
+						}
+						for _, sub := range coachSubs {
+							_ = s.sendSinglePush(ctx, &sub, coachPayload)
+						}
+					}
+				}
+			}
+
+			// Student 2-Hour Reminder
+			for _, studentName := range sess.StudentNames {
+				studentName = strings.TrimSpace(studentName)
+				if studentName == "" || s.attRepo == nil {
+					continue
+				}
+
+				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_2h", sess.ID, "orang tua", studentName)
+				if !alreadyNotified {
+					studentNotif := &model.AdminNotification{
+						Title:        "Pengingat Jadwal Hari Ini (2 Jam Lagi) ⏱️🏊‍♂️",
+						Message:      fmt.Sprintf("Halo %s, jadwal latihan renang '%s' bersama Pelatih %s di %s akan dimulai pukul %s (2 jam lagi). Persiapkan baju renang dan perlengkapanmu!", studentName, sess.Title, sess.CoachName, sess.PoolArea, sess.TimeStart),
+						Type:         "schedule_reminder_2h",
+						TargetRole:   "orang tua",
+						TargetName:   studentName,
+						ScheduleID:   sess.ID,
+						IsRead:       false,
+						CreatedAt:    now,
+					}
+					_ = s.attRepo.CreateNotification(ctx, studentNotif)
+
+					studentSubs, err := s.pushRepo.FindForStudents(ctx, []string{studentName}, nil)
+					if err == nil && len(studentSubs) > 0 {
+						for _, sub := range studentSubs {
+							subStudentName := sub.StudentName
+							if subStudentName == "" {
+								subStudentName = sub.Username
+							}
+							unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, "orang tua", subStudentName, sub.UserID)
+							if unreadCount <= 0 {
+								unreadCount = 1
+							}
+							studentPayload := &model.WebPushPayload{
+								Title:       studentNotif.Title,
+								Body:        studentNotif.Message,
+								Message:     studentNotif.Message,
+								Icon:        "/icon.png",
+								Badge:       "/icon.png",
+								Tag:         fmt.Sprintf("reminder-2h-%s-%s", sess.ID, studentName),
+								UnreadCount: unreadCount,
+								Data: map[string]interface{}{
+									"url":         "/apps",
+									"type":        "schedule_reminder",
+									"schedule_id": sess.ID,
+									"role":        "orang tua",
+									"tab":         "jadwal",
+								},
+							}
+							_ = s.sendSinglePush(ctx, &sub, studentPayload)
+						}
+					}
+				}
+			}
+		}
+
+		// --------------------------------------------------------------------
+		// 2. TARGET WINDOW: 30 MINUTES BEFORE SESSION (diff between 0 and 35m)
+		// --------------------------------------------------------------------
+		if diffStart >= -2*time.Minute && diffStart <= 35*time.Minute {
+			// Coach 30m Reminder
 			if sess.CoachName != "" && s.attRepo != nil {
 				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_30m", sess.ID, "pelatih", sess.CoachName)
 				if !alreadyNotified {
@@ -613,7 +736,6 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 					}
 					_ = s.attRepo.CreateNotification(ctx, coachNotif)
 
-					// Dispatch Web Push to Coach
 					coachSubs, err := s.pushRepo.FindForCoach(ctx, sess.CoachName, sess.CoachID)
 					if err == nil && len(coachSubs) > 0 {
 						unreadCount, _ := s.pushRepo.GetUnreadNotificationCount(ctx, "pelatih", sess.CoachName, sess.CoachID)
@@ -640,11 +762,10 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 							_ = s.sendSinglePush(ctx, &sub, coachPayload)
 						}
 					}
-					log.Printf("[ReminderWorker] Sent 30m pre-session reminder to coach %s for schedule %s (%s)", sess.CoachName, sess.ID, sess.Title)
 				}
 			}
 
-			// 2. Notify Students / Parents if not already notified
+			// Student 30m Reminder
 			for _, studentName := range sess.StudentNames {
 				studentName = strings.TrimSpace(studentName)
 				if studentName == "" || s.attRepo == nil {
@@ -665,7 +786,6 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 					}
 					_ = s.attRepo.CreateNotification(ctx, studentNotif)
 
-					// Dispatch Web Push to Student/Parent
 					studentSubs, err := s.pushRepo.FindForStudents(ctx, []string{studentName}, nil)
 					if err == nil && len(studentSubs) > 0 {
 						for _, sub := range studentSubs {
@@ -696,10 +816,193 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 							_ = s.sendSinglePush(ctx, &sub, studentPayload)
 						}
 					}
-					log.Printf("[ReminderWorker] Sent 30m pre-session reminder to student %s for schedule %s (%s)", studentName, sess.ID, sess.Title)
+				}
+			}
+		}
+
+		// --------------------------------------------------------------------
+		// 3. TARGET WINDOW: 10 MINS AFTER SESSION STARTS (Late check-in warning)
+		// --------------------------------------------------------------------
+		// If session has started >= 10 mins ago, but session has not ended yet:
+		if now.After(sessStartTime.Add(10*time.Minute)) && now.Before(sessEndTime) {
+			// Coach Late Check-in Warning
+			if sess.CoachName != "" && s.attRepo != nil {
+				coachAtt, _ := s.attRepo.FindByScheduleAndPerson(ctx, sess.ID, sess.CoachID, "coach")
+				if coachAtt == nil {
+					alreadyWarned, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_late_checkin", sess.ID, "pelatih", sess.CoachName)
+					if !alreadyWarned {
+						coachWarning := &model.AdminNotification{
+							Title:        "Peringatan Presensi Pelatih ⚠️⏱️",
+							Message:      fmt.Sprintf("Sesi latihan '%s' telah dimulai pukul %s (10 menit lalu). Ambil presensi terlebih dahulu sebelum sesi dimulai!", sess.Title, sess.TimeStart),
+							Type:         "schedule_reminder_late_checkin",
+							TargetRole:   "pelatih",
+							TargetUserID: sess.CoachID,
+							TargetName:   sess.CoachName,
+							ScheduleID:   sess.ID,
+							IsRead:       false,
+							CreatedAt:    now,
+						}
+						_ = s.attRepo.CreateNotification(ctx, coachWarning)
+
+						coachSubs, err := s.pushRepo.FindForCoach(ctx, sess.CoachName, sess.CoachID)
+						if err == nil && len(coachSubs) > 0 {
+							for _, sub := range coachSubs {
+								_ = s.sendSinglePush(ctx, &sub, &model.WebPushPayload{
+									Title:   coachWarning.Title,
+									Body:    coachWarning.Message,
+									Message: coachWarning.Message,
+									Icon:    "/icon.png",
+									Tag:     fmt.Sprintf("late-checkin-%s-coach", sess.ID),
+									Data: map[string]interface{}{
+										"url":         "/apps",
+										"type":        "attendance_reminder",
+										"schedule_id": sess.ID,
+									},
+								})
+							}
+						}
+						log.Printf("[ReminderWorker] Dispatched 10-minute late check-in warning to coach %s for schedule %s", sess.CoachName, sess.ID)
+					}
+				}
+			}
+
+			// Student Late Check-in Warning
+			for idx, studentName := range sess.StudentNames {
+				studentName = strings.TrimSpace(studentName)
+				if studentName == "" || s.attRepo == nil {
+					continue
+				}
+
+				studentID := ""
+				if idx < len(sess.StudentIDs) {
+					studentID = sess.StudentIDs[idx]
+				}
+				if studentID == "" {
+					studentID = studentName
+				}
+
+				studentAtt, _ := s.attRepo.FindByScheduleAndPerson(ctx, sess.ID, studentID, "student")
+				if studentAtt == nil {
+					alreadyWarned, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_late_checkin", sess.ID, "orang tua", studentName)
+					if !alreadyWarned {
+						studentWarning := &model.AdminNotification{
+							Title:        "Peringatan Presensi Siswa ⚠️⏱️",
+							Message:      fmt.Sprintf("Sesi renang '%s' sudah dimulai pukul %s. Ambil presensi terlebih dahulu sebelum sesi dimulai!", sess.Title, sess.TimeStart),
+							Type:         "schedule_reminder_late_checkin",
+							TargetRole:   "orang tua",
+							TargetName:   studentName,
+							ScheduleID:   sess.ID,
+							IsRead:       false,
+							CreatedAt:    now,
+						}
+						_ = s.attRepo.CreateNotification(ctx, studentWarning)
+
+						studentSubs, err := s.pushRepo.FindForStudents(ctx, []string{studentName}, nil)
+						if err == nil && len(studentSubs) > 0 {
+							for _, sub := range studentSubs {
+								_ = s.sendSinglePush(ctx, &sub, &model.WebPushPayload{
+									Title:   studentWarning.Title,
+									Body:    studentWarning.Message,
+									Message: studentWarning.Message,
+									Icon:    "/icon.png",
+									Tag:     fmt.Sprintf("late-checkin-%s-%s", sess.ID, studentName),
+									Data: map[string]interface{}{
+										"url":         "/apps",
+										"type":        "attendance_reminder",
+										"schedule_id": sess.ID,
+									},
+								})
+							}
+						}
+						log.Printf("[ReminderWorker] Dispatched 10-minute late check-in warning to student %s for schedule %s", studentName, sess.ID)
+					}
+				}
+			}
+		}
+
+		// --------------------------------------------------------------------
+		// 4. AUTO-ALPHA (TIDAK HADIR) WHEN SESSION ENDS
+		// --------------------------------------------------------------------
+		// If session end time has passed:
+		if now.After(sessEndTime) && s.attRepo != nil {
+			// Auto-Alpha for Coach if not checked in
+			if sess.CoachName != "" {
+				coachAtt, _ := s.attRepo.FindByScheduleAndPerson(ctx, sess.ID, sess.CoachID, "coach")
+				if coachAtt == nil {
+					alphaRecord := &model.AttendanceRecord{
+						ScheduleID:      sess.ID,
+						ScheduleTitle:   sess.Title,
+						Class:           sess.Class,
+						Date:            sess.Date,
+						TimeStart:       sess.TimeStart,
+						TimeEnd:         sess.TimeEnd,
+						PoolArea:        sess.PoolArea,
+						UserID:          sess.CoachID,
+						UserRole:        "pelatih",
+						PersonType:      "coach",
+						PersonID:        sess.CoachID,
+						PersonName:      sess.CoachName,
+						Status:          "Tidak Hadir",
+						IsLate:          false,
+						LateReason:      "Tidak hadir sampai sesi selesai",
+						Latitude:        0,
+						Longitude:       0,
+						DistanceKm:      0,
+						IsValidLocation: false,
+						Notes:           "Otomatis ditandai Tidak Hadir (Alpa) karena tidak melakukan presensi hingga sesi berakhir.",
+						CreatedAt:       now,
+					}
+					_ = s.attRepo.Create(ctx, alphaRecord)
+					log.Printf("[ReminderWorker] Auto-marked coach %s as Tidak Hadir for schedule %s", sess.CoachName, sess.ID)
+				}
+			}
+
+			// Auto-Alpha for Students if not checked in
+			for idx, studentName := range sess.StudentNames {
+				studentName = strings.TrimSpace(studentName)
+				if studentName == "" {
+					continue
+				}
+
+				studentID := ""
+				if idx < len(sess.StudentIDs) {
+					studentID = sess.StudentIDs[idx]
+				}
+				if studentID == "" {
+					studentID = studentName
+				}
+
+				studentAtt, _ := s.attRepo.FindByScheduleAndPerson(ctx, sess.ID, studentID, "student")
+				if studentAtt == nil {
+					alphaRecord := &model.AttendanceRecord{
+						ScheduleID:      sess.ID,
+						ScheduleTitle:   sess.Title,
+						Class:           sess.Class,
+						Date:            sess.Date,
+						TimeStart:       sess.TimeStart,
+						TimeEnd:         sess.TimeEnd,
+						PoolArea:        sess.PoolArea,
+						UserID:          "",
+						UserRole:        "orang tua",
+						PersonType:      "student",
+						PersonID:        studentID,
+						PersonName:      studentName,
+						Status:          "Tidak Hadir",
+						IsLate:          false,
+						LateReason:      "Tidak hadir sampai sesi selesai",
+						Latitude:        0,
+						Longitude:       0,
+						DistanceKm:      0,
+						IsValidLocation: false,
+						Notes:           "Otomatis ditandai Tidak Hadir (Alpa) karena tidak melakukan presensi hingga sesi berakhir.",
+						CreatedAt:       now,
+					}
+					_ = s.attRepo.Create(ctx, alphaRecord)
+					log.Printf("[ReminderWorker] Auto-marked student %s as Tidak Hadir for schedule %s", studentName, sess.ID)
 				}
 			}
 		}
 	}
 }
+
 

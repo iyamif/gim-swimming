@@ -734,3 +734,290 @@ func (h *AppHandler) DeleteFinancialTransaction(c *gin.Context) {
 	})
 }
 
+// ================= ATTENDANCE OVERRIDE =================
+
+// OverrideAttendance handles POST /api/v1/attendances/override
+func (h *AppHandler) OverrideAttendance(c *gin.Context) {
+	var input model.CheckInInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format input presensi tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	userObj, _ := c.Get("currentUser")
+	var user *model.User
+	if u, ok := userObj.(*model.User); ok {
+		user = u
+	}
+
+	record, err := h.appService.OverrideAttendance(c.Request.Context(), &input, user)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Status presensi berhasil dikoreksi",
+		"data":    record,
+	})
+}
+
+// ================= POOLS (MASTER DATA KOLAM) =================
+
+// GetPools handles GET /api/v1/pools
+func (h *AppHandler) GetPools(c *gin.Context) {
+	pools, err := h.appService.GetPools(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    pools,
+	})
+}
+
+// CreatePool handles POST /api/v1/pools
+func (h *AppHandler) CreatePool(c *gin.Context) {
+	var input model.CreatePoolInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format data kolam tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	pool, err := h.appService.CreatePool(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Lokasi kolam renang berhasil ditambahkan",
+		"data":    pool,
+	})
+}
+
+// UpdatePool handles PUT /api/v1/pools/:id
+func (h *AppHandler) UpdatePool(c *gin.Context) {
+	id := c.Param("id")
+	var input model.UpdatePoolInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format data update kolam tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	pool, err := h.appService.UpdatePool(c.Request.Context(), id, &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Data lokasi kolam berhasil diperbarui",
+		"data":    pool,
+	})
+}
+
+// DeletePool handles DELETE /api/v1/pools/:id
+func (h *AppHandler) DeletePool(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.appService.DeletePool(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Lokasi kolam berhasil dihapus",
+	})
+}
+
+// ================= CLASS PROGRAMS (MASTER DATA PROGRAM KELAS) =================
+
+// GetClassPrograms handles GET /api/v1/class-programs
+func (h *AppHandler) GetClassPrograms(c *gin.Context) {
+	programs, err := h.appService.GetClassPrograms(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    programs,
+	})
+}
+
+// CreateClassProgram handles POST /api/v1/class-programs
+func (h *AppHandler) CreateClassProgram(c *gin.Context) {
+	var input model.CreateClassProgramInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format program kelas tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	prog, err := h.appService.CreateClassProgram(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Program kelas berhasil dibuat",
+		"data":    prog,
+	})
+}
+
+// UpdateClassProgram handles PUT /api/v1/class-programs/:id
+func (h *AppHandler) UpdateClassProgram(c *gin.Context) {
+	id := c.Param("id")
+	var input model.UpdateClassProgramInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format update program kelas tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	prog, err := h.appService.UpdateClassProgram(c.Request.Context(), id, &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Program kelas berhasil diperbarui",
+		"data":    prog,
+	})
+}
+
+// DeleteClassProgram handles DELETE /api/v1/class-programs/:id
+func (h *AppHandler) DeleteClassProgram(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.appService.DeleteClassProgram(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Program kelas berhasil dihapus",
+	})
+}
+
+// ================= COACH PAYROLLS (GAJI PELATIH) =================
+
+// GetCoachPayrolls handles GET /api/v1/payrolls
+func (h *AppHandler) GetCoachPayrolls(c *gin.Context) {
+	month := c.Query("month")
+	payrolls, err := h.appService.GetCoachPayrolls(c.Request.Context(), month)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    payrolls,
+	})
+}
+
+// CreateOrUpdateCoachPayroll handles POST /api/v1/payrolls
+func (h *AppHandler) CreateOrUpdateCoachPayroll(c *gin.Context) {
+	var input model.CreateCoachPayrollInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format data payroll tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	payroll, err := h.appService.CreateOrUpdateCoachPayroll(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Data slip gaji pelatih berhasil disimpan",
+		"data":    payroll,
+	})
+}
+
+// ApproveCoachPayroll handles PATCH /api/v1/payrolls/:id/approve
+func (h *AppHandler) ApproveCoachPayroll(c *gin.Context) {
+	id := c.Param("id")
+	var input model.ApproveCoachPayrollInput
+	_ = c.ShouldBindJSON(&input)
+
+	payroll, err := h.appService.ApproveCoachPayroll(c.Request.Context(), id, input.Notes)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Gaji pelatih berhasil disetujui dan dicatat ke laporan pengeluaran",
+		"data":    payroll,
+	})
+}
+
+

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
@@ -16,6 +17,9 @@ type AttendanceRepository interface {
 	FindByScheduleID(ctx context.Context, scheduleID string) ([]model.AttendanceRecord, error)
 	FindByCoachID(ctx context.Context, coachID string) ([]model.AttendanceRecord, error)
 	FindByStudentID(ctx context.Context, studentID string) ([]model.AttendanceRecord, error)
+	FindByScheduleAndPerson(ctx context.Context, scheduleID, personID, personType string) (*model.AttendanceRecord, error)
+	OverrideAttendance(ctx context.Context, att *model.AttendanceRecord) error
+	UpdateStatus(ctx context.Context, id int64, status, notes string) error
 
 	// Notifications
 	CreateNotification(ctx context.Context, notif *model.AdminNotification) error
@@ -554,3 +558,91 @@ func (r *attendanceRepository) HasNotification(ctx context.Context, notifType, s
 	}
 	return count > 0, nil
 }
+
+// FindByScheduleAndPerson looks up an existing attendance record for a person in a specific schedule
+func (r *attendanceRepository) FindByScheduleAndPerson(ctx context.Context, scheduleID, personID, personType string) (*model.AttendanceRecord, error) {
+	query := `
+		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
+		       user_id, user_role, person_type, person_id, person_name, status,
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		FROM attendances
+		WHERE schedule_id = $1 AND person_id = $2 AND person_type = $3
+		ORDER BY id DESC LIMIT 1;
+	`
+	var att model.AttendanceRecord
+	var userID, userRole, lateReason, notes sql.NullString
+	err := r.db.QueryRowContext(ctx, query, scheduleID, personID, personType).Scan(
+		&att.ID,
+		&att.ScheduleID,
+		&att.ScheduleTitle,
+		&att.Class,
+		&att.Date,
+		&att.TimeStart,
+		&att.TimeEnd,
+		&att.PoolArea,
+		&userID,
+		&userRole,
+		&att.PersonType,
+		&att.PersonID,
+		&att.PersonName,
+		&att.Status,
+		&att.IsLate,
+		&lateReason,
+		&att.Latitude,
+		&att.Longitude,
+		&att.DistanceKm,
+		&att.IsValidLocation,
+		&notes,
+		&att.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if userID.Valid {
+		att.UserID = userID.String
+	}
+	if userRole.Valid {
+		att.UserRole = userRole.String
+	}
+	if lateReason.Valid {
+		att.LateReason = lateReason.String
+	}
+	if notes.Valid {
+		att.Notes = notes.String
+	}
+	return &att, nil
+}
+
+// OverrideAttendance creates or updates attendance status manually by admin
+func (r *attendanceRepository) OverrideAttendance(ctx context.Context, att *model.AttendanceRecord) error {
+	existing, err := r.FindByScheduleAndPerson(ctx, att.ScheduleID, att.PersonID, att.PersonType)
+	if err == nil && existing != nil {
+		query := `
+			UPDATE attendances
+			SET status = $1, notes = $2, is_valid_location = true, created_at = NOW()
+			WHERE id = $3;
+		`
+		_, err := r.db.ExecContext(ctx, query, att.Status, att.Notes, existing.ID)
+		att.ID = existing.ID
+		return err
+	}
+
+	// If no existing record, create new one
+	return r.Create(ctx, att)
+}
+
+// UpdateStatus updates the status and notes of a specific attendance record by ID
+func (r *attendanceRepository) UpdateStatus(ctx context.Context, id int64, status, notes string) error {
+	query := `
+		UPDATE attendances
+		SET status = $1, notes = $2
+		WHERE id = $3;
+	`
+	_, err := r.db.ExecContext(ctx, query, status, notes, id)
+	return err
+}
+

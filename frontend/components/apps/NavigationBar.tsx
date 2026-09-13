@@ -16,13 +16,19 @@ import {
   LogOut,
   Home,
   ChevronRight,
+  Banknote,
+  Sliders,
 } from "lucide-react";
 
 export function getTabIcon(id: string, size = 18) {
   switch (id) {
     case "dashboard":
       return <LayoutDashboard size={size} className="shrink-0" />;
+    case "gaji_spp":
+      return <Banknote size={size} className="shrink-0" />;
     case "jadwal":
+      return <CalendarDays size={size} className="shrink-0" />;
+    case "kehadiran":
       return <CalendarDays size={size} className="shrink-0" />;
     case "keuangan":
       return <Wallet size={size} className="shrink-0" />;
@@ -34,6 +40,8 @@ export function getTabIcon(id: string, size = 18) {
       return <Clock size={size} className="shrink-0" />;
     case "pengumuman":
       return <Megaphone size={size} className="shrink-0" />;
+    case "general":
+      return <Sliders size={size} className="shrink-0" />;
     case "create":
       return <UserPlus size={size} className="shrink-0" />;
     case "profile":

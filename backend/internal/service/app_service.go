@@ -47,6 +47,7 @@ type AppService interface {
 	// Attendances & Notifications
 	CheckInAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error)
 	GetAttendances(ctx context.Context) ([]model.AttendanceRecord, error)
+	OverrideAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error)
 	// Notifications
 	GetNotifications(ctx context.Context, role, name, userId string) ([]model.AdminNotification, error)
 	MarkNotificationRead(ctx context.Context, id int64) error
@@ -56,6 +57,23 @@ type AppService interface {
 	GetFinancialTransactions(ctx context.Context) ([]model.FinancialTransaction, error)
 	CreateFinancialTransaction(ctx context.Context, input *model.CreateFinancialTransactionInput) (*model.FinancialTransaction, error)
 	DeleteFinancialTransaction(ctx context.Context, id string) error
+
+	// Pools (Lokasi Kolam Renang)
+	GetPools(ctx context.Context) ([]model.PoolVenue, error)
+	CreatePool(ctx context.Context, input *model.CreatePoolInput) (*model.PoolVenue, error)
+	UpdatePool(ctx context.Context, id string, input *model.UpdatePoolInput) (*model.PoolVenue, error)
+	DeletePool(ctx context.Context, id string) error
+
+	// Class Programs (Program Kelas Renang)
+	GetClassPrograms(ctx context.Context) ([]model.ClassProgram, error)
+	CreateClassProgram(ctx context.Context, input *model.CreateClassProgramInput) (*model.ClassProgram, error)
+	UpdateClassProgram(ctx context.Context, id string, input *model.UpdateClassProgramInput) (*model.ClassProgram, error)
+	DeleteClassProgram(ctx context.Context, id string) error
+
+	// Coach Payrolls (Gaji Pelatih)
+	GetCoachPayrolls(ctx context.Context, month string) ([]model.CoachPayroll, error)
+	CreateOrUpdateCoachPayroll(ctx context.Context, input *model.CreateCoachPayrollInput) (*model.CoachPayroll, error)
+	ApproveCoachPayroll(ctx context.Context, id string, notes string) (*model.CoachPayroll, error)
 }
 
 type appService struct {
@@ -66,6 +84,9 @@ type appService struct {
 	invoiceRepo    repository.InvoiceRepository
 	attendanceRepo repository.AttendanceRepository
 	financialRepo  repository.FinancialTransactionRepository
+	poolRepo       repository.PoolRepository
+	classProgRepo  repository.ClassProgramRepository
+	payrollRepo    repository.CoachPayrollRepository
 	pushService    PushService
 }
 
@@ -78,6 +99,9 @@ func NewAppService(
 	invoiceRepo repository.InvoiceRepository,
 	attendanceRepo repository.AttendanceRepository,
 	financialRepo repository.FinancialTransactionRepository,
+	poolRepo repository.PoolRepository,
+	classProgRepo repository.ClassProgramRepository,
+	payrollRepo repository.CoachPayrollRepository,
 	pushService PushService,
 ) AppService {
 	return &appService{
@@ -88,6 +112,9 @@ func NewAppService(
 		invoiceRepo:    invoiceRepo,
 		attendanceRepo: attendanceRepo,
 		financialRepo:  financialRepo,
+		poolRepo:       poolRepo,
+		classProgRepo:  classProgRepo,
+		payrollRepo:    payrollRepo,
 		pushService:    pushService,
 	}
 }
@@ -833,8 +860,44 @@ func (s *appService) VerifyInvoice(ctx context.Context, id string, confirm bool)
 	}
 
 	if confirm {
-		return s.invoiceRepo.UpdateStatus(ctx, id, "Lunas", inv.UploadReceipt)
+		err := s.invoiceRepo.UpdateStatus(ctx, id, "Lunas", inv.UploadReceipt)
+		if err != nil {
+			return err
+		}
+
+		// Auto-record Income transaction in financial_transactions
+		if s.financialRepo != nil {
+			today := time.Now().Format("2006-01-02")
+			tx := &model.FinancialTransaction{
+				Type:      "income",
+				Category:  "SPP Siswa",
+				Title:     fmt.Sprintf("Pembayaran SPP - %s", inv.Name),
+				Amount:    inv.Amount,
+				Date:      today,
+				Notes:     fmt.Sprintf("Auto-recorded dari approval SPP Invoice #%s (%s)", inv.ID, inv.Desc),
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			_ = s.financialRepo.Create(ctx, tx)
+		}
+
+		// Notify student / parent that their payment has been verified
+		if s.attendanceRepo != nil {
+			studentNotif := &model.AdminNotification{
+				Title:      "Pembayaran SPP Dikonfirmasi ✅",
+				Message:    fmt.Sprintf("Halo %s, pembayaran SPP sebesar Rp %s telah dikonfirmasi dan disetujui oleh Admin.", inv.Name, formatRupiah(inv.Amount)),
+				Type:       "payment_confirmed",
+				TargetRole: "orang tua",
+				TargetName: inv.Name,
+				IsRead:     false,
+				CreatedAt:  time.Now(),
+			}
+			_ = s.attendanceRepo.CreateNotification(ctx, studentNotif)
+		}
+
+		return nil
 	}
+
 	return s.invoiceRepo.UpdateStatus(ctx, id, "Belum Dibayar", nil)
 }
 
@@ -1165,4 +1228,238 @@ func (s *appService) DeleteFinancialTransaction(ctx context.Context, id string) 
 	}
 	return s.financialRepo.Delete(ctx, id)
 }
+
+// ================= ATTENDANCE OVERRIDE =================
+
+// OverrideAttendance allows Admin to manually set or correct attendance for any student or coach
+func (s *appService) OverrideAttendance(ctx context.Context, input *model.CheckInInput, user *model.User) (*model.AttendanceRecord, error) {
+	if input == nil {
+		return nil, errors.New("input tidak boleh kosong")
+	}
+	if input.ScheduleID == "" || input.PersonName == "" || input.PersonID == "" {
+		return nil, errors.New("schedule_id, person_id, dan person_name wajib diisi")
+	}
+
+	sched, err := s.scheduleRepo.FindByID(ctx, input.ScheduleID)
+	if err != nil || sched == nil {
+		return nil, errors.New("jadwal sesi tidak ditemukan")
+	}
+
+	status := input.Status
+	if status == "" {
+		status = "Hadir"
+	}
+
+	personType := input.PersonType
+	if personType == "" {
+		personType = "student"
+	}
+
+	userRole := "orang tua"
+	userID := ""
+	if personType == "coach" {
+		userRole = "pelatih"
+	}
+	if user != nil {
+		userRole = user.Role
+		userID = fmt.Sprintf("%d", user.ID)
+	}
+
+	record := &model.AttendanceRecord{
+		ScheduleID:      sched.ID,
+		ScheduleTitle:   sched.Title,
+		Class:           sched.Class,
+		Date:            sched.Date,
+		TimeStart:       sched.TimeStart,
+		TimeEnd:         sched.TimeEnd,
+		PoolArea:        sched.PoolArea,
+		UserID:          userID,
+		UserRole:        userRole,
+		PersonType:      personType,
+		PersonID:        input.PersonID,
+		PersonName:      input.PersonName,
+		Status:          status,
+		IsLate:          false,
+		LateReason:      input.Notes,
+		Latitude:        input.Latitude,
+		Longitude:       input.Longitude,
+		DistanceKm:      0,
+		IsValidLocation: true,
+		Notes:           input.Notes,
+		CreatedAt:       time.Now(),
+	}
+
+	if err := s.attendanceRepo.OverrideAttendance(ctx, record); err != nil {
+		return nil, fmt.Errorf("failed to override attendance: %w", err)
+	}
+
+	return record, nil
+}
+
+// ================= POOLS (MASTER DATA KOLAM RENANG) =================
+
+func (s *appService) GetPools(ctx context.Context) ([]model.PoolVenue, error) {
+	return s.poolRepo.FindAll(ctx)
+}
+
+func (s *appService) CreatePool(ctx context.Context, input *model.CreatePoolInput) (*model.PoolVenue, error) {
+	if input == nil || strings.TrimSpace(input.Name) == "" {
+		return nil, errors.New("nama kolam renang wajib diisi")
+	}
+	if input.Latitude == 0 || input.Longitude == 0 {
+		return nil, errors.New("koordinat latitude dan longitude wajib diisi")
+	}
+	pool := &model.PoolVenue{
+		Name:         strings.TrimSpace(input.Name),
+		Address:      strings.TrimSpace(input.Address),
+		Latitude:     input.Latitude,
+		Longitude:    input.Longitude,
+		RadiusMeters: input.RadiusMeters,
+	}
+	if pool.RadiusMeters <= 0 {
+		pool.RadiusMeters = 200
+	}
+	if err := s.poolRepo.Create(ctx, pool); err != nil {
+		return nil, err
+	}
+	return pool, nil
+}
+
+func (s *appService) UpdatePool(ctx context.Context, id string, input *model.UpdatePoolInput) (*model.PoolVenue, error) {
+	if input == nil {
+		return nil, errors.New("input tidak boleh kosong")
+	}
+	return s.poolRepo.Update(ctx, id, input)
+}
+
+func (s *appService) DeletePool(ctx context.Context, id string) error {
+	return s.poolRepo.Delete(ctx, id)
+}
+
+// ================= CLASS PROGRAMS (MASTER DATA PROGRAM KELAS) =================
+
+func (s *appService) GetClassPrograms(ctx context.Context) ([]model.ClassProgram, error) {
+	return s.classProgRepo.FindAll(ctx)
+}
+
+func (s *appService) CreateClassProgram(ctx context.Context, input *model.CreateClassProgramInput) (*model.ClassProgram, error) {
+	if input == nil || strings.TrimSpace(input.Name) == "" {
+		return nil, errors.New("nama program kelas wajib diisi")
+	}
+	if input.MonthlyFee < 0 {
+		return nil, errors.New("biaya SPP tidak boleh negatif")
+	}
+	prog := &model.ClassProgram{
+		Name:            strings.TrimSpace(input.Name),
+		Description:     strings.TrimSpace(input.Description),
+		MonthlyFee:      input.MonthlyFee,
+		SessionsPerWeek: input.SessionsPerWeek,
+	}
+	if prog.SessionsPerWeek <= 0 {
+		prog.SessionsPerWeek = 2
+	}
+	if err := s.classProgRepo.Create(ctx, prog); err != nil {
+		return nil, err
+	}
+	return prog, nil
+}
+
+func (s *appService) UpdateClassProgram(ctx context.Context, id string, input *model.UpdateClassProgramInput) (*model.ClassProgram, error) {
+	if input == nil {
+		return nil, errors.New("input tidak boleh kosong")
+	}
+	return s.classProgRepo.Update(ctx, id, input)
+}
+
+func (s *appService) DeleteClassProgram(ctx context.Context, id string) error {
+	return s.classProgRepo.Delete(ctx, id)
+}
+
+// ================= COACH PAYROLLS (GAJI PELATIH) =================
+
+func (s *appService) GetCoachPayrolls(ctx context.Context, month string) ([]model.CoachPayroll, error) {
+	return s.payrollRepo.FindAll(ctx, month)
+}
+
+func (s *appService) CreateOrUpdateCoachPayroll(ctx context.Context, input *model.CreateCoachPayrollInput) (*model.CoachPayroll, error) {
+	if input == nil || input.CoachID == "" || input.CoachName == "" || input.Month == "" {
+		return nil, errors.New("coach_id, coach_name, dan month wajib diisi")
+	}
+	payroll := &model.CoachPayroll{
+		CoachID:       input.CoachID,
+		CoachName:     input.CoachName,
+		Month:         input.Month,
+		TotalSessions: input.TotalSessions,
+		PayPerSession: input.PayPerSession,
+		BonusAmount:   input.BonusAmount,
+		TotalAmount:   input.TotalAmount,
+		Status:        "Pending",
+		Notes:         input.Notes,
+	}
+	if payroll.TotalAmount <= 0 {
+		payroll.TotalAmount = (float64(payroll.TotalSessions) * payroll.PayPerSession) + payroll.BonusAmount
+	}
+	if err := s.payrollRepo.CreateOrUpdate(ctx, payroll); err != nil {
+		return nil, err
+	}
+	return payroll, nil
+}
+
+func (s *appService) ApproveCoachPayroll(ctx context.Context, id string, notes string) (*model.CoachPayroll, error) {
+	payroll, err := s.payrollRepo.Approve(ctx, id, notes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto-record Expense transaction in financial_transactions
+	if s.financialRepo != nil && payroll != nil {
+		today := time.Now().Format("2006-01-02")
+		tx := &model.FinancialTransaction{
+			Type:      "expense",
+			Category:  "Gaji Pelatih",
+			Title:     fmt.Sprintf("Gaji Pelatih %s (%s)", payroll.CoachName, payroll.Month),
+			Amount:    payroll.TotalAmount,
+			Date:      today,
+			Notes:     fmt.Sprintf("Auto-recorded dari approval gaji pelatih %s (Total %d sesi)", payroll.CoachName, payroll.TotalSessions),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		_ = s.financialRepo.Create(ctx, tx)
+	}
+
+	// Send notification to Coach
+	if s.attendanceRepo != nil && payroll != nil {
+		coachNotif := &model.AdminNotification{
+			Title:        "Gaji/Honor Telah Disetujui 💰🎉",
+			Message:      fmt.Sprintf("Halo Pelatih %s, gaji/honor Anda untuk periode %s sebesar Rp %s telah disetujui dan dicairkan oleh Admin.", payroll.CoachName, payroll.Month, formatRupiah(payroll.TotalAmount)),
+			Type:         "payroll_approved",
+			TargetRole:   "pelatih",
+			TargetUserID: payroll.CoachID,
+			TargetName:   payroll.CoachName,
+			IsRead:       false,
+			CreatedAt:    time.Now(),
+		}
+		_ = s.attendanceRepo.CreateNotification(ctx, coachNotif)
+	}
+
+	return payroll, nil
+}
+
+func formatRupiah(amount float64) string {
+	intPart := int64(amount)
+	str := strconv.FormatInt(intPart, 10)
+	n := len(str)
+	if n <= 3 {
+		return str
+	}
+	var res []byte
+	for i, c := range str {
+		if i > 0 && (n-i)%3 == 0 {
+			res = append(res, '.')
+		}
+		res = append(res, byte(c))
+	}
+	return string(res)
+}
+
 

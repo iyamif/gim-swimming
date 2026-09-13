@@ -521,6 +521,9 @@ export default function AppsPage() {
           activeTab === "daftar_hadir" ||
           activeTab === "pelatih" ||
           activeTab === "keuangan" ||
+          activeTab === "gaji_spp" ||
+          activeTab === "general" ||
+          activeTab === "kehadiran" ||
           activeTab === "create" ||
           activeTab === "pengumuman"
           ? "#1d4ed8"
@@ -619,11 +622,13 @@ export default function AppsPage() {
     const accessMatrix: Record<string, string[]> = {
       dashboard: ["admin", "pelatih"],
       jadwal: ["admin", "pelatih"],
+      gaji_spp: ["admin"],
       keuangan: ["admin"],
       daftar_hadir: ["admin", "pelatih"],
       pelatih: ["admin", "pelatih"],
       absensi: ["admin", "pelatih"],
       kehadiran: ["admin", "pelatih"],
+      general: ["admin"],
       pengumuman: ["admin", "pelatih"],
       create: ["admin"],
       profile: ["admin", "pelatih"],
@@ -636,10 +641,13 @@ export default function AppsPage() {
   const navItems: NavItem[] = [
     { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview", icon: "📊" },
     { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
+    { id: "gaji_spp", label: "Gaji & SPP", fullLabel: "Manajemen Gaji & SPP", icon: "💳" },
     { id: "keuangan", label: "Keuangan", fullLabel: "Laporan Keuangan", icon: "💰" },
+    { id: "general", label: "General", fullLabel: "Pengaturan & Master Data", icon: "⚙️" },
     { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
     { id: "pelatih", label: "Pelatih", fullLabel: "Daftar Pelatih & Instruktur", icon: "🏊‍♂️" },
     { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
+    { id: "kehadiran", label: "Kehadiran", fullLabel: "Rekap Kehadiran", icon: "✅" },
     { id: "pengumuman", label: "Pengumuman", fullLabel: "Pusat Pengumuman", icon: "📢" },
     { id: "create", label: "Registrasi", fullLabel: "Registrasi Pelatih/Siswa", icon: "👤+" },
     { id: "profile", label: "Profil", fullLabel: "Profil Akun", icon: "👤" },
@@ -1143,6 +1151,9 @@ export default function AppsPage() {
           activeTab !== "daftar_hadir" &&
           activeTab !== "pelatih" &&
           activeTab !== "keuangan" &&
+          activeTab !== "gaji_spp" &&
+          activeTab !== "general" &&
+          activeTab !== "kehadiran" &&
           activeTab !== "pengumuman" && (
             <div className="hidden md:block shrink-0">
               <AdminHeader

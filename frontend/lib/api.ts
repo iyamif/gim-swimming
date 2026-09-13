@@ -6,6 +6,9 @@ import {
   AttendanceRecord,
   AdminNotification,
   FinancialTransaction,
+  PoolVenue,
+  ClassProgram,
+  CoachPayroll,
 } from "../components/apps/types";
 
 // Central API configuration for frontend-backend communication
@@ -543,6 +546,48 @@ export async function fetchInvoices(): Promise<Invoice[]> {
   } catch (err) {
     console.error("fetchInvoices error:", err);
     return [];
+  }
+}
+
+export async function createInvoice(payload: {
+  studentId: string;
+  name: string;
+  amount: number;
+  desc?: string;
+  description?: string;
+  status?: string;
+}): Promise<Invoice | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/invoices`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        studentId: payload.studentId,
+        name: payload.name,
+        amount: payload.amount,
+        description: payload.desc || payload.description || "SPP Bulanan",
+        status: payload.status || "Belum Bayar",
+      }),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal membuat tagihan invoice");
+    }
+    const json = await res.json();
+    const i = json.data;
+    if (!i) return null;
+    return {
+      id: i.id,
+      studentId: i.studentId,
+      name: i.name,
+      amount: Number(i.amount),
+      desc: i.desc || i.description,
+      status: i.status,
+      uploadReceipt: i.uploadReceipt || null,
+    };
+  } catch (err) {
+    console.error("createInvoice error:", err);
+    throw err;
   }
 }
 
@@ -1213,6 +1258,257 @@ export async function deleteFinancialTransaction(id: string): Promise<boolean> {
   } catch (err) {
     console.error("deleteFinancialTransaction error:", err);
     return false;
+  }
+}
+
+// ================= ATTENDANCE OVERRIDE (ADMIN CORRECTION) =================
+
+export async function overrideAttendance(payload: {
+  schedule_id: string;
+  person_type: "coach" | "student";
+  person_id: string;
+  person_name: string;
+  status: string; // "Hadir" | "Izin" | "Sakit" | "Tidak Hadir"
+  notes?: string;
+  latitude?: number;
+  longitude?: number;
+}): Promise<AttendanceRecord | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/attendances/override`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal mengoreksi presensi");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("overrideAttendance error:", err);
+    throw err;
+  }
+}
+
+// ================= POOLS (MASTER DATA KOLAM RENANG) =================
+
+export async function fetchPools(): Promise<PoolVenue[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/pools`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("fetchPools error:", err);
+    return [];
+  }
+}
+
+export async function createPool(data: {
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  radius_meters?: number;
+}): Promise<PoolVenue | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/pools`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal membuat lokasi kolam");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("createPool error:", err);
+    throw err;
+  }
+}
+
+export async function updatePool(
+  id: string,
+  data: Partial<PoolVenue>
+): Promise<PoolVenue | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/pools/${id}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal memperbarui lokasi kolam");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("updatePool error:", err);
+    throw err;
+  }
+}
+
+export async function deletePool(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/pools/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("deletePool error:", err);
+    return false;
+  }
+}
+
+// ================= CLASS PROGRAMS (MASTER DATA PROGRAM KELAS) =================
+
+export async function fetchClassPrograms(): Promise<ClassProgram[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/class-programs`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("fetchClassPrograms error:", err);
+    return [];
+  }
+}
+
+export async function createClassProgram(data: {
+  name: string;
+  description?: string;
+  monthly_fee: number;
+  sessions_per_week?: number;
+}): Promise<ClassProgram | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/class-programs`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal membuat program kelas");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("createClassProgram error:", err);
+    throw err;
+  }
+}
+
+export async function updateClassProgram(
+  id: string,
+  data: Partial<ClassProgram>
+): Promise<ClassProgram | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/class-programs/${id}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal memperbarui program kelas");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("updateClassProgram error:", err);
+    throw err;
+  }
+}
+
+export async function deleteClassProgram(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/class-programs/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("deleteClassProgram error:", err);
+    return false;
+  }
+}
+
+// ================= COACH PAYROLLS (GAJI PELATIH) =================
+
+export async function fetchCoachPayrolls(month?: string): Promise<CoachPayroll[]> {
+  try {
+    const query = month ? `?month=${encodeURIComponent(month)}` : "";
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/payrolls${query}`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("fetchCoachPayrolls error:", err);
+    return [];
+  }
+}
+
+export async function createOrUpdateCoachPayroll(data: {
+  coach_id: string;
+  coach_name: string;
+  month: string;
+  total_sessions: number;
+  pay_per_session: number;
+  bonus_amount?: number;
+  total_amount?: number;
+  notes?: string;
+}): Promise<CoachPayroll | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/payrolls`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal menyimpan slip gaji pelatih");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("createOrUpdateCoachPayroll error:", err);
+    throw err;
+  }
+}
+
+export async function approveCoachPayroll(
+  id: string,
+  notes?: string
+): Promise<CoachPayroll | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/payrolls/${id}/approve`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify({ confirm: true, notes: notes || "" }),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal menyetujui gaji pelatih");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("approveCoachPayroll error:", err);
+    throw err;
   }
 }
 

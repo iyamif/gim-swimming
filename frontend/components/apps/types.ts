@@ -132,3 +132,40 @@ export interface NavItem {
   icon: string;
 }
 
+export interface PoolVenue {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ClassProgram {
+  id: string;
+  name: string;
+  description: string;
+  monthly_fee: number;
+  sessions_per_week: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CoachPayroll {
+  id: string;
+  coach_id: string;
+  coach_name: string;
+  month: string;
+  total_sessions: number;
+  pay_per_session: number;
+  bonus_amount: number;
+  total_amount: number;
+  status: "Pending" | "Approved" | "Rejected";
+  approved_at?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+

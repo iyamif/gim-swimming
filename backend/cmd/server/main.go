@@ -56,6 +56,9 @@ func main() {
 	invoiceRepo := repository.NewInvoiceRepository(pgDB)
 	attendanceRepo := repository.NewAttendanceRepository(pgDB)
 	financialRepo := repository.NewFinancialTransactionRepository(pgDB)
+	poolRepo := repository.NewPoolRepository(pgDB)
+	classProgRepo := repository.NewClassProgramRepository(pgDB)
+	payrollRepo := repository.NewCoachPayrollRepository(pgDB)
 	pushRepo := repository.NewPushRepository(pgDB)
 
 	// Seed database with default data if tables are empty
@@ -66,7 +69,7 @@ func main() {
 	// Services
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	pushService := service.NewPushService(cfg, pushRepo, attendanceRepo)
-	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, financialRepo, pushService)
+	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, financialRepo, poolRepo, classProgRepo, payrollRepo, pushService)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, userRepo)

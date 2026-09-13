@@ -25,6 +25,7 @@ import {
   ChevronRight,
   X,
   Waves,
+  Sliders,
 } from "lucide-react";
 
 interface DashboardOverviewTabProps {
@@ -335,10 +336,10 @@ export default function DashboardOverviewTab({
     },
     {
       id: "gaji",
-      label: isCoachRole ? "Honor Pelatih" : "Gaji / SPP",
+      label: isCoachRole ? "Honor Pelatih" : "Gaji & SPP",
       icon: <CreditCard size={22} />,
       bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-500",
-      action: () => setActiveTab && setActiveTab("keuangan"),
+      action: () => setActiveTab && setActiveTab("gaji_spp"),
     },
     {
       id: "kalender",
@@ -370,6 +371,13 @@ export default function DashboardOverviewTab({
     },
     ...(!isCoachRole
       ? [
+        {
+          id: "general",
+          label: "Master Data",
+          icon: <Sliders size={22} />,
+          bgCircle: "bg-purple-50 border-purple-100 text-purple-600",
+          action: () => setActiveTab && setActiveTab("general"),
+        },
         {
           id: "kasbon",
           label: "Registrasi",
@@ -575,7 +583,7 @@ export default function DashboardOverviewTab({
                               key={inv.id}
                               onClick={() => {
                                 setShowNotificationPopup(false);
-                                if (setActiveTab) setActiveTab("keuangan");
+                                if (setActiveTab) setActiveTab("gaji_spp");
                               }}
                               className="p-3 bg-cyan-50/60 rounded-2xl border border-cyan-100 cursor-pointer hover:bg-cyan-100/60 transition text-left"
                             >

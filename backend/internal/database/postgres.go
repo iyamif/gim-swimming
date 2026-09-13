@@ -205,6 +205,73 @@ func runMigrations() error {
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS pools (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(255) NOT NULL,
+		address TEXT DEFAULT '',
+		latitude NUMERIC(10, 6) NOT NULL,
+		longitude NUMERIC(10, 6) NOT NULL,
+		radius_meters INT DEFAULT 200,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS class_programs (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(100) NOT NULL,
+		description TEXT DEFAULT '',
+		monthly_fee NUMERIC(12, 2) DEFAULT 450000,
+		sessions_per_week INT DEFAULT 2,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS coach_payrolls (
+		id SERIAL PRIMARY KEY,
+		coach_id VARCHAR(50) NOT NULL,
+		coach_name VARCHAR(255) NOT NULL,
+		month VARCHAR(50) NOT NULL,
+		total_sessions INT DEFAULT 0,
+		pay_per_session NUMERIC(12,2) DEFAULT 100000,
+		bonus_amount NUMERIC(12,2) DEFAULT 0,
+		total_amount NUMERIC(12,2) NOT NULL,
+		status VARCHAR(50) NOT NULL DEFAULT 'Pending', -- 'Pending', 'Approved', 'Rejected'
+		approved_at TIMESTAMP WITH TIME ZONE,
+		notes TEXT DEFAULT '',
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
+	-- Seed default pools if none exist
+	INSERT INTO pools (name, address, latitude, longitude, radius_meters)
+	SELECT 'Hotel Nalendra Plaza Subang', 'Jl. Mayjen Sutoyo No.7, Subang', -6.565630, 107.761040, 250
+	WHERE NOT EXISTS (SELECT 1 FROM pools WHERE name ILIKE '%Nalendra%');
+
+	INSERT INTO pools (name, address, latitude, longitude, radius_meters)
+	SELECT 'Kolam Renang Yonif 312 Wera Subang', 'Kompleks Militer Yonif 312, Subang', -6.550500, 107.747800, 200
+	WHERE NOT EXISTS (SELECT 1 FROM pools WHERE name ILIKE '%Yonif%');
+
+	INSERT INTO pools (name, address, latitude, longitude, radius_meters)
+	SELECT 'Sari Ater Hot Spring Resort Ciater', 'Jl. Raya Ciater, Subang', -6.738800, 107.656500, 300
+	WHERE NOT EXISTS (SELECT 1 FROM pools WHERE name ILIKE '%Ciater%' OR name ILIKE '%Sari Ater%');
+
+	-- Seed default class programs if none exist
+	INSERT INTO class_programs (name, description, monthly_fee, sessions_per_week)
+	SELECT 'Prestasi', 'Kelas pembinaan prestasi atlet dan persiapan kejuaraan renang', 450000, 3
+	WHERE NOT EXISTS (SELECT 1 FROM class_programs WHERE name ILIKE 'Prestasi');
+
+	INSERT INTO class_programs (name, description, monthly_fee, sessions_per_week)
+	SELECT 'Reguler', 'Kelas teknik dasar dan lanjutan renang untuk anak-anak & remaja', 400000, 2
+	WHERE NOT EXISTS (SELECT 1 FROM class_programs WHERE name ILIKE 'Reguler');
+
+	INSERT INTO class_programs (name, description, monthly_fee, sessions_per_week)
+	SELECT 'Private 1 on 1', 'Pelatihan privat intensif 1 pelatih untuk 1 siswa dengan jadwal fleksibel', 750000, 2
+	WHERE NOT EXISTS (SELECT 1 FROM class_programs WHERE name ILIKE '%Private%');
+
+	INSERT INTO class_programs (name, description, monthly_fee, sessions_per_week)
+	SELECT 'Pemula (Water Safety)', 'Kelas pengenalan air, pernapasan, dan keamanan di dalam kolam', 350000, 2
+	WHERE NOT EXISTS (SELECT 1 FROM class_programs WHERE name ILIKE '%Pemula%');
+
 	-- Add column migrations if not exists
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '';
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;

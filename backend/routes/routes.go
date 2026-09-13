@@ -154,6 +154,7 @@ func SetupRoutes(
 		{
 			attendanceGroup.GET("", appHandler.GetAttendances)
 			attendanceGroup.POST("/checkin", appHandler.CheckInAttendance)
+			attendanceGroup.POST("/override", appHandler.OverrideAttendance)
 		}
 
 		// Notifications Endpoints (Admin Notifications)
@@ -170,6 +171,32 @@ func SetupRoutes(
 			financialGroup.GET("", appHandler.GetFinancialTransactions)
 			financialGroup.POST("", appHandler.CreateFinancialTransaction)
 			financialGroup.DELETE("/:id", appHandler.DeleteFinancialTransaction)
+		}
+
+		// Pools (Lokasi Kolam Renang) Endpoints
+		poolGroup := v1.Group("/pools")
+		{
+			poolGroup.GET("", appHandler.GetPools)
+			poolGroup.POST("", appHandler.CreatePool)
+			poolGroup.PUT("/:id", appHandler.UpdatePool)
+			poolGroup.DELETE("/:id", appHandler.DeletePool)
+		}
+
+		// Class Programs (Program Kelas) Endpoints
+		classProgramGroup := v1.Group("/class-programs")
+		{
+			classProgramGroup.GET("", appHandler.GetClassPrograms)
+			classProgramGroup.POST("", appHandler.CreateClassProgram)
+			classProgramGroup.PUT("/:id", appHandler.UpdateClassProgram)
+			classProgramGroup.DELETE("/:id", appHandler.DeleteClassProgram)
+		}
+
+		// Coach Payrolls (Gaji Pelatih) Endpoints
+		payrollGroup := v1.Group("/payrolls")
+		{
+			payrollGroup.GET("", appHandler.GetCoachPayrolls)
+			payrollGroup.POST("", appHandler.CreateOrUpdateCoachPayroll)
+			payrollGroup.PATCH("/:id/approve", appHandler.ApproveCoachPayroll)
 		}
 
 		// Role-based Verification Test Endpoints
