@@ -828,14 +828,30 @@ export default function ParentBody({
   // Muncul setelah sesi ke-3 dilakukan (completedSessionsCount >= 3) dan jika memang belum lunas
   const showSPPReminder = completedSessionsCount >= 3 && invoice && invoice.status !== "Lunas";
 
+  // Today's scheduled session created by admin for this student
+  const todayScheduleObj = studentSchedules.find((s) => s.date === todayISO) || null;
+  const todaySession = todayScheduleObj
+    ? {
+      title: todayScheduleObj.title,
+      class: todayScheduleObj.class,
+      time: todayScheduleObj.timeStart && todayScheduleObj.timeEnd ? `${todayScheduleObj.timeStart} - ${todayScheduleObj.timeEnd} WIB` : todayScheduleObj.timeStart ? `${todayScheduleObj.timeStart} WIB` : "",
+      poolArea: todayScheduleObj.poolArea,
+      coach: {
+        name: todayScheduleObj.coachName || coach.name,
+        spec: todayScheduleObj.class || coach.spec,
+        phone: todayScheduleObj.coachPhone || coach.phone,
+      },
+    }
+    : null;
+
   // Upcoming scheduled session
   const upcomingScheduleObj =
-    studentSchedules.find((s) => !s.date || s.date >= todayISO) || studentSchedules[0];
-  const upcomingSession = upcomingScheduleObj
+    studentSchedules.find((s) => s.date && s.date >= todayISO) || todayScheduleObj || null;
+  const upcomingSession = todaySession || (upcomingScheduleObj
     ? {
       title: upcomingScheduleObj.title,
       class: upcomingScheduleObj.class,
-      time: `${upcomingScheduleObj.timeStart} - ${upcomingScheduleObj.timeEnd} WIB`,
+      time: upcomingScheduleObj.timeStart && upcomingScheduleObj.timeEnd ? `${upcomingScheduleObj.timeStart} - ${upcomingScheduleObj.timeEnd} WIB` : "",
       poolArea: upcomingScheduleObj.poolArea,
       coach: {
         name: upcomingScheduleObj.coachName || coach.name,
@@ -843,7 +859,7 @@ export default function ParentBody({
         phone: upcomingScheduleObj.coachPhone || coach.phone,
       },
     }
-    : null;
+    : null);
 
   const getVenueCoords = (poolArea?: string) => {
     const p = poolArea?.toLowerCase() || "";
@@ -1423,43 +1439,48 @@ export default function ParentBody({
             </div>
 
             {/* ==========================================
-                JADWAL LATIHAN YANG AKAN DATANG (COMPACT & SIMPLE)
+                JADWAL LATIHAN HARI INI (HANYA MUNCUL JIKA ADA JADWAL HARI INI DIBUAT ADMIN)
                 ========================================== */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/60 shadow-2xs">
-                  <CalendarDays size={20} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-cyan-50 text-cyan-700 border border-cyan-100/80">
-                      {student.class}
-                    </span>
-                    <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
-                      {upcomingSession?.time || "Sabtu, 15:00 - 17:00 WIB"}
-                    </h4>
+            {todaySession && (
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap animate-fadeIn">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/60 shadow-2xs">
+                    <CalendarDays size={20} />
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5 flex items-center gap-1">
-                    <MapPin size={11} className="text-slate-400 shrink-0" />
-                    <span>{upcomingSession?.poolArea || "Kolam Nalendra"}</span>
-                    <span className="text-slate-300">•</span>
-                    <User size={11} className="text-slate-400 shrink-0" />
-                    <span>{upcomingSession?.coach?.name || coach.name}</span>
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-cyan-50 text-cyan-700 border border-cyan-100/80">
+                        {todaySession.class || student.class}
+                      </span>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        Hari Ini
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                        {todaySession.time || "Sesi Latihan Hari Ini"}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5 flex items-center gap-1">
+                      <MapPin size={11} className="text-slate-400 shrink-0" />
+                      <span>{todaySession.poolArea || "Kolam Renang"}</span>
+                      <span className="text-slate-300">•</span>
+                      <User size={11} className="text-slate-400 shrink-0" />
+                      <span>{todaySession.coach?.name || coach.name}</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <a
-                href={`https://wa.me/${upcomingSession?.coach?.phone || coach.phone}?text=Halo%20${upcomingSession?.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 shrink-0 cursor-pointer shadow-2xs"
-                title="Hubungi Pelatih via WhatsApp"
-              >
-                <MessageCircle size={14} className="text-emerald-600" />
-                <span>Hubungi Pelatih</span>
-              </a>
-            </div>
+                <a
+                  href={`https://wa.me/${todaySession.coach?.phone || coach.phone}?text=Halo%20${todaySession.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 shrink-0 cursor-pointer shadow-2xs"
+                  title="Hubungi Pelatih via WhatsApp"
+                >
+                  <MessageCircle size={14} className="text-emerald-600" />
+                  <span>Hubungi Pelatih</span>
+                </a>
+              </div>
+            )}
 
             {/* ==========================================
                 PEMBERITAHUAN & JADWAL BARU SISWA CONTAINER
