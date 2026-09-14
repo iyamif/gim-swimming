@@ -272,22 +272,20 @@ export default function KehadiranTab({
           <div className="max-w-4xl mx-auto mt-6 flex bg-black/25 p-1.5 rounded-2xl backdrop-blur-md border border-white/15 max-w-sm">
             <button
               onClick={() => setPersonType("coach")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all ${
-                personType === "coach"
-                  ? "bg-cyan-400 text-slate-950 shadow-md"
-                  : "text-white/80 hover:text-white"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all ${personType === "coach"
+                ? "bg-cyan-400 text-slate-950 shadow-md"
+                : "text-white/80 hover:text-white"
+                }`}
             >
               <Award size={15} />
               <span>Pelatih ({coaches.length})</span>
             </button>
             <button
               onClick={() => setPersonType("student")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all ${
-                personType === "student"
-                  ? "bg-cyan-400 text-slate-950 shadow-md"
-                  : "text-white/80 hover:text-white"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all ${personType === "student"
+                ? "bg-cyan-400 text-slate-950 shadow-md"
+                : "text-white/80 hover:text-white"
+                }`}
             >
               <Users size={15} />
               <span>Siswa ({students.length})</span>
@@ -305,22 +303,20 @@ export default function KehadiranTab({
           <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
             <button
               onClick={() => setActiveSubTab("jadwal")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
-                activeSubTab === "jadwal"
-                  ? "bg-white text-blue-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${activeSubTab === "jadwal"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               <CalendarDays size={14} />
               <span>Jadwal ({filteredSchedules.length})</span>
             </button>
             <button
               onClick={() => setActiveSubTab("history")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
-                activeSubTab === "history"
-                  ? "bg-white text-blue-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${activeSubTab === "history"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               <ClipboardList size={14} />
               <span>Riwayat Presensi ({filteredAttendanceHistory.length})</span>
@@ -366,7 +362,7 @@ export default function KehadiranTab({
                 <option value="ALL">Semua Kelas</option>
                 <option value="Prestasi">Prestasi</option>
                 <option value="Reguler">Reguler</option>
-                <option value="Private 1 on 1">Private</option>
+                <option value="Private">Private</option>
                 <option value="Pemula (Water Safety)">Pemula</option>
               </select>
             </div>
@@ -408,9 +404,8 @@ export default function KehadiranTab({
                 return (
                   <div
                     key={sess.id}
-                    className={`bg-white rounded-2xl border p-4 sm:p-5 shadow-sm hover:border-blue-300 transition ${
-                      isToday ? "border-blue-400/80 bg-blue-50/20" : "border-slate-200/80"
-                    }`}
+                    className={`bg-white rounded-2xl border p-4 sm:p-5 shadow-sm hover:border-blue-300 transition ${isToday ? "border-blue-400/80 bg-blue-50/20" : "border-slate-200/80"
+                      }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
@@ -493,15 +488,14 @@ export default function KehadiranTab({
                   >
                     <div className="flex items-start gap-3.5">
                       <div
-                        className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 ${
-                          isHadir
-                            ? "bg-emerald-50 text-emerald-600"
-                            : isLate
+                        className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 ${isHadir
+                          ? "bg-emerald-50 text-emerald-600"
+                          : isLate
                             ? "bg-amber-50 text-amber-600"
                             : isAlpha
-                            ? "bg-rose-50 text-rose-600"
-                            : "bg-blue-50 text-blue-600"
-                        }`}
+                              ? "bg-rose-50 text-rose-600"
+                              : "bg-blue-50 text-blue-600"
+                          }`}
                       >
                         {att.person_name ? att.person_name.charAt(0).toUpperCase() : "U"}
                       </div>
@@ -639,11 +633,10 @@ export default function KehadiranTab({
                         setOverridePersonId(sched.studentIds?.[0] || sched.studentNames[0]);
                       }
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
-                      overridePersonType === "student"
-                        ? "bg-blue-50 border-blue-500 text-blue-700 font-black"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${overridePersonType === "student"
+                      ? "bg-blue-50 border-blue-500 text-blue-700 font-black"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
                   >
                     Siswa (Murid)
                   </button>
@@ -657,11 +650,10 @@ export default function KehadiranTab({
                         setOverridePersonId(sched.coachId || sched.coachName);
                       }
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
-                      overridePersonType === "coach"
-                        ? "bg-blue-50 border-blue-500 text-blue-700 font-black"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${overridePersonType === "coach"
+                      ? "bg-blue-50 border-blue-500 text-blue-700 font-black"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
                   >
                     Pelatih (Coach)
                   </button>

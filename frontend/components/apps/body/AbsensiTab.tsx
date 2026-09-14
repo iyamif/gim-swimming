@@ -387,7 +387,9 @@ export default function AbsensiTab({
     }
   };
 
-  // Handle Student Check-In
+  const [batchSaving, setBatchSaving] = useState(false);
+
+  // Handle single student check-in
   const handleStudentCheckIn = async (
     studentId: string,
     studentName: string,
@@ -442,6 +444,53 @@ export default function AbsensiTab({
       alert(err?.message || "Gagal menyimpan presensi siswa");
     } finally {
       setSubmittingStudentId(null);
+    }
+  };
+
+  // Mark all enrolled students as 'Hadir'
+  const handleMarkAllStudentsPresent = () => {
+    const newMap: Record<string, "Hadir" | "Terlambat" | "Izin" | "Sakit" | "Alpa"> = { ...studentStatusMap };
+    enrolledStudents.forEach((st) => {
+      newMap[st.id] = "Hadir";
+    });
+    setStudentStatusMap(newMap);
+  };
+
+  // Batch save all enrolled students' attendance in 1 tap
+  const handleBatchSaveAllStudents = async () => {
+    if (!activeSchedule || enrolledStudents.length === 0) return;
+    if (!isLocationValid) {
+      alert(
+        `Presensi ditolak! Jarak Anda saat ini ${distanceToPoolKm} km dari ${targetPoolInfo.name}. Wajib berada dalam radius maksimal 2.0 km.`
+      );
+      return;
+    }
+    setBatchSaving(true);
+    let savedCount = 0;
+    try {
+      for (const st of enrolledStudents) {
+        const status = studentStatusMap[st.id] || "Hadir";
+        const lateReason = studentLateReasonMap[st.id] || "";
+        if (onCheckInAttendance) {
+          await onCheckInAttendance({
+            schedule_id: activeSchedule.id,
+            person_type: "student",
+            person_id: st.id,
+            person_name: st.name,
+            status,
+            late_reason: lateReason,
+            latitude: currentLat || targetPoolInfo.latitude,
+            longitude: currentLon || targetPoolInfo.longitude,
+            notes: `Presensi Siswa di ${activeSchedule.poolArea}`,
+          });
+          savedCount++;
+        }
+      }
+      alert(`✅ Berhasil menyimpan presensi ${savedCount} siswa!`);
+    } catch (err: any) {
+      alert(err?.message || "Gagal menyimpan presensi sebagian siswa");
+    } finally {
+      setBatchSaving(false);
     }
   };
 
@@ -988,13 +1037,42 @@ export default function AbsensiTab({
               <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
                   <div>
-                    <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                      Presensi Siswa / Peserta Les ({enrolledStudents.length})
+                    <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                      <span>Presensi Siswa / Peserta Les ({enrolledStudents.length})</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                        {checkedInStudentIds.size} / {enrolledStudents.length} Sudah Absen
+                      </span>
                     </h3>
                     <p className="text-[11px] text-slate-400 font-medium">
                       Tandai status kehadiran setiap murid yang hadir pada sesi ini
                     </p>
                   </div>
+
+                  {/* Bulk Action Buttons */}
+                  {enrolledStudents.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleMarkAllStudentsPresent}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition cursor-pointer flex items-center gap-1 active:scale-95 shadow-2xs"
+                        title="Ubah status seluruh siswa di sesi ini menjadi Hadir"
+                      >
+                        <Zap size={13} className="text-emerald-600" />
+                        <span>Tandai Semua Hadir</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleBatchSaveAllStudents}
+                        disabled={batchSaving}
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                        title="Simpan status presensi seluruh siswa sekaligus"
+                      >
+                        <CheckCircle2 size={13} className={batchSaving ? "animate-spin" : ""} />
+                        <span>{batchSaving ? "Menyimpan..." : "Simpan Semua Siswa"}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {enrolledStudents.length === 0 ? (

@@ -27,6 +27,12 @@ import {
   ChevronRight,
   User,
   Waves,
+  Mic,
+  MicOff,
+  Sparkles,
+  Sliders,
+  Play,
+  ClipboardList,
 } from "lucide-react";
 
 interface CoachCameraPresensiProps {
@@ -64,7 +70,6 @@ export function findNearestCoachSchedule(
   const d = String(refDate.getDate()).padStart(2, "0");
   const todayISO = `${y}-${m}-${d}`;
 
-  // Filter coach schedules if matching coach exists
   let relevant = schedules;
   if (coachName) {
     const coachLower = coachName.toLowerCase().trim();
@@ -83,41 +88,29 @@ export function findNearestCoachSchedule(
     return h * 60 + min;
   };
 
-  // 1. Today's schedules
-  const todaySessions = relevant.filter(
-    (s) => !s.date || s.date === todayISO
-  );
+  const todaySessions = relevant.filter((s) => !s.date || s.date === todayISO);
 
   if (todaySessions.length > 0) {
-    // A. Check if there is an active session right now (open 2h before until end)
     const activeNow = todaySessions.find((s) => {
       const start = parseMin(s.timeStart);
       const end = parseMin(s.timeEnd);
-      // Opens 2 hours (120 mins) before start time until session ends
       return nowMinutes >= start - 120 && nowMinutes <= end;
     });
 
-    if (activeNow) {
-      return activeNow;
-    }
+    if (activeNow) return activeNow;
 
-    // B. Check for upcoming sessions today after current time
     const upcomingToday = todaySessions
       .filter((s) => parseMin(s.timeStart) >= nowMinutes)
       .sort((a, b) => parseMin(a.timeStart) - parseMin(b.timeStart));
 
-    if (upcomingToday.length > 0) {
-      return upcomingToday[0];
-    }
+    if (upcomingToday.length > 0) return upcomingToday[0];
 
-    // C. If all today's sessions ended, pick the one that ended most recently
     const pastToday = [...todaySessions].sort(
       (a, b) => parseMin(b.timeEnd) - parseMin(a.timeEnd)
     );
     return pastToday[0];
   }
 
-  // 2. If no today sessions, find future schedules sorted by date and time
   const futureSessions = relevant
     .filter((s) => s.date && s.date > todayISO)
     .sort((a, b) => {
@@ -126,9 +119,7 @@ export function findNearestCoachSchedule(
       return parseMin(a.timeStart) - parseMin(b.timeStart);
     });
 
-  if (futureSessions.length > 0) {
-    return futureSessions[0];
-  }
+  if (futureSessions.length > 0) return futureSessions[0];
 
   return relevant[0] || schedules[0] || null;
 }
@@ -158,7 +149,6 @@ export default function CoachCameraPresensi({
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
   const [showScheduleSelector, setShowScheduleSelector] = useState(false);
 
-  // Set default selected schedule
   useEffect(() => {
     if (!selectedScheduleId && autoNearestSchedule) {
       setSelectedScheduleId(autoNearestSchedule.id);
@@ -174,7 +164,7 @@ export default function CoachCameraPresensi({
     );
   }, [schedules, selectedScheduleId, autoNearestSchedule]);
 
-  // Check if coach already checked in for this active schedule
+  // Check if coach already checked in
   const isAlreadyCheckedIn = useMemo(() => {
     if (!activeSchedule) return false;
     return attendances.some(
@@ -196,11 +186,11 @@ export default function CoachCameraPresensi({
     );
   }, [attendances, activeSchedule]);
 
-  // Direct camera mode: "masuk" if not checked in, "keluar" if already checked in
+  // Direct Smart Mode: "masuk" if not checked in, "keluar" if already checked in
   const [chosenMode, setChosenMode] = useState<"masuk" | "keluar">("masuk");
   const [showCheckoutWarningModal, setShowCheckoutWarningModal] = useState<boolean>(false);
 
-  // Sync mode automatically when schedule or attendance state changes
+  // Auto-sync mode when schedule or attendance state changes
   useEffect(() => {
     if (isAlreadyCheckedIn && !isAlreadyCheckedOut) {
       setChosenMode("keluar");
@@ -218,16 +208,14 @@ export default function CoachCameraPresensi({
     "device" | "at_pool" | "near_pool" | "radius_limit" | "out_of_radius" | "custom"
   >("at_pool");
   const [customRadiusMeters, setCustomRadiusMeters] = useState<number>(15);
-  const [showRadiusPanel, setShowRadiusPanel] = useState<boolean>(true);
+  const [showGpsDrawer, setShowGpsDrawer] = useState<boolean>(false);
 
   const targetPoolInfo = useMemo(() => {
     return getPoolCoordinates(activeSchedule?.poolArea || "Nalendra");
   }, [activeSchedule?.poolArea]);
 
-  // Calculate coordinates based on desired distance in meters
   const setCoordinatesFromMeters = useCallback(
     (meters: number, pool = targetPoolInfo) => {
-      // 1 deg latitude ≈ 111,139 meters
       const offsetLat = meters / 111139;
       setCurrentLat(pool.latitude + offsetLat);
       setCurrentLon(pool.longitude);
@@ -290,14 +278,12 @@ export default function CoachCameraPresensi({
     [requestGPSLocation, setCoordinatesFromMeters, customRadiusMeters]
   );
 
-  // Initialize default location (at pool ~15m)
   useEffect(() => {
     if (radiusSimPreset !== "device") {
       setCoordinatesFromMeters(customRadiusMeters);
     }
   }, [targetPoolInfo, setCoordinatesFromMeters]);
 
-  // Distance calculation
   const distanceKm = useMemo(() => {
     if (currentLat === null || currentLon === null) return 0.015;
     return calculateDistanceKm(
@@ -314,7 +300,6 @@ export default function CoachCameraPresensi({
 
   const isLocationValid = distanceKm <= 2.0;
 
-  // Time window status
   const timeStatus = useMemo(() => {
     if (!activeSchedule) {
       return {
@@ -351,9 +336,74 @@ export default function CoachCameraPresensi({
   const [showCheckoutNotesModal, setShowCheckoutNotesModal] = useState<boolean>(false);
   const [checkoutNotes, setCheckoutNotes] = useState<string>("");
 
-  // Initialize Camera Stream (only when a mode has been chosen)
+  // Voice-to-Text / Speech Recognition States
+  const [isListeningVoice, setIsListeningVoice] = useState<boolean>(false);
+  const [speechSupported, setSpeechSupported] = useState<boolean>(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setSpeechSupported(true);
+        const recog = new SpeechRecognition();
+        recog.continuous = true;
+        recog.interimResults = true;
+        recog.lang = "id-ID";
+
+        recog.onresult = (event: any) => {
+          let interimTranscript = "";
+          let finalTranscript = "";
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+          if (finalTranscript) {
+            setCheckoutNotes((prev) => {
+              const cleaned = prev.trim();
+              return cleaned ? `${cleaned} ${finalTranscript.trim()}` : finalTranscript.trim();
+            });
+          }
+        };
+
+        recog.onerror = (e: any) => {
+          console.warn("Speech recognition error:", e);
+          setIsListeningVoice(false);
+        };
+
+        recog.onend = () => {
+          setIsListeningVoice(false);
+        };
+
+        recognitionRef.current = recog;
+      }
+    }
+  }, []);
+
+  const toggleVoiceDictation = () => {
+    if (!recognitionRef.current) {
+      alert("Browser Anda belum mendukung input suara otomatis (Web Speech API).");
+      return;
+    }
+    if (isListeningVoice) {
+      recognitionRef.current.stop();
+      setIsListeningVoice(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListeningVoice(true);
+      } catch (err) {
+        console.warn("Speech start error:", err);
+      }
+    }
+  };
+
+  // Initialize Camera Stream
   const initCamera = useCallback(async (facing: "user" | "environment") => {
-    if (!chosenMode) return;
     setCameraError("");
     try {
       if (cameraStream) {
@@ -381,39 +431,19 @@ export default function CoachCameraPresensi({
       }
     } catch (err: any) {
       console.warn("Camera access error:", err);
-      setCameraError(
-        "Akses kamera tidak diizinkan atau kamera sedang digunakan aplikasi lain."
-      );
+      setCameraError("Akses kamera tidak diizinkan atau sedang digunakan aplikasi lain.");
     }
-  }, [cameraStream, chosenMode]);
+  }, [cameraStream]);
 
-  // Start camera when mode is chosen & change facing mode
   useEffect(() => {
-    if (chosenMode) {
-      initCamera(cameraFacing);
-    }
+    initCamera(cameraFacing);
     return () => {
       if (cameraStream) {
         cameraStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [chosenMode, cameraFacing]);
+  }, [cameraFacing]);
 
-  // Handlers for mode selection with VALIDATION
-  const handleSelectPresensiMasuk = () => {
-    setChosenMode("masuk");
-  };
-
-  const handleSelectPresensiKeluar = () => {
-    // VALIDATOR: Must have already performed Presensi Masuk first
-    if (!isAlreadyCheckedIn) {
-      setShowCheckoutWarningModal(true);
-      return;
-    }
-    setChosenMode("keluar");
-  };
-
-  // Toggle Torch / Flash
   const toggleFlash = () => {
     if (!cameraStream) {
       setIsFlashActive(!isFlashActive);
@@ -434,12 +464,10 @@ export default function CoachCameraPresensi({
     }
   };
 
-  // Flip Camera
   const flipCamera = () => {
     setCameraFacing((prev) => (prev === "user" ? "environment" : "user"));
   };
 
-  // Capture frame from video to canvas
   const takeSnapshot = (): string | null => {
     if (!videoRef.current || !canvasRef.current) return null;
     const video = videoRef.current;
@@ -457,18 +485,18 @@ export default function CoachCameraPresensi({
     return canvas.toDataURL("image/jpeg", 0.85);
   };
 
-  // Handle Shutter Trigger
   const handleShutterPress = () => {
     if (!activeSchedule) return;
 
     if (!isLocationValid) {
       alert(
-        `⚠️ PRESENSI DITOLAK (DI LUAR RADIUS)!\n\nJarak Anda saat ini: ${distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters} meter`} dari ${targetPoolInfo.name}.\n\nPresensi wajib berada dalam radius maksimal 2.0 km dari area kolam renang.\n\nTips: Anda dapat mengubah simulasi radius menjadi 'Titik Kolam' atau 'Dekat Kolam' untuk pengujian.`
+        `⚠️ PRESENSI DITOLAK (DI LUAR RADIUS)!\n\nJarak Anda saat ini: ${
+          distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters} meter`
+        } dari ${targetPoolInfo.name}.\n\nPresensi wajib berada dalam radius maksimal 2.0 km dari kolam renang.`
       );
       return;
     }
 
-    // Trigger visual shutter flash effect
     setFlashScreenEffect(true);
     setTimeout(() => setFlashScreenEffect(false), 250);
 
@@ -478,10 +506,8 @@ export default function CoachCameraPresensi({
     }
 
     if (chosenMode === "keluar") {
-      // If Presensi Keluar: open notes & progress modal
       setShowCheckoutNotesModal(true);
     } else {
-      // Presensi Masuk
       if (isAlreadyCheckedIn) {
         alert("Anda sudah melakukan Presensi Masuk untuk sesi ini.");
         return;
@@ -494,7 +520,6 @@ export default function CoachCameraPresensi({
     }
   };
 
-  // Submit Presensi Masuk
   const submitPresensiMasuk = async (reasonOverride?: string) => {
     if (!activeSchedule) return;
     setIsSubmitting(true);
@@ -523,7 +548,6 @@ export default function CoachCameraPresensi({
     }
   };
 
-  // Submit Presensi Keluar & Catatan Perkembangan Siswa
   const submitPresensiKeluar = async () => {
     if (!activeSchedule) return;
     setIsSubmitting(true);
@@ -553,11 +577,10 @@ export default function CoachCameraPresensi({
     }
   };
 
-  // Quick chips for note input
   const quickChips = [
     "Teknik pernapasan sudah lancar",
-    "Gerakan kaki gaya dada semakin stabil",
-    "Latihan meluncur tanpa bantuan",
+    "Gaya dada 25m stabil tanpa henti",
+    "Meluncur mandiri & streamline bagus",
     "Perlu pendalaman posisi kepala",
     "Stamina sangat baik sepanjang sesi",
   ];
@@ -576,7 +599,6 @@ export default function CoachCameraPresensi({
     });
   };
 
-  // Date formatted: DD/MM/YYYY HH:mm:ss
   const formattedDateTime = useMemo(() => {
     const day = String(currentDate.getDate()).padStart(2, "0");
     const month = String(currentDate.getMonth() + 1).padStart(2, "0");
@@ -590,424 +612,9 @@ export default function CoachCameraPresensi({
   const isCurrentModeCompleted =
     chosenMode === "masuk" ? isAlreadyCheckedIn : isAlreadyCheckedOut;
 
-  // =========================================================================
-  // STEP 1: SIMPLIFIED INITIAL MODE SELECTION SCREEN (CLEAN BLUE & WHITE THEME)
-  // =========================================================================
-  if (chosenMode === null) {
-    return (
-      <div className="relative w-full min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col justify-between overflow-y-auto font-sans p-4 sm:p-6 pb-24 select-none">
-        {/* Subtle Ambient Background Gradient */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-32 -left-32 w-80 h-80 bg-blue-200/40 rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-cyan-200/30 rounded-full blur-3xl" />
-        </div>
-
-        <div className="relative z-10 max-w-lg w-full mx-auto space-y-4 pt-1 sm:pt-3">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition active:scale-95 cursor-pointer shadow-2xs"
-              title="Kembali ke Dashboard"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <Clock size={12} className="text-blue-600" />
-                <span>Presensi Pelatih</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Header */}
-          <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-              Pilih Presensi Sesi
-            </h1>
-            <p className="text-xs text-slate-500">
-              Pilih presensi masuk di awal sesi atau presensi keluar setelah sesi selesai.
-            </p>
-          </div>
-
-          {/* Active Schedule Card (Clean Blue & White) */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Waves size={16} className="text-blue-600" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Sesi Latihan Terpilih
-                </span>
-              </div>
-              <button
-                onClick={() => setShowScheduleSelector(true)}
-                className="text-[11px] text-blue-600 hover:text-blue-700 font-bold bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-1 rounded-xl transition flex items-center gap-1 cursor-pointer shadow-2xs"
-              >
-                <span>Ganti Sesi</span>
-                <ChevronRight size={13} />
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-sm sm:text-base font-black text-slate-900">
-                {activeSchedule ? `${activeSchedule.title || activeSchedule.class}` : "Belum Ada Jadwal"}
-              </h3>
-              <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
-                <span className="font-mono font-bold text-blue-600 flex items-center gap-1">
-                  <Clock size={12} /> {activeSchedule?.timeStart || "--:--"} - {activeSchedule?.timeEnd || "--:--"} WIB
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 text-slate-600">
-                  <MapPin size={12} className="text-blue-500" /> {activeSchedule?.poolArea || "Kolam Renang"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* =========================================================================
-              TWIN ACTION CARDS: PRESENSI MASUK & PRESENSI KELUAR (BLUE & WHITE STYLE)
-              ========================================================================= */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* 1. PRESENSI MASUK */}
-            <button
-              type="button"
-              onClick={handleSelectPresensiMasuk}
-              className={`p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group flex flex-col justify-between ${
-                isAlreadyCheckedIn
-                  ? "bg-slate-50 border-slate-200/80 text-slate-700"
-                  : "bg-white hover:bg-blue-50/40 border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md ring-1 ring-slate-100"
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 group-hover:scale-105 transition">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 transition" />
-                </div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Presensi Masuk</h2>
-                <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-snug">
-                  Foto selfie &amp; catat waktu mulai tiba di kolam.
-                </p>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100">
-                {isAlreadyCheckedIn ? (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                    <Check size={12} /> Sudah Masuk
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-blue-600 font-bold text-xs group-hover:translate-x-0.5 transition">
-                    Mulai Presensi Masuk <ChevronRight size={13} />
-                  </span>
-                )}
-              </div>
-            </button>
-
-            {/* 2. PRESENSI KELUAR */}
-            <button
-              type="button"
-              onClick={handleSelectPresensiKeluar}
-              className={`p-5 rounded-3xl border transition-all text-left relative cursor-pointer active:scale-[0.98] group flex flex-col justify-between ${
-                isAlreadyCheckedOut
-                  ? "bg-slate-50 border-slate-200/80 text-slate-700"
-                  : isAlreadyCheckedIn
-                  ? "bg-white hover:bg-blue-50/40 border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md ring-1 ring-slate-100"
-                  : "bg-slate-50/80 border-slate-200/70 opacity-80 hover:opacity-100"
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div
-                    className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition ${
-                      isAlreadyCheckedIn
-                        ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-blue-500/20"
-                        : "bg-slate-100 border border-slate-200 text-slate-400"
-                    }`}
-                  >
-                    {isAlreadyCheckedIn ? <Flag size={22} /> : <Lock size={20} />}
-                  </div>
-                  <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600 transition" />
-                </div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Presensi Keluar</h2>
-                <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-snug">
-                  Selesai sesi + foto selfie &amp; catatan siswa.
-                </p>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100">
-                {isAlreadyCheckedOut ? (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                    <Check size={12} /> Selesai Sesi
-                  </span>
-                ) : isAlreadyCheckedIn ? (
-                  <span className="inline-flex items-center gap-1 text-blue-600 font-bold text-xs group-hover:translate-x-0.5 transition">
-                    Mulai Presensi Keluar <ChevronRight size={13} />
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
-                    <Lock size={10} /> Wajib Masuk Dulu
-                  </span>
-                )}
-              </div>
-            </button>
-          </div>
-
-          {/* =========================================================================
-              INTERACTIVE RADIUS SIMULATOR CARD (BLUE & WHITE STYLE)
-              ========================================================================= */}
-          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin size={16} className="text-blue-600" />
-                <span className="text-xs font-bold text-slate-800">
-                  Simulasi Radius GPS
-                </span>
-              </div>
-              <span
-                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                  isLocationValid
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs"
-                    : "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
-                }`}
-              >
-                {isLocationValid ? "🟢 Radius Valid (< 2.0 km)" : "🔴 Di Luar Radius (> 2.0 km)"}
-              </span>
-            </div>
-
-            {/* Current Distance Indicator */}
-            <div className="flex items-baseline justify-between bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                  Jarak ke {targetPoolInfo.name}
-                </p>
-                <p className="text-base font-black text-slate-900 mt-0.5 font-mono">
-                  {distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters} meter`}
-                </p>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Maks. <strong className="text-slate-800 font-mono">2.0 km</strong>
-              </p>
-            </div>
-
-            {/* Quick Preset Buttons */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Preset Cepat:
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => applyRadiusPreset("at_pool")}
-                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
-                    radiusSimPreset === "at_pool"
-                      ? "bg-blue-600 text-white font-black border-blue-600 shadow-sm shadow-blue-500/25"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <span>🏊 Titik Kolam</span>
-                  <span className={`text-[10px] ${radiusSimPreset === "at_pool" ? "text-blue-100" : "opacity-75"}`}>15m</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => applyRadiusPreset("near_pool")}
-                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
-                    radiusSimPreset === "near_pool"
-                      ? "bg-blue-600 text-white font-black border-blue-600 shadow-sm shadow-blue-500/25"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <span>🎯 Dekat Kolam</span>
-                  <span className={`text-[10px] ${radiusSimPreset === "near_pool" ? "text-blue-100" : "opacity-75"}`}>150m</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => applyRadiusPreset("radius_limit")}
-                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
-                    radiusSimPreset === "radius_limit"
-                      ? "bg-amber-500 text-white font-black border-amber-500 shadow-sm shadow-amber-500/25"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <span>🚶 Batas Radius</span>
-                  <span className={`text-[10px] ${radiusSimPreset === "radius_limit" ? "text-amber-100" : "opacity-75"}`}>1.8km</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => applyRadiusPreset("out_of_radius")}
-                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between ${
-                    radiusSimPreset === "out_of_radius"
-                      ? "bg-rose-500 text-white font-black border-rose-500 shadow-sm shadow-rose-500/25"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <span>🚫 Luar Radius</span>
-                  <span className={`text-[10px] ${radiusSimPreset === "out_of_radius" ? "text-rose-100" : "opacity-75"}`}>3.5km</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => applyRadiusPreset("device")}
-                  disabled={locationLoading}
-                  className={`py-2 px-2.5 rounded-xl border text-[11px] font-bold transition cursor-pointer text-left flex items-center justify-between col-span-2 sm:col-span-2 ${
-                    radiusSimPreset === "device"
-                      ? "bg-blue-600 text-white font-black border-blue-600 shadow-sm shadow-blue-500/25"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    <RotateCw size={11} className={locationLoading ? "animate-spin" : ""} />
-                    <span>📍 GPS Asli Perangkat</span>
-                  </span>
-                  <span className={`text-[10px] ${radiusSimPreset === "device" ? "text-blue-100" : "opacity-75"}`}>
-                    {locationLoading ? "Mencari..." : "Live"}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Custom Radius Slider */}
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-500 font-medium">Atur Jarak Kustom:</span>
-                <span className="font-mono font-bold text-blue-600">
-                  {customRadiusMeters >= 1000
-                    ? `${(customRadiusMeters / 1000).toFixed(2)} km`
-                    : `${customRadiusMeters} meter`}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="4500"
-                step="25"
-                value={customRadiusMeters}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  applyRadiusPreset("custom", val);
-                }}
-                className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-              />
-              <div className="flex justify-between text-[9px] text-slate-400 font-mono">
-                <span>10m (Kolam)</span>
-                <span>2.0km (Batas Maksimal)</span>
-                <span>4.5km (Luar)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* =========================================================================
-            VALIDATOR MODAL: IF COACH CLICKS PRESENSI KELUAR WITHOUT PRESENSI MASUK
-            ========================================================================= */}
-        {showCheckoutWarningModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
-            <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-100 p-6 space-y-4 shadow-2xl text-slate-900 text-center">
-              <div className="h-16 w-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600 shadow-md">
-                <AlertTriangle size={30} />
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="text-base font-black text-slate-900">
-                  Belum Bisa Presensi Keluar
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Anda belum melakukan <strong className="text-blue-600">Presensi Masuk</strong> untuk sesi{" "}
-                  <strong className="text-slate-900">
-                    &quot;{activeSchedule?.title || activeSchedule?.class || "Sesi Latihan"}&quot;
-                  </strong>.
-                </p>
-                <p className="text-[11px] text-slate-400 pt-1">
-                  Untuk menjaga validitas data kehadiran, Anda wajib melakukan Presensi Masuk terlebih dahulu di awal sesi sebelum dapat melakukan Presensi Keluar.
-                </p>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCheckoutWarningModal(false);
-                    setChosenMode("masuk");
-                  }}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>Lakukan Presensi Masuk Sekarang</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCheckoutWarningModal(false)}
-                  className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
-                >
-                  Tutup
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Schedule Selector Modal (Clean Blue & White) */}
-        {showScheduleSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
-            <div className="w-full max-w-md rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 space-y-4 shadow-2xl text-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900">Pilih Sesi Jadwal Latihan</h3>
-                  <p className="text-[11px] text-slate-400">Pilih sesi untuk presensi kehadiran</p>
-                </div>
-                <button
-                  onClick={() => setShowScheduleSelector(false)}
-                  className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs cursor-pointer transition"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {schedules.map((s) => {
-                  const isSelected = s.id === activeSchedule?.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setSelectedScheduleId(s.id);
-                        setShowScheduleSelector(false);
-                      }}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
-                        isSelected
-                          ? "bg-blue-50 border-blue-300 text-slate-900 font-bold shadow-2xs"
-                          : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
-                      }`}
-                    >
-                      <div>
-                        <p className="text-xs font-black text-slate-900">{s.title || s.class}</p>
-                        <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1 mt-0.5">
-                          <Clock size={10} /> {s.timeStart} - {s.timeEnd} WIB • <MapPin size={10} /> {s.poolArea}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {s.date || "Setiap Hari"} • Pelatih: {s.coachName || "Coach"}
-                        </p>
-                      </div>
-                      {isSelected && <Check size={16} className="text-blue-600 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // =========================================================================
-  // STEP 2: ACTIVE CAMERA VIEWFINDER & PRESENSI STREAM
-  // =========================================================================
   return (
     <div className="relative w-full h-[100dvh] bg-black text-white flex flex-col justify-between overflow-hidden select-none font-sans">
-      {/* Hidden Canvas for Snapshot Capture */}
+      {/* Hidden Canvas */}
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Screen Flash Shutter Effect */}
@@ -1020,7 +627,9 @@ export default function CoachCameraPresensi({
         <div className="absolute inset-0 bg-white/25 pointer-events-none z-10" />
       )}
 
-      {/* LIVE CAMERA VIEWFINDER */}
+      {/* =========================================================================
+          LIVE CAMERA VIEWFINDER (FULLSCREEN IMMERSIVE)
+          ========================================================================= */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden bg-slate-950 flex items-center justify-center">
         {cameraError ? (
           <div className="text-center px-6 max-w-sm space-y-4">
@@ -1033,10 +642,10 @@ export default function CoachCameraPresensi({
             </div>
             <button
               onClick={() => initCamera(cameraFacing)}
-              className="px-4 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5 mx-auto"
+              className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5 mx-auto"
             >
               <RotateCw size={14} />
-              <span>Coba Buka Kamera Lagi</span>
+              <span>Buka Kamera Lagi</span>
             </button>
           </div>
         ) : (
@@ -1045,289 +654,190 @@ export default function CoachCameraPresensi({
             autoPlay
             playsInline
             muted
-            className={`w-full h-full object-cover ${cameraFacing === "user" ? "scale-x-[-1]" : ""
-              }`}
+            className={`w-full h-full object-cover ${
+              cameraFacing === "user" ? "scale-x-[-1]" : ""
+            }`}
           />
         )}
       </div>
 
-      {/* Subtle Top & Bottom Gradient Shadows */}
-      <div className="absolute top-0 left-0 right-0 h-44 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none z-10" />
-      <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-10" />
+      {/* Top & Bottom Cinematic Shadows */}
+      <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none z-10" />
+      <div className="absolute bottom-0 left-0 right-0 h-44 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-10" />
 
-      {/* TOP HEADER & INFO CONTAINER */}
-      <div className="relative z-20 w-full max-w-md mx-auto pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] px-4 space-y-2.5">
-        {/* Top Header Bar */}
+      {/* =========================================================================
+          TOP FLOATING APP BAR & STATUS PILLS
+          ========================================================================= */}
+      <div className="relative z-20 w-full max-w-md mx-auto pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] px-4 space-y-2">
+        {/* Top Header Row */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <button
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
               title="Kembali"
             >
               <ArrowLeft size={18} />
             </button>
+
             <div>
-              <h1 className="text-base sm:text-lg font-black tracking-tight text-white drop-shadow-md flex items-center gap-1.5">
-                {chosenMode === "masuk" ? "Presensi Masuk" : "Presensi Keluar"}
-                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${chosenMode === "masuk"
-                    ? "bg-blue-500/30 text-blue-200 border border-blue-400/40"
-                    : "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40"
-                  }`}>
-                  {chosenMode === "masuk" ? "Awal Sesi" : "Selesai Sesi"}
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-black text-white drop-shadow-md">
+                  {chosenMode === "masuk" ? "Presensi Masuk" : "Presensi Keluar"}
                 </span>
-              </h1>
-              <p className="text-[10px] text-cyan-200 font-semibold drop-shadow-sm flex items-center gap-1.5 mt-0.5">
-                {isAlreadyCheckedIn && chosenMode === "keluar" ? (
-                  <span className="text-emerald-300 font-bold flex items-center gap-1">
-                    <CheckCircle2 size={11} /> Presensi Masuk Selesai • Lanjut Sesi Keluar
-                  </span>
-                ) : (
-                  <span>Role Pelatih • {sessionUser || "Pelatih GIM"}</span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Mode Switcher with validation */}
-          <button
-            onClick={() => {
-              if (chosenMode === "masuk") {
-                if (!isAlreadyCheckedIn) {
-                  setShowCheckoutWarningModal(true);
-                  return;
-                }
-                setChosenMode("keluar");
-              } else {
-                setChosenMode("masuk");
-              }
-            }}
-            className="px-3 py-1.5 rounded-2xl bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-[10px] font-bold text-slate-200 hover:text-white transition cursor-pointer flex items-center gap-1 active:scale-95 shadow-lg"
-            title="Ganti Mode Presensi"
-          >
-            <span>Ganti ke {chosenMode === "masuk" ? "Keluar" : "Masuk"}</span>
-          </button>
-        </div>
-
-        {/* Floating Dark Glassmorphism Info Container */}
-        <div className="rounded-3xl bg-[#1e2329]/80 backdrop-blur-xl border border-white/10 p-3 sm:p-3.5 shadow-2xl shadow-black/60 space-y-2 text-white">
-          {/* Item 1: Waktu Kehadiran */}
-          <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#283038]/70 border border-white/5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-lg">
-              <Clock size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-slate-300 leading-tight">
-                {chosenMode === "masuk" ? "Waktu Presensi Masuk" : "Waktu Presensi Keluar"}
-              </p>
-              <p className="text-xs sm:text-sm font-black text-white tracking-wide mt-0.5 font-mono">
-                {formattedDateTime}
-              </p>
-            </div>
-          </div>
-
-          {/* Item 2: Radius & Lokasi GPS */}
-          <div className="p-2.5 rounded-2xl bg-[#283038]/70 border border-white/5 space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg border ${
-                    isLocationValid
-                      ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-400"
-                      : "bg-rose-500/20 border-rose-400/40 text-rose-400"
+                <span
+                  className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                    chosenMode === "masuk"
+                      ? "bg-blue-500/40 text-blue-200 border border-blue-400/40"
+                      : "bg-emerald-500/40 text-emerald-200 border border-emerald-400/40"
                   }`}
                 >
-                  <MapPin size={20} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-white leading-tight flex items-center gap-1.5">
-                    <span>
-                      Radius {distanceMeters >= 1000 ? `${distanceKm} km` : `${distanceMeters}m`}
-                    </span>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                        isLocationValid
-                          ? "bg-emerald-500/20 text-emerald-300"
-                          : "bg-rose-500/20 text-rose-300"
-                      }`}
-                    >
-                      {isLocationValid ? "Valid" : "Di Luar Radius"}
-                    </span>
-                  </p>
-                  <p className="text-[10px] text-slate-300 truncate mt-0.5">
-                    {targetPoolInfo.name}
-                  </p>
-                </div>
+                  {chosenMode === "masuk" ? "Awal Sesi" : "Selesai Sesi"}
+                </span>
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowRadiusPanel((prev) => !prev)}
-                  className="px-2 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/30 text-[10px] font-bold transition cursor-pointer"
-                >
-                  {showRadiusPanel ? "Tutup" : "Ubah Radius"}
-                </button>
-                <button
-                  onClick={requestGPSLocation}
-                  disabled={locationLoading}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer border border-white/10 disabled:opacity-50"
-                  title="Perbarui Titik GPS"
-                >
-                  <RotateCw size={13} className={locationLoading ? "animate-spin" : ""} />
-                </button>
-              </div>
+              <p className="text-[10px] text-cyan-200 font-semibold drop-shadow-sm flex items-center gap-1 mt-0.5 font-mono">
+                <Clock size={11} /> {formattedDateTime}
+              </p>
             </div>
+          </div>
 
-            {/* In-Camera Quick Radius Selector (when expanded) */}
-            {showRadiusPanel && (
-              <div className="pt-2 border-t border-white/10 space-y-1.5 animate-fadeIn">
-                <div className="grid grid-cols-4 gap-1 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => applyRadiusPreset("at_pool")}
-                    className={`py-1 rounded-lg font-bold border transition text-center ${
-                      radiusSimPreset === "at_pool"
-                        ? "bg-cyan-500/30 border-cyan-400 text-cyan-200"
-                        : "bg-black/30 border-white/10 text-slate-300"
-                    }`}
-                  >
-                    15m (Kolam)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyRadiusPreset("near_pool")}
-                    className={`py-1 rounded-lg font-bold border transition text-center ${
-                      radiusSimPreset === "near_pool"
-                        ? "bg-cyan-500/30 border-cyan-400 text-cyan-200"
-                        : "bg-black/30 border-white/10 text-slate-300"
-                    }`}
-                  >
-                    150m (Dekat)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyRadiusPreset("radius_limit")}
-                    className={`py-1 rounded-lg font-bold border transition text-center ${
-                      radiusSimPreset === "radius_limit"
-                        ? "bg-amber-500/30 border-amber-400 text-amber-200"
-                        : "bg-black/30 border-white/10 text-slate-300"
-                    }`}
-                  >
-                    1.8km (Batas)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyRadiusPreset("out_of_radius")}
-                    className={`py-1 rounded-lg font-bold border transition text-center ${
-                      radiusSimPreset === "out_of_radius"
-                        ? "bg-rose-500/30 border-rose-400 text-rose-200"
-                        : "bg-black/30 border-white/10 text-slate-300"
-                    }`}
-                  >
-                    3.5km (Luar)
-                  </button>
-                </div>
-              </div>
+          {/* Quick Mode & GPS Drawer Switchers */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowGpsDrawer((prev) => !prev)}
+              className="h-9 w-9 rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-lg"
+              title="Simulasi Radius GPS"
+            >
+              <Sliders size={15} />
+            </button>
+
+            <button
+              onClick={() => {
+                if (chosenMode === "masuk") {
+                  if (!isAlreadyCheckedIn) {
+                    setShowCheckoutWarningModal(true);
+                    return;
+                  }
+                  setChosenMode("keluar");
+                } else {
+                  setChosenMode("masuk");
+                }
+              }}
+              className="px-3 py-2 rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-[11px] font-bold text-slate-100 hover:text-white transition cursor-pointer flex items-center gap-1 active:scale-95 shadow-lg"
+            >
+              <span>{chosenMode === "masuk" ? "Ke Keluar" : "Ke Masuk"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Floating Minimalist Capsule Info Bar */}
+        <div className="rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/10 p-2.5 shadow-xl flex items-center justify-between gap-2">
+          {/* Active Schedule Pill */}
+          <button
+            onClick={() => setShowScheduleSelector(true)}
+            className="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition cursor-pointer"
+          >
+            <div className="h-8 w-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0">
+              <Waves size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-white truncate leading-tight">
+                {activeSchedule ? activeSchedule.title || activeSchedule.class : "Pilih Jadwal Sesi"}
+              </p>
+              <p className="text-[10px] text-cyan-200 truncate mt-0.5">
+                {activeSchedule?.timeStart || "--:--"} - {activeSchedule?.timeEnd || "--:--"} WIB • {activeSchedule?.poolArea || "Kolam Renang"}
+              </p>
+            </div>
+            <ChevronRight size={14} className="text-slate-400 shrink-0" />
+          </button>
+
+          {/* Live Radius Badge */}
+          <div
+            className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 border flex items-center gap-1 ${
+              isLocationValid
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+                : "bg-rose-500/20 text-rose-300 border-rose-400/30 animate-pulse"
+            }`}
+          >
+            <MapPin size={11} />
+            <span>{distanceMeters >= 1000 ? `${distanceKm}km` : `${distanceMeters}m`}</span>
+          </div>
+        </div>
+
+        {/* IN-SESSION SHORTCUT BANNER (If already checked in and in "keluar" mode) */}
+        {isAlreadyCheckedIn && !isAlreadyCheckedOut && (
+          <div className="p-2.5 rounded-2xl bg-gradient-to-r from-blue-900/70 to-indigo-900/70 backdrop-blur-md border border-blue-400/30 flex items-center justify-between gap-2 text-white animate-fadeIn">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+              <p className="text-xs font-bold truncate">Sesi Renang Sedang Berlangsung</p>
+            </div>
+            {onSwitchToStudentChecklist && (
+              <button
+                type="button"
+                onClick={() => onSwitchToStudentChecklist(activeSchedule?.id || "")}
+                className="px-3 py-1 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-[11px] font-black transition cursor-pointer shrink-0 shadow-sm active:scale-95 flex items-center gap-1"
+              >
+                <ClipboardList size={13} />
+                <span>Absen Murid</span>
+              </button>
             )}
           </div>
-
-          {/* Item 3: Kantor / Sesi Jadwal Latihan Terdekat */}
-          <div
-            onClick={() => setShowScheduleSelector(true)}
-            className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-[#283038]/70 hover:bg-[#283038]/90 border border-white/5 cursor-pointer transition group"
-            title="Klik untuk memilih jadwal lain"
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-lg">
-                <Waves size={20} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold text-slate-300 leading-tight">
-                  Sesi Jadwal Terdekat
-                </p>
-                <p className="text-xs sm:text-sm font-black text-white truncate mt-0.5">
-                  {activeSchedule ? `${activeSchedule.title || activeSchedule.class} (${activeSchedule.timeStart} - ${activeSchedule.timeEnd} WIB)` : "Belum Ada Jadwal"}
-                </p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-slate-400 group-hover:text-white shrink-0" />
-          </div>
-
-          {/* Item 4: Status / Alert Banner */}
-          {chosenMode === "masuk" ? (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#592629]/80 border border-rose-500/30 backdrop-blur-md">
-              <div className="h-8 w-8 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0 text-rose-300">
-                {isAlreadyCheckedIn ? <CheckCircle2 size={16} /> : timeStatus.isLate ? <AlertTriangle size={16} /> : <Clock size={16} />}
-              </div>
-              <p className="text-[11px] font-bold text-rose-200 leading-snug flex-1">
-                {isAlreadyCheckedIn
-                  ? "Anda sudah melakukan Presensi Masuk pada sesi ini. Pilih 'Ganti ke Keluar' bila sesi telah selesai."
-                  : timeStatus.isLate
-                    ? "Presensi Masuk (Terlambat). Masukkan alasan keterlambatan saat submit foto presensi."
-                    : "Anda hanya bisa Presensi Masuk sekali dalam satu sesi latihan."}
-              </p>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#1b3a32]/85 border border-emerald-500/30 backdrop-blur-md">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-300">
-                {isAlreadyCheckedOut ? <CheckCircle2 size={16} /> : <FileText size={16} />}
-              </div>
-              <p className="text-[11px] font-bold text-emerald-200 leading-snug flex-1">
-                {isAlreadyCheckedOut
-                  ? "Presensi Keluar selesai! Catatan perkembangan siswa telah tersimpan untuk sesi ini."
-                  : "Presensi Keluar: Klik tombol kamera di bawah untuk foto selfie & masukkan catatan perkembangan siswa."}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* BOTTOM CAMERA CONTROLS */}
+      {/* =========================================================================
+          BOTTOM CAMERA ACTION BAR & SHUTTER BUTTON
+          ========================================================================= */}
       <div className="relative z-20 w-full max-w-md mx-auto pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] px-6 flex items-center justify-around">
         {/* Flash / Torch Button */}
         <button
           onClick={toggleFlash}
-          className={`flex h-13 w-13 items-center justify-center rounded-full backdrop-blur-md border transition active:scale-90 cursor-pointer shadow-lg ${isFlashActive
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl backdrop-blur-md border transition active:scale-90 cursor-pointer shadow-lg ${
+            isFlashActive
               ? "bg-amber-400 text-slate-900 border-amber-300 ring-4 ring-amber-400/40"
-              : "bg-black/40 hover:bg-black/60 border-white/25 text-white"
-            }`}
-          title="Toggle Flash / Penerangan"
+              : "bg-black/40 hover:bg-black/60 border-white/20 text-white"
+          }`}
+          title="Nyalakan Lampu"
         >
-          <Zap size={20} />
+          <Zap size={18} />
         </button>
 
-        {/* Large Shutter Button */}
+        {/* Large Smart Shutter Button */}
         <div className="relative">
           <button
             onClick={handleShutterPress}
             disabled={isSubmitting || isCurrentModeCompleted}
-            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-all duration-150 cursor-pointer shadow-2xl active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed ${isCurrentModeCompleted
+            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-all duration-150 cursor-pointer shadow-2xl active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isCurrentModeCompleted
                 ? "bg-emerald-500/80 border-emerald-300"
                 : chosenMode === "keluar"
-                  ? "bg-transparent hover:scale-105 border-emerald-300"
-                  : "bg-transparent hover:scale-105"
-              }`}
+                ? "bg-emerald-500/20 hover:scale-105 border-emerald-400"
+                : "bg-blue-500/20 hover:scale-105 border-blue-400"
+            }`}
             title={
               chosenMode === "masuk"
-                ? "Ambil Foto & Presensi Masuk"
-                : "Ambil Foto & Presensi Keluar + Catatan Siswa"
+                ? "Ambil Foto Selfie & Presensi Masuk"
+                : "Ambil Foto Selesai Sesi & Kirim Catatan"
             }
           >
             <div
-              className={`h-16 w-16 rounded-full transition-all shadow-inner flex items-center justify-center ${isCurrentModeCompleted
+              className={`h-16 w-16 rounded-full transition-all shadow-inner flex items-center justify-center ${
+                isCurrentModeCompleted
                   ? "bg-emerald-400 text-white font-black"
                   : isSubmitting
-                    ? "bg-cyan-400 animate-ping"
-                    : chosenMode === "keluar"
-                      ? "bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 text-slate-950 font-black"
-                      : "bg-white/80 hover:bg-white active:bg-cyan-400"
-                }`}
+                  ? "bg-cyan-400 animate-ping"
+                  : chosenMode === "keluar"
+                  ? "bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-black shadow-lg shadow-emerald-500/40"
+                  : "bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black shadow-lg shadow-blue-500/40"
+              }`}
             >
               {isCurrentModeCompleted ? (
                 <Check size={28} />
               ) : chosenMode === "keluar" ? (
                 <FileText size={22} />
-              ) : null}
+              ) : (
+                <Camera size={24} />
+              )}
             </div>
           </button>
         </div>
@@ -1335,29 +845,120 @@ export default function CoachCameraPresensi({
         {/* Switch / Flip Camera Button */}
         <button
           onClick={flipCamera}
-          className="flex h-13 w-13 items-center justify-center rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/25 text-white transition active:scale-90 cursor-pointer shadow-lg"
-          title="Ganti Kamera Depan / Belakang"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
+          title="Balik Kamera Depan / Belakang"
         >
-          <RefreshCw size={20} />
+          <RefreshCw size={18} />
         </button>
       </div>
 
-      {/* MODAL: PRESENSI KELUAR & CATATAN PERKEMBANGAN SISWA (BLUE & WHITE THEME) */}
+      {/* =========================================================================
+          COLLAPSIBLE GPS DIAGNOSTIC DRAWER
+          ========================================================================= */}
+      {showGpsDrawer && (
+        <div className="absolute inset-x-0 bottom-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-white/15 p-5 rounded-t-3xl space-y-3 animate-fadeIn text-white max-w-md mx-auto">
+          <div className="flex items-center justify-between border-b border-white/10 pb-2">
+            <span className="text-xs font-black text-white flex items-center gap-1.5">
+              <MapPin size={14} className="text-cyan-400" />
+              <span>Pengaturan Simulasi Radius GPS</span>
+            </span>
+            <button
+              onClick={() => setShowGpsDrawer(false)}
+              className="p-1 rounded-xl text-slate-400 hover:text-white"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+            <button
+              type="button"
+              onClick={() => applyRadiusPreset("at_pool")}
+              className={`py-2 px-2.5 rounded-xl border font-bold transition text-left flex items-center justify-between ${
+                radiusSimPreset === "at_pool"
+                  ? "bg-blue-600 text-white border-blue-400"
+                  : "bg-white/5 border-white/10 text-slate-300"
+              }`}
+            >
+              <span>🏊 Titik Kolam</span>
+              <span className="opacity-70 text-[10px]">15m</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyRadiusPreset("near_pool")}
+              className={`py-2 px-2.5 rounded-xl border font-bold transition text-left flex items-center justify-between ${
+                radiusSimPreset === "near_pool"
+                  ? "bg-blue-600 text-white border-blue-400"
+                  : "bg-white/5 border-white/10 text-slate-300"
+              }`}
+            >
+              <span>🎯 Dekat Kolam</span>
+              <span className="opacity-70 text-[10px]">150m</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyRadiusPreset("radius_limit")}
+              className={`py-2 px-2.5 rounded-xl border font-bold transition text-left flex items-center justify-between ${
+                radiusSimPreset === "radius_limit"
+                  ? "bg-amber-600 text-white border-amber-400"
+                  : "bg-white/5 border-white/10 text-slate-300"
+              }`}
+            >
+              <span>🚶 Batas Radius</span>
+              <span className="opacity-70 text-[10px]">1.8km</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyRadiusPreset("out_of_radius")}
+              className={`py-2 px-2.5 rounded-xl border font-bold transition text-left flex items-center justify-between ${
+                radiusSimPreset === "out_of_radius"
+                  ? "bg-rose-600 text-white border-rose-400"
+                  : "bg-white/5 border-white/10 text-slate-300"
+              }`}
+            >
+              <span>🚫 Di Luar</span>
+              <span className="opacity-70 text-[10px]">3.5km</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => applyRadiusPreset("device")}
+            className={`w-full py-2.5 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${
+              radiusSimPreset === "device"
+                ? "bg-blue-600 text-white border-blue-400"
+                : "bg-white/5 border-white/10 text-slate-300"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <RotateCw size={13} className={locationLoading ? "animate-spin" : ""} />
+              <span>Gunakan GPS Asli Perangkat</span>
+            </span>
+            <span className="text-[10px] opacity-75">
+              {locationLoading ? "Mencari..." : "Live"}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: PRESENSI KELUAR & CATATAN PERKEMBANGAN SISWA (WITH VOICE INPUT)
+          ========================================================================= */}
       {showCheckoutNotesModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 space-y-4 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 shadow-2xs">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 shadow-2xs">
                   <FileText size={22} />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                    Presensi Keluar &amp; Catatan Sesi
+                    Catatan Perkembangan Sesi
                   </h3>
-                  <p className="text-[11px] text-blue-600 font-bold mt-0.5">
-                    {activeSchedule?.title || activeSchedule?.class} ({activeSchedule?.timeStart} - {activeSchedule?.timeEnd} WIB)
+                  <p className="text-[11px] text-emerald-700 font-bold mt-0.5">
+                    {activeSchedule?.title || activeSchedule?.class} • {activeSchedule?.poolArea}
                   </p>
                 </div>
               </div>
@@ -1369,20 +970,20 @@ export default function CoachCameraPresensi({
               </button>
             </div>
 
-            {/* Snapshot Preview & Meta */}
+            {/* Snapshot Preview */}
             {capturedPhotoUrl && (
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-slate-50 border border-slate-100">
                 <img
                   src={capturedPhotoUrl}
                   alt="Snapshot Selfie"
-                  className="h-14 w-14 rounded-xl object-cover border border-blue-200 shadow-sm"
+                  className="h-12 w-12 rounded-xl object-cover border border-emerald-300 shadow-sm"
                 />
                 <div className="flex-1 min-w-0 text-xs">
                   <p className="font-bold text-slate-900 flex items-center gap-1">
-                    <CheckCircle2 size={14} className="text-emerald-600" /> Foto Selfie Terverifikasi
+                    <CheckCircle2 size={13} className="text-emerald-600" /> Foto Selesai Sesi Terverifikasi
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
-                    <MapPin size={10} className="text-blue-500" /> {targetPoolInfo.name} • {formattedDateTime}
+                  <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                    {formattedDateTime}
                   </p>
                 </div>
               </div>
@@ -1390,9 +991,9 @@ export default function CoachCameraPresensi({
 
             {/* Quick Student Mention Chips */}
             {activeSchedule?.studentNames && activeSchedule.studentNames.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Siswa di Sesi Ini (Klik nama untuk menambahkan catatan):
+                  Siswa di Sesi Ini:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {activeSchedule.studentNames.map((st, i) => (
@@ -1400,7 +1001,7 @@ export default function CoachCameraPresensi({
                       key={i}
                       type="button"
                       onClick={() => appendStudentTag(st)}
-                      className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/80 text-blue-700 text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-2xs"
+                      className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1 shadow-2xs"
                     >
                       <User size={12} />
                       <span>{st}</span>
@@ -1411,9 +1012,9 @@ export default function CoachCameraPresensi({
             )}
 
             {/* Quick Note Suggestions */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Opsi Cepat Catatan Latihan:
+                Opsi Cepat Catatan:
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {quickChips.map((chip, idx) => (
@@ -1429,25 +1030,39 @@ export default function CoachCameraPresensi({
               </div>
             </div>
 
-            {/* Textarea: Catatan Perkembangan Siswa */}
+            {/* Textarea + Voice Dictation Button */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">
-                Catatan Perkembangan Siswa &amp; Evaluasi Sesi Latihan:
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700">
+                  Catatan Evaluasi / Catatan Siswa:
+                </label>
+                {speechSupported && (
+                  <button
+                    type="button"
+                    onClick={toggleVoiceDictation}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                      isListeningVoice
+                        ? "bg-rose-500 text-white animate-pulse"
+                        : "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                    }`}
+                  >
+                    {isListeningVoice ? <MicOff size={13} /> : <Mic size={13} />}
+                    <span>{isListeningVoice ? "Mendengarkan..." : "Dikte Suara"}</span>
+                  </button>
+                )}
+              </div>
+
               <textarea
                 value={checkoutNotes}
                 onChange={(e) => setCheckoutNotes(e.target.value)}
-                placeholder="Contoh: Seluruh siswa hadir tepat waktu. Budi sudah mampu berenang gaya dada 25 meter dengan kayuhan stabil..."
-                rows={4}
-                className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white leading-relaxed font-sans resize-none transition"
+                placeholder="Tulis atau gunakan tombol Dikte Suara untuk merekam evaluasi perkembangan murid..."
+                rows={3}
+                className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white leading-relaxed resize-none transition"
               />
-              <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                <AlertCircle size={12} className="text-blue-500 shrink-0" /> Catatan ini akan tersimpan di riwayat jadwal dan dapat dilihat oleh admin &amp; wali murid.
-              </p>
             </div>
 
             {/* Modal Actions */}
-            <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowCheckoutNotesModal(false)}
@@ -1459,7 +1074,7 @@ export default function CoachCameraPresensi({
                 type="button"
                 onClick={submitPresensiKeluar}
                 disabled={isSubmitting}
-                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -1478,9 +1093,11 @@ export default function CoachCameraPresensi({
         </div>
       )}
 
-      {/* MODAL: LATE REASON (BLUE & WHITE THEME) */}
+      {/* =========================================================================
+          MODAL: LATE REASON
+          ========================================================================= */}
       {showLateReasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-100 p-6 space-y-4 shadow-2xl text-slate-900">
             <div className="flex items-center gap-2.5 text-amber-600 font-black">
               <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
@@ -1489,14 +1106,14 @@ export default function CoachCameraPresensi({
               <h3 className="text-sm font-black text-slate-900">Presensi Terlambat</h3>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Sesi latihan telah dimulai lebih dari 15 menit. Silakan masukkan alasan keterlambatan untuk catatan sistem:
+              Sesi latihan telah dimulai lebih dari 15 menit. Masukkan alasan keterlambatan:
             </p>
             <textarea
               value={lateReason}
               onChange={(e) => setLateReason(e.target.value)}
-              placeholder="Contoh: Terkendala kemacetan di jalan raya menuju kolam renang..."
+              placeholder="Contoh: Terkendala kemacetan di jalan..."
               rows={3}
-              className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition"
+              className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition"
             />
             <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button
@@ -1507,10 +1124,102 @@ export default function CoachCameraPresensi({
               </button>
               <button
                 onClick={() => submitPresensiMasuk(lateReason || "Terlambat hadir")}
-                className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95"
+                className="flex-1 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95"
               >
                 Kirim Presensi
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: CHECKOUT WARNING (IF NOT CHECKED IN FIRST)
+          ========================================================================= */}
+      {showCheckoutWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-100 p-6 space-y-4 shadow-2xl text-slate-900 text-center">
+            <div className="h-16 w-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600 shadow-md">
+              <AlertTriangle size={28} />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-black text-slate-900">Belum Bisa Presensi Keluar</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Anda belum melakukan <strong>Presensi Masuk</strong> untuk sesi ini.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCheckoutWarningModal(false);
+                  setChosenMode("masuk");
+                }}
+                className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-blue-500/25 active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 size={16} />
+                <span>Presensi Masuk Sekarang</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCheckoutWarningModal(false)}
+                className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: SCHEDULE SELECTOR
+          ========================================================================= */}
+      {showScheduleSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-100 p-5 space-y-4 shadow-2xl text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Pilih Sesi Jadwal Latihan</h3>
+                <p className="text-[11px] text-slate-400">Pilih sesi untuk presensi kehadiran</p>
+              </div>
+              <button
+                onClick={() => setShowScheduleSelector(false)}
+                className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs cursor-pointer transition"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {schedules.map((s) => {
+                const isSelected = s.id === activeSchedule?.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setSelectedScheduleId(s.id);
+                      setShowScheduleSelector(false);
+                    }}
+                    className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
+                      isSelected
+                        ? "bg-blue-50 border-blue-300 text-slate-900 font-bold shadow-2xs"
+                        : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-xs font-black text-slate-900">{s.title || s.class}</p>
+                      <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1 mt-0.5">
+                        <Clock size={10} /> {s.timeStart} - {s.timeEnd} WIB • <MapPin size={10} /> {s.poolArea}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {s.date || "Setiap Hari"} • Pelatih: {s.coachName || "Coach"}
+                      </p>
+                    </div>
+                    {isSelected && <Check size={16} className="text-blue-600 shrink-0" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
