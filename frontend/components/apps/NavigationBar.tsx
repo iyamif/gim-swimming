@@ -284,120 +284,122 @@ export function MobileBottomNav({
   const isCoachCheckedIn = false; // dynamically passed if available or defaults
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 h-[calc(4.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-3 md:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.06)]">
-      {/* 1. Home */}
-      <button
-        onClick={() => setActiveTab("dashboard")}
-        className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-          activeTab === "dashboard" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-        }`}
-      >
-        <div className="mb-0.5"><Home size={19} /></div>
-        <span className="text-[10px] tracking-tight">Home</span>
-        {unreadTotal > 0 && (
-          <span className="absolute top-1 right-[28%] h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+    <div className="fixed bottom-0 left-0 right-0 z-50 w-full bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:hidden pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="max-w-3xl mx-auto flex items-center justify-around px-2 h-16">
+        {/* 1. Home */}
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "dashboard" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <div className="mb-0.5"><Home size={19} /></div>
+          <span className="text-[10px] tracking-tight">Home</span>
+          {unreadTotal > 0 && (
+            <span className="absolute top-1 right-[28%] h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          )}
+        </button>
+
+        {/* 2. Siswa / Timeline */}
+        <button
+          onClick={() => setActiveTab("daftar_hadir")}
+          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "daftar_hadir" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <div className="mb-0.5"><Users size={19} /></div>
+          <span className="text-[10px] tracking-tight">Siswa</span>
+        </button>
+
+        {/* 3. PELATIH ONLY: Center Floating Action Button (Presensi) */}
+        {isPelatih && (
+          <div className="flex flex-col items-center justify-center -mt-7 flex-1">
+            <button
+              onClick={() => setActiveTab("absensi")}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/40 border-4 border-white active:scale-90 transition-transform duration-150 cursor-pointer"
+              title="Input Presensi Cepat"
+            >
+              <Clock size={24} />
+            </button>
+            <span
+              className={`text-[10px] mt-1 tracking-tight font-bold ${
+                activeTab === "absensi" ? "text-cyan-600" : "text-slate-500"
+              }`}
+            >
+              Presensi
+            </span>
+          </div>
         )}
-      </button>
 
-      {/* 2. Siswa / Timeline */}
-      <button
-        onClick={() => setActiveTab("daftar_hadir")}
-        className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-          activeTab === "daftar_hadir" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-        }`}
-      >
-        <div className="mb-0.5"><Users size={19} /></div>
-        <span className="text-[10px] tracking-tight">Siswa</span>
-      </button>
-
-      {/* 3. PELATIH ONLY: Center Floating Action Button (Presensi) */}
-      {isPelatih && (
-        <div className="flex flex-col items-center justify-center -mt-7 flex-1">
+        {/* 4. ADMIN: Jadwal Sesi Renang (Admin has direct Jadwal in bottom bar) */}
+        {isAdmin && (
           <button
-            onClick={() => setActiveTab("absensi")}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/40 border-4 border-white active:scale-90 transition-transform duration-150 cursor-pointer"
-            title="Input Presensi Cepat"
-          >
-            <Clock size={24} />
-          </button>
-          <span
-            className={`text-[10px] mt-1 tracking-tight font-bold ${
-              activeTab === "absensi" ? "text-cyan-600" : "text-slate-500"
+            onClick={() => setActiveTab("jadwal")}
+            className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+              activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
             }`}
           >
-            Presensi
-          </span>
-        </div>
-      )}
+            <div className="mb-0.5"><CalendarDays size={19} /></div>
+            <span className="text-[10px] tracking-tight">Jadwal</span>
+            {unreadSchedule > 0 && (
+              <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+            )}
+          </button>
+        )}
 
-      {/* 4. ADMIN: Jadwal Sesi Renang (Admin has direct Jadwal in bottom bar) */}
-      {isAdmin && (
-        <button
-          onClick={() => setActiveTab("jadwal")}
-          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className="mb-0.5"><CalendarDays size={19} /></div>
-          <span className="text-[10px] tracking-tight">Jadwal</span>
-          {unreadSchedule > 0 && (
-            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
-          )}
-        </button>
-      )}
+        {/* 5. Pelatih: Jadwal / Admin: Keuangan */}
+        {isPelatih ? (
+          <button
+            onClick={() => setActiveTab("jadwal")}
+            className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+              activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <div className="mb-0.5"><CalendarDays size={19} /></div>
+            <span className="text-[10px] tracking-tight">Jadwal</span>
+            {unreadSchedule > 0 && (
+              <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => setActiveTab("keuangan")}
+            className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+              activeTab === "keuangan" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <div className="mb-0.5"><Wallet size={19} /></div>
+            <span className="text-[10px] tracking-tight">Keuangan</span>
+          </button>
+        )}
 
-      {/* 5. Pelatih: Jadwal / Admin: Keuangan */}
-      {isPelatih ? (
+        {/* 6. User Profile Button */}
         <button
-          onClick={() => setActiveTab("jadwal")}
-          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className="mb-0.5"><CalendarDays size={19} /></div>
-          <span className="text-[10px] tracking-tight">Jadwal</span>
-          {unreadSchedule > 0 && (
-            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
-          )}
-        </button>
-      ) : (
-        <button
-          onClick={() => setActiveTab("keuangan")}
+          onClick={() => setActiveTab("profile")}
           className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-            activeTab === "keuangan" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+            activeTab === "profile" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-cyan-600"
           }`}
+          title="Lihat Halaman Profil"
         >
-          <div className="mb-0.5"><Wallet size={19} /></div>
-          <span className="text-[10px] tracking-tight">Keuangan</span>
+          <div className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-[10px] shadow-xs border ${
+            activeTab === "profile" ? "border-cyan-400 ring-2 ring-cyan-400/40" : "border-white"
+          } overflow-hidden mb-0.5`}>
+            {isCustomImage && userAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={getAvatarImageUrl(userAvatar)}
+                alt={sessionUser || "User"}
+                className="h-full w-full object-cover"
+              />
+            ) : userAvatar ? (
+              <span>{userAvatar}</span>
+            ) : (
+              <span>{initialLetter}</span>
+            )}
+          </div>
+          <span className="text-[10px] tracking-tight font-bold">Profil</span>
         </button>
-      )}
-
-      {/* 6. User Profile Button */}
-      <button
-        onClick={() => setActiveTab("profile")}
-        className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-          activeTab === "profile" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-cyan-600"
-        }`}
-        title="Lihat Halaman Profil"
-      >
-        <div className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-[10px] shadow-xs border ${
-          activeTab === "profile" ? "border-cyan-400 ring-2 ring-cyan-400/40" : "border-white"
-        } overflow-hidden mb-0.5`}>
-          {isCustomImage && userAvatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={getAvatarImageUrl(userAvatar)}
-              alt={sessionUser || "User"}
-              className="h-full w-full object-cover"
-            />
-          ) : userAvatar ? (
-            <span>{userAvatar}</span>
-          ) : (
-            <span>{initialLetter}</span>
-          )}
-        </div>
-        <span className="text-[10px] tracking-tight font-bold">Profil</span>
-      </button>
+      </div>
     </div>
   );
 }

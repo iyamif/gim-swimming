@@ -1085,7 +1085,7 @@ export default function AppsPage() {
       defaultInvoice;
 
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-10 flex flex-col">
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col">
         <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
           <ParentBody
             sessionUser={sessionUser}
