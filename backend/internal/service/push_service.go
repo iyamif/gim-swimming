@@ -331,8 +331,8 @@ func (s *pushService) SendSchedulePushNotification(ctx context.Context, session 
 				}
 
 				coachPayload := &model.WebPushPayload{
-					Title:       "Jadwal Pelatihan Baru",
-					Body:        fmt.Sprintf("Halo Pelatih %s, Anda memiliki jadwal '%s' pada %s pukul %s di %s bersama siswa: %s.", sess.CoachName, sess.Title, formattedDate, timeRange, sess.PoolArea, studentNamesStr),
+					Title:       "Jadwal Baru",
+					Body:        fmt.Sprintf("Halo %s, Anda memiliki jadwal '%s' pada %s pukul %s di %s bersama siswa: %s.", sess.CoachName, sess.Title, formattedDate, timeRange, sess.PoolArea, studentNamesStr),
 					Message:     fmt.Sprintf("Jadwal '%s' pada %s pukul %s di %s.", sess.Title, formattedDate, timeRange, sess.PoolArea),
 					Icon:        "/icon.png",
 					Badge:       "/icon.png",
@@ -619,8 +619,8 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_2h", sess.ID, "pelatih", sess.CoachName)
 				if !alreadyNotified {
 					coachNotif := &model.AdminNotification{
-						Title:        "Pengingat Jadwal Hari Ini",
-						Message:      fmt.Sprintf("Halo Pelatih %s, jadwal sesi latihan '%s' di %s akan dimulai pukul %s (2 jam lagi). Mohon persiapkan diri dan hadir tepat waktu.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
+						Title:        "Pengingat Jadwal",
+						Message:      fmt.Sprintf("Halo %s, jadwal sesi latihan '%s' di %s akan dimulai pukul %s (2 jam lagi). Mohon persiapkan diri dan hadir tepat waktu.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
 						Type:         "schedule_reminder_2h",
 						TargetRole:   "pelatih",
 						TargetUserID: sess.CoachID,
@@ -724,8 +724,8 @@ func (s *pushService) CheckAndSendPreSessionReminders(ctx context.Context, sched
 				alreadyNotified, _ := s.attRepo.HasNotification(ctx, "schedule_reminder_30m", sess.ID, "pelatih", sess.CoachName)
 				if !alreadyNotified {
 					coachNotif := &model.AdminNotification{
-						Title:        "Pengingat Sesi Pelatihan (30 Menit Lagi) ⏱️🏊‍♂️",
-						Message:      fmt.Sprintf("Halo Pelatih %s, sesi latihan '%s' di %s akan dimulai pukul %s (30 menit lagi). Silakan bersiap-siap menuju lokasi.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
+						Title:        "Pengingat Sesi Pelatihan",
+						Message:      fmt.Sprintf("Halo %s, sesi latihan '%s' di %s akan dimulai pukul %s (30 menit lagi). Silakan bersiap-siap menuju lokasi.", sess.CoachName, sess.Title, sess.PoolArea, sess.TimeStart),
 						Type:         "schedule_reminder_30m",
 						TargetRole:   "pelatih",
 						TargetUserID: sess.CoachID,
