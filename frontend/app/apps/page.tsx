@@ -1011,12 +1011,7 @@ export default function AppsPage() {
             alt="GIM Swimming"
             className="h-20 w-20 object-contain drop-shadow-2xl animate-float-movement"
           />
-          <div className="flex items-center space-x-2 text-cyan-400">
-            <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-            <span className="text-xs font-semibold tracking-wider uppercase text-cyan-200">
-              Memeriksa Sesi Pengguna...
-            </span>
-          </div>
+
         </div>
       </div>
     );
