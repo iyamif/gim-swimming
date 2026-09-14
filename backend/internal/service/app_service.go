@@ -747,7 +747,7 @@ func (s *appService) CreateSchedule(ctx context.Context, input *model.CreateSche
 	// 1. Notification for Assigned Coach
 	if session.CoachName != "" {
 		coachTitle := "Jadwal Pelatihan Baru"
-		coachMsg := fmt.Sprintf("Halo Pelatih %s, Anda memiliki jadwal pelatihan baru: '%s' pada %s pukul %s di %s bersama siswa: %s.",
+		coachMsg := fmt.Sprintf("Halo %s, Anda memiliki jadwal pelatihan baru: '%s' pada %s pukul %s di %s bersama siswa: %s.",
 			session.CoachName, session.Title, formattedDate, timeRange, session.PoolArea, studentNamesStr)
 
 		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
@@ -888,8 +888,8 @@ func (s *appService) UpdateSchedule(ctx context.Context, id string, input *model
 	// 1. Updated Coach Notification
 	if existing.CoachName != "" {
 		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
-			Title:        "Jadwal Pelatihan Diperbarui",
-			Message:      fmt.Sprintf("Halo Pelatih %s, jadwal pelatihan '%s' telah diperbarui untuk tanggal %s pukul %s di %s bersama siswa: %s.",
+			Title: "Jadwal Pelatihan Diperbarui",
+			Message: fmt.Sprintf("Halo %s, jadwal pelatihan '%s' telah diperbarui untuk tanggal %s pukul %s di %s bersama siswa: %s.",
 				existing.CoachName, existing.Title, formattedDate, timeRange, existing.PoolArea, studentNamesStr),
 			Type:         "schedule_coach",
 			TargetRole:   "pelatih",
@@ -912,8 +912,8 @@ func (s *appService) UpdateSchedule(ctx context.Context, id string, input *model
 			studentID = existing.StudentIDs[idx]
 		}
 		_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
-			Title:        "Jadwal Pelatihan Diperbarui",
-			Message:      fmt.Sprintf("Halo %s, jadwal pelatihan '%s' telah diperbarui untuk tanggal %s pukul %s di %s bersama Pelatih %s.",
+			Title: "Jadwal Pelatihan Diperbarui",
+			Message: fmt.Sprintf("Halo %s, jadwal pelatihan '%s' telah diperbarui untuk tanggal %s pukul %s di %s bersama Pelatih %s.",
 				trimmedName, existing.Title, formattedDate, timeRange, existing.PoolArea, existing.CoachName),
 			Type:         "schedule_student",
 			TargetRole:   "orang tua",
@@ -1608,8 +1608,8 @@ func (s *appService) ApproveCoachPayroll(ctx context.Context, id string, notes s
 	// Send notification to Coach
 	if s.attendanceRepo != nil && payroll != nil {
 		coachNotif := &model.AdminNotification{
-			Title:        "Gaji/Honor Telah Disetujui 💰🎉",
-			Message:      fmt.Sprintf("Halo Pelatih %s, gaji/honor Anda untuk periode %s sebesar Rp %s telah disetujui dan dicairkan oleh Admin.", payroll.CoachName, payroll.Month, formatRupiah(payroll.TotalAmount)),
+			Title:        "Gaji/Honor Telah Disetujui",
+			Message:      fmt.Sprintf("Halo %s, gaji/honor Anda untuk periode %s sebesar Rp %s telah disetujui dan dicairkan oleh Admin.", payroll.CoachName, payroll.Month, formatRupiah(payroll.TotalAmount)),
 			Type:         "payroll_approved",
 			TargetRole:   "pelatih",
 			TargetUserID: payroll.CoachID,
@@ -1689,5 +1689,3 @@ func formatRupiah(amount float64) string {
 	}
 	return string(res)
 }
-
-
