@@ -4253,7 +4253,7 @@ export default function ParentBody({
             href={`https://wa.me/628973180423?text=Halo%20Admin%20GIM%20Swimming,%20saya%20orang%20tua%20dari%20${encodeURIComponent(student.name)}%20ingin%20bertanya.`}
             target="_blank"
             rel="noopener noreferrer"
-            className="fixed bottom-20 right-5 md:bottom-8 md:right-8 z-40 flex items-center justify-center h-14 w-14 rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:bg-[#128C7E] hover:scale-110 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 cursor-pointer"
+            className="fixed bottom-24 right-5 sm:bottom-24 sm:right-6 md:bottom-24 md:right-8 z-50 flex items-center justify-center h-14 w-14 rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:bg-[#128C7E] hover:scale-110 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 cursor-pointer"
             aria-label="Contact WhatsApp Admin"
           >
             {/* Tooltip / Label */}
