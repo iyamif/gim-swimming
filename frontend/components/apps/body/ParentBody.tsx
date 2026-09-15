@@ -168,12 +168,26 @@ export default function ParentBody({
   onLogout,
   onRefresh,
 }: ParentBodyProps) {
-  // Navigation tab state: home, jadwal, presensi, progres, profile
-  const [parentActiveTab, setParentActiveTab] = useState<"home" | "jadwal" | "presensi" | "progres" | "profile">("home");
+  // Navigation tab state: home, jadwal, presensi, progres, profile, keuangan, reschedule, pengumuman
+  const [parentActiveTab, setParentActiveTab] = useState<
+    "home" | "jadwal" | "presensi" | "progres" | "profile" | "keuangan" | "reschedule" | "pengumuman"
+  >("home");
 
   React.useEffect(() => {
     const handleSwitchTab = (e: any) => {
-      if (e.detail && ["home", "jadwal", "presensi", "progres", "profile"].includes(e.detail)) {
+      if (
+        e.detail &&
+        [
+          "home",
+          "jadwal",
+          "presensi",
+          "progres",
+          "profile",
+          "keuangan",
+          "reschedule",
+          "pengumuman",
+        ].includes(e.detail)
+      ) {
         setParentActiveTab(e.detail);
       }
     };
@@ -229,11 +243,6 @@ export default function ParentBody({
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [avatarSaveSuccess, setAvatarSaveSuccess] = useState(false);
   const [avatarError, setAvatarError] = useState("");
-
-  // Student Dashboard Action Container Modals
-  const [showKeuanganModal, setShowKeuanganModal] = useState(false);
-  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-  const [showPengumumanModal, setShowPengumumanModal] = useState(false);
 
   // Reschedule Form States
   const [rescheduleSessionId, setRescheduleSessionId] = useState("");
@@ -828,6 +837,47 @@ export default function ParentBody({
   // Muncul setelah sesi ke-3 dilakukan (completedSessionsCount >= 3) dan jika memang belum lunas
   const showSPPReminder = completedSessionsCount >= 3 && invoice && invoice.status !== "Lunas";
 
+  // Sesi yang sudah benar-benar dihadiri / diselesaikan oleh siswa
+  const attendedSessions = useMemo(() => {
+    return parentStudentHistory.filter(
+      (s) => s.status === "Hadir" || s.status === "Terlambat" || s.status === "Selesai"
+    );
+  }, [parentStudentHistory]);
+
+  // Catatan evaluasi dari pelatih (dari presensi checkout pelatih atau student.notes)
+  const coachEvaluationsList = useMemo(() => {
+    const list: { date: string; title: string; coachName: string; notes: string; status: string }[] = [];
+
+    // Dari catatan attendance siswa yang diinput pelatih
+    studentAttendances.forEach((att) => {
+      if (att.notes && att.notes.trim() !== "") {
+        list.push({
+          date: att.date || (att.created_at ? att.created_at.split("T")[0] : todayISO),
+          title: att.schedule_title || att.class || `${student.class} Class`,
+          coachName: coach.name,
+          notes: att.notes.trim(),
+          status: att.status || "Hadir",
+        });
+      }
+    });
+
+    // Dari catatan student.notes jika ada
+    if (student.notes && student.notes.trim() !== "" && list.length === 0) {
+      list.push({
+        date: todayISO,
+        title: `${student.class} Class`,
+        coachName: coach.name,
+        notes: student.notes.trim(),
+        status: "Selesai",
+      });
+    }
+
+    return list;
+  }, [studentAttendances, student.notes, student.class, coach.name, todayISO]);
+
+  const latestCoachEvaluation = coachEvaluationsList[0] || null;
+  const hasEverAttendedSession = attendedSessions.length > 0 || coachEvaluationsList.length > 0;
+
   // Today's scheduled session created by admin for this student
   const todayScheduleObj = studentSchedules.find((s) => s.date === todayISO) || null;
   const todaySession = todayScheduleObj
@@ -1254,6 +1304,9 @@ export default function ParentBody({
                   {parentActiveTab === "jadwal" && "Jadwal Latihan Renang"}
                   {parentActiveTab === "presensi" && "Presensi Kehadiran Siswa"}
                   {parentActiveTab === "progres" && "Progres Report Siswa"}
+                  {parentActiveTab === "keuangan" && "Keuangan & Riwayat SPP"}
+                  {parentActiveTab === "reschedule" && "Pengajuan Reschedule Jadwal"}
+                  {parentActiveTab === "pengumuman" && "Pengumuman Akademik"}
                 </h2>
               </div>
             </div>
@@ -1312,60 +1365,139 @@ export default function ParentBody({
                   </div>
                 </div>
 
-                {/* 7-Days Weekly Strip Capsules */}
-                <div className="grid grid-cols-7 gap-1 sm:gap-2">
-                  {weekDays.map((dateObj) => {
-                    const today = isSameDay(dateObj, new Date());
-                    const dayOfWeek = dateObj.getDay();
-                    const dayNum = dateObj.getDate();
-                    const dayName = dayNamesShort[dayOfWeek];
-                    const dateISO = toLocalISO(dateObj);
-                    const hasSession = studentSchedules.some((s) => s.date === dateISO);
+                {calendarViewMode === "week" ? (
+                  /* 7-Days Weekly Strip Capsules */
+                  <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                    {weekDays.map((dateObj) => {
+                      const today = isSameDay(dateObj, new Date());
+                      const dayOfWeek = dateObj.getDay();
+                      const dayNum = dateObj.getDate();
+                      const dayName = dayNamesShort[dayOfWeek];
+                      const dateISO = toLocalISO(dateObj);
+                      const hasSession = studentSchedules.some((s) => s.date === dateISO);
 
-                    return (
-                      <button
-                        key={dateObj.toISOString()}
-                        onClick={() => handleDateClick(dateObj)}
-                        className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
-                          ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
-                          : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
-                          }`}
-                      >
+                      return (
+                        <button
+                          key={dateObj.toISOString()}
+                          onClick={() => handleDateClick(dateObj)}
+                          className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
+                            ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102"
+                            : "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
+                            }`}
+                        >
+                          <span
+                            className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${today
+                              ? "text-cyan-100"
+                              : dayOfWeek === 0 || dayOfWeek === 6
+                                ? "text-cyan-600"
+                                : "text-slate-400"
+                              }`}
+                          >
+                            {dayName}
+                          </span>
+                          <span className="text-xs sm:text-sm font-black">
+                            {dayNum}
+                          </span>
+                          {hasSession && (
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full mt-1 ${today ? "bg-white" : "bg-cyan-400"
+                                }`}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Full Monthly Calendar Grid (Bulan Berjalan) */
+                  <div className="space-y-1.5 pt-1">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center">
+                      {dayNamesShort.map((dayName, idx) => (
                         <span
-                          className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider mb-0.5 ${today
-                            ? "text-cyan-100"
-                            : dayOfWeek === 0 || dayOfWeek === 6
-                              ? "text-cyan-600"
-                              : "text-slate-400"
+                          key={dayName}
+                          className={`text-[10px] font-bold uppercase py-1 ${idx === 0 || idx === 6 ? "text-cyan-600" : "text-slate-400"
                             }`}
                         >
                           {dayName}
                         </span>
-                        <span className="text-xs sm:text-sm font-black">
-                          {dayNum}
-                        </span>
-                        {hasSession && (
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full mt-1 ${today ? "bg-white" : "bg-cyan-400"
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                      {monthDays.map(({ dateObj, isCurrentMonth }, idx) => {
+                        const today = isSameDay(dateObj, new Date());
+                        const dayNum = dateObj.getDate();
+                        const dayOfWeek = dateObj.getDay();
+                        const dateISO = toLocalISO(dateObj);
+                        const hasSession = studentSchedules.some((s) => s.date === dateISO);
+
+                        return (
+                          <button
+                            key={`${dateObj.toISOString()}-${idx}`}
+                            onClick={() => handleDateClick(dateObj)}
+                            className={`flex flex-col items-center justify-center py-2 sm:py-2.5 rounded-xl transition-all duration-200 relative cursor-pointer active:scale-95 group ${today
+                              ? "bg-gradient-to-b from-blue-600 to-cyan-500 text-white font-black shadow-md shadow-cyan-500/30 scale-102 ring-2 ring-cyan-400/40"
+                              : isCurrentMonth
+                                ? "bg-slate-50/80 hover:bg-cyan-50/80 text-slate-700 hover:text-cyan-700 border border-slate-100/80"
+                                : "bg-slate-50/30 text-slate-300 hover:text-slate-500 hover:bg-slate-100/60 border border-transparent opacity-60"
                               }`}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                          >
+                            <span
+                              className={`text-xs font-bold ${today
+                                ? "text-white"
+                                : isCurrentMonth
+                                  ? dayOfWeek === 0 || dayOfWeek === 6
+                                    ? "text-cyan-600"
+                                    : "text-slate-700"
+                                  : "text-slate-300"
+                                }`}
+                            >
+                              {dayNum}
+                            </span>
+
+                            {hasSession && (
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full mt-0.5 ${today
+                                  ? "bg-white"
+                                  : isCurrentMonth
+                                    ? "bg-cyan-500"
+                                    : "bg-slate-300"
+                                  }`}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100/80 pt-2.5">
                   <span className="flex items-center gap-1.5">
-                    <Lightbulb size={12} className="text-amber-500 shrink-0" />
-                    <span>Klik hari untuk rincian sesi</span>
+                    <Lightbulb size={13} className="text-amber-500 shrink-0" />
+                    <span>Klik salah satu hari untuk melihat rincian</span>
                   </span>
                   <button
-                    onClick={() => setParentActiveTab("jadwal")}
+                    onClick={() => {
+                      setCalendarViewMode((prev) => (prev === "week" ? "month" : "week"));
+                      if (calendarViewMode === "week") {
+                        setMonthAnchorDate(new Date());
+                      }
+                    }}
                     className="font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-xl transition cursor-pointer flex items-center gap-1"
                   >
-                    <span>Buka Jadwal Lengkap</span>
-                    <ChevronRight size={12} />
+                    {calendarViewMode === "week" ? (
+                      <>
+                        <Calendar size={12} />
+                        <span>Bulanan</span>
+                        <ChevronRight size={12} />
+                      </>
+                    ) : (
+                      <>
+                        <ChevronLeft size={12} />
+                        <span>Mingguan</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1390,7 +1522,7 @@ export default function ParentBody({
               <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
                 {/* 1. Keuangan */}
                 <button
-                  onClick={() => setShowKeuanganModal(true)}
+                  onClick={() => setParentActiveTab("keuangan")}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-blue-50/80 border border-slate-100 hover:border-blue-200 transition-all duration-200 group cursor-pointer active:scale-95 text-center"
                 >
                   <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/80 shadow-2xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-1.5">
@@ -1406,7 +1538,7 @@ export default function ParentBody({
 
                 {/* 2. Reschedule */}
                 <button
-                  onClick={() => setShowRescheduleModal(true)}
+                  onClick={() => setParentActiveTab("reschedule")}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-teal-50/80 border border-slate-100 hover:border-teal-200 transition-all duration-200 group cursor-pointer active:scale-95 text-center"
                 >
                   <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 border border-teal-100/80 shadow-2xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-1.5">
@@ -1422,7 +1554,7 @@ export default function ParentBody({
 
                 {/* 3. Pengumuman */}
                 <button
-                  onClick={() => setShowPengumumanModal(true)}
+                  onClick={() => setParentActiveTab("pengumuman")}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-amber-50/80 border border-slate-100 hover:border-amber-200 transition-all duration-200 group cursor-pointer active:scale-95 text-center"
                 >
                   <div className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/80 shadow-2xs group-hover:scale-105 group-hover:shadow-md transition-all duration-200 mb-1.5">
@@ -1812,41 +1944,81 @@ export default function ParentBody({
             )}
 
             {/* Quick Progress Report Snippet */}
-            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
+            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
                   <TrendingUp size={16} className="text-cyan-600" />
                   <span>Progres Evaluasi Kemampuan</span>
                 </h4>
-                <button
-                  onClick={() => setParentActiveTab("progres")}
-                  className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 cursor-pointer flex items-center gap-1"
-                >
-                  <span>Detail Laporan</span>
-                  <ChevronRight size={11} />
-                </button>
+                {hasEverAttendedSession ? (
+                  <button
+                    onClick={() => setParentActiveTab("progres")}
+                    className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Detail Laporan</span>
+                    <ChevronRight size={11} />
+                  </button>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-100">
+                    Belum Ada Data
+                  </span>
+                )}
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                    <span>Meluncur & Pernapasan</span>
-                    <span className="text-cyan-600">90%</span>
+              {!hasEverAttendedSession ? (
+                <div className="py-5 text-center space-y-2">
+                  <div className="h-10 w-10 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto border border-slate-100">
+                    <TrendingUp size={20} className="text-slate-300" />
                   </div>
-                  <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full w-[90%] rounded-full" />
+                  <p className="text-xs font-bold text-slate-700">Belum Ada Catatan Evaluasi</p>
+                  <p className="text-[11px] text-slate-400 max-w-xs mx-auto leading-relaxed">
+                    Evaluasi kemampuan akan diisi dan diperbarui oleh pelatih setelah siswa mengikuti dan menyelesaikan sesi latihan.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {latestCoachEvaluation ? (
+                    <div className="p-3 rounded-2xl bg-cyan-50/50 border border-cyan-100/60 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-cyan-700 uppercase tracking-wider">
+                          Catatan Evaluasi • Coach {latestCoachEvaluation.coachName}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {latestCoachEvaluation.date}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 italic font-medium leading-relaxed">
+                        &ldquo;{latestCoachEvaluation.notes}&rdquo;
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                      <span>Meluncur &amp; Pernapasan</span>
+                      <span className="text-cyan-600">{Math.min(100, 60 + attendedSessions.length * 10)}%</span>
+                    </div>
+                    <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, 60 + attendedSessions.length * 10)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                      <span>Renang Gaya Dada</span>
+                      <span className="text-cyan-600">{Math.min(100, 50 + attendedSessions.length * 10)}%</span>
+                    </div>
+                    <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, 50 + attendedSessions.length * 10)}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                    <span>Renang Gaya Dada</span>
-                    <span className="text-cyan-600">75%</span>
-                  </div>
-                  <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full w-[75%] rounded-full" />
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Catatan Riwayat Pertemuan Siswa (Basis SPP & Kehadiran) */}
@@ -2450,16 +2622,23 @@ export default function ParentBody({
             {/* 2. ABSENSI CARD */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-2.5">
               <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                Absensi
+                Absensi &amp; Kehadiran
               </h4>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-xs sm:text-sm font-black text-slate-900 shrink-0">
-                  {student.attendanceRate || "95%"} {monthNames[new Date().getMonth()].substring(0, 3)}
+                  {attendedSessions.length === 0
+                    ? "0 Sesi (Belum ada sesi)"
+                    : `${student.attendanceRate || "100%"} (${attendedSessions.length} Sesi)`}
                 </span>
                 <div className="flex-1 h-2.5 sm:h-3 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 transition-all duration-500"
-                    style={{ width: `${parseInt(student.attendanceRate) || 95}%` }}
+                    style={{
+                      width:
+                        attendedSessions.length === 0
+                          ? "0%"
+                          : `${parseInt(student.attendanceRate) || (parentStudentHistory.length > 0 ? Math.round((attendedSessions.length / parentStudentHistory.length) * 100) : 100)}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -2472,103 +2651,109 @@ export default function ParentBody({
                   Skill Progress
                 </h4>
                 <span className="text-[11px] font-bold text-slate-400">
-                  Out of 5
+                  {hasEverAttendedSession ? "Out of 5" : "Belum Ada Nilai"}
                 </span>
               </div>
 
-              {/* Skills List with Star Ratings */}
-              <div className="space-y-3">
-                {[
-                  { name: "Floating", rating: 5 },
-                  { name: "Kicking", rating: 5 },
-                  { name: "Arms", rating: 5 },
-                  { name: "Breathing", rating: 4 },
-                ].map((skill, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-bold text-slate-800">
-                      {skill.name}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            size={14}
-                            className={star <= skill.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs font-bold text-slate-700 w-3 text-right">
-                        {skill.rating}
-                      </span>
-                    </div>
+              {!hasEverAttendedSession ? (
+                <div className="py-6 text-center space-y-2">
+                  <div className="h-10 w-10 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto border border-slate-100">
+                    <Star size={20} />
                   </div>
-                ))}
-              </div>
+                  <p className="text-xs font-bold text-slate-700">Belum Ada Evaluasi Skill</p>
+                  <p className="text-[11px] text-slate-400 max-w-xs mx-auto leading-relaxed">
+                    Evaluasi teknik dan perkembangan siswa akan dinilai langsung oleh pelatih setelah siswa menyelesaikan sesi latihan.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Skills List with Star Ratings */}
+                  <div className="space-y-3">
+                    {[
+                      { name: "Meluncur (Floating)", rating: Math.min(5, Math.max(3, attendedSessions.length >= 3 ? 5 : 4)) },
+                      { name: "Kayuhan Kaki (Kicking)", rating: Math.min(5, Math.max(3, attendedSessions.length >= 2 ? 5 : 4)) },
+                      { name: "Gerakan Lengan (Arms)", rating: Math.min(5, Math.max(3, attendedSessions.length >= 4 ? 5 : 4)) },
+                      { name: "Pernapasan Ritmik (Breathing)", rating: Math.min(5, Math.max(2, attendedSessions.length >= 5 ? 5 : 4)) },
+                    ].map((skill, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-bold text-slate-800">
+                          {skill.name}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                size={14}
+                                className={star <= skill.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs font-bold text-slate-700 w-3 text-right">
+                            {skill.rating}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-              {/* Catatan Pelatih */}
-              <div className="border-t border-slate-100 pt-3 space-y-1.5">
-                <h5 className="text-xs font-black text-slate-900">
-                  Catatan Pelatih
-                </h5>
-                <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-2xl border border-slate-100/80">
-                  Coach {coach.name}: &ldquo;Perkembangan teknik meluncur, posisi tubuh dalam air, dan kayuhan kaki anak sangat memuaskan. Tingkatkan konsistensi pernapasan ritmik dan stamina saat jarak jauh.&rdquo;
-                </p>
-              </div>
+                  {/* Catatan Pelatih */}
+                  <div className="border-t border-slate-100 pt-3 space-y-1.5">
+                    <h5 className="text-xs font-black text-slate-900">
+                      Catatan Pelatih
+                    </h5>
+                    <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-2xl border border-slate-100/80">
+                      Coach {coach.name}: &ldquo;{latestCoachEvaluation ? latestCoachEvaluation.notes : "Perkembangan teknik meluncur, posisi tubuh dalam air, dan kayuhan kaki anak sangat memuaskan. Tingkatkan konsistensi pernapasan ritmik dan stamina saat jarak jauh."}&rdquo;
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 4. PAST EVALUATIONS */}
             <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                  Past evaluations
+                  Riwayat Evaluasi Sesi
                 </h4>
-                <button
-                  onClick={() => setShowAllPastEvaluations(!showAllPastEvaluations)}
-                  className="text-xs font-bold text-cyan-600 hover:text-cyan-700 cursor-pointer flex items-center gap-1"
-                >
-                  <span>{showAllPastEvaluations ? "Hide" : "View all"}</span>
-                  {showAllPastEvaluations ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                {(showAllPastEvaluations ? pastEvaluations : pastEvaluations.slice(0, 1)).map(
-                  (past, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedPastEval(past)}
-                      className="p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50/60 border border-slate-100 flex items-center justify-between gap-3 cursor-pointer transition"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black text-xs flex items-center justify-center shrink-0 border border-white shadow-2xs overflow-hidden">
-                          {isCustomImage && userAvatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={getAvatarImageUrl(userAvatar)}
-                              alt={student.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span>{initialLetter}</span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-slate-900">{student.name}</p>
-                          <p className="text-[10px] text-slate-500 font-semibold">
-                            Level: {past.level}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold">
-                        <span>{past.period}</span>
-                        <ChevronRight size={14} className="text-slate-400" />
-                      </div>
-                    </div>
-                  )
+                {coachEvaluationsList.length > 1 && (
+                  <button
+                    onClick={() => setShowAllPastEvaluations(!showAllPastEvaluations)}
+                    className="text-xs font-bold text-cyan-600 hover:text-cyan-700 cursor-pointer flex items-center gap-1"
+                  >
+                    <span>{showAllPastEvaluations ? "Sembunyikan" : "Lihat semua"}</span>
+                    {showAllPastEvaluations ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  </button>
                 )}
               </div>
+
+              {!hasEverAttendedSession || coachEvaluationsList.length === 0 ? (
+                <div className="py-5 text-center text-xs text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-100">
+                  Belum ada riwayat catatan evaluasi dari pelatih.
+                </div>
+              ) : (
+                <div className="space-y-2 pt-1">
+                  {(showAllPastEvaluations ? coachEvaluationsList : coachEvaluationsList.slice(0, 2)).map(
+                    (evalItem, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3.5 rounded-2xl bg-slate-50 hover:bg-cyan-50/60 border border-slate-100 space-y-1.5 transition"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black text-slate-900">{evalItem.title}</span>
+                          <span className="text-[10px] font-bold text-slate-400">{evalItem.date}</span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium italic">
+                          &ldquo;{evalItem.notes}&rdquo;
+                        </p>
+                        <p className="text-[10px] text-cyan-700 font-bold">
+                          Pelatih: Coach {evalItem.coachName}
+                        </p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 5. DOWNLOAD AS PDF BUTTON */}
@@ -3409,6 +3594,321 @@ export default function ParentBody({
             )}
           </div>
         )}
+
+        {/* ==========================================
+            TAB 5: KEUANGAN (STATUS & RIWAYAT SPP SISWA)
+            ========================================== */}
+        {parentActiveTab === "keuangan" && (
+          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn pb-24 font-sans">
+            {/* Tagihan Saat Ini Card */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-500 text-white space-y-4 shadow-xl shadow-blue-500/20 border border-white/10">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-cyan-100 uppercase tracking-wider">
+                    Tagihan SPP Aktif
+                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-black mt-1 tracking-tight">
+                    Rp {(invoice?.amount || 350000).toLocaleString("id-ID")}
+                  </h3>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-xs ${
+                    invoice?.status === "Lunas"
+                      ? "bg-emerald-400 text-emerald-950 border-emerald-300"
+                      : invoice?.status === "Menunggu Konfirmasi"
+                        ? "bg-amber-400 text-amber-950 border-amber-300"
+                        : "bg-rose-400 text-rose-950 border-rose-300"
+                  }`}
+                >
+                  {invoice?.status || "Belum Dibayar"}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-white/20 text-xs flex items-center justify-between text-cyan-100 flex-wrap gap-2">
+                <span>Paket: Kursus Renang 4 Sesi / Bulan</span>
+                <span>Jatuh Tempo: Tanggal 10 Tiap Bulan</span>
+              </div>
+            </div>
+
+            {/* Rekening Pembayaran Resmi */}
+            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <span className="text-xs font-bold text-slate-700">Rekening Resmi Pembayaran:</span>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                  Bank BCA
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+                <div>
+                  <p className="text-base sm:text-lg font-mono font-black text-slate-900 tracking-wider select-all">
+                    88921-2291
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    a.n GIM Swimming Club
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyBCA}
+                  className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-blue-200 active:scale-95"
+                >
+                  {copiedBank ? (
+                    <>
+                      <Check size={14} className="text-emerald-600" />
+                      <span>Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Salin No. Rek</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {invoice?.status !== "Lunas" && (
+                <button
+                  type="button"
+                  onClick={() => onUploadReceipt(invoice?.id || "inv-1")}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold text-xs sm:text-sm transition cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-95"
+                >
+                  <Upload size={16} />
+                  <span>Unggah Bukti Transfer SPP</span>
+                </button>
+              )}
+            </div>
+
+            {/* Riwayat Pembayaran Terdahulu */}
+            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
+              <h5 className="text-xs sm:text-sm font-black text-slate-900">
+                Riwayat Pembayaran Terdahulu:
+              </h5>
+              <div className="space-y-2.5">
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-slate-900">SPP Bulan Agustus 2026</p>
+                    <p className="text-[10px] text-slate-500">Diverifikasi Admin • 08 Agustus 2026</p>
+                  </div>
+                  <span className="font-bold text-emerald-700">Lunas (Rp 350.000)</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-slate-900">SPP Bulan Juli 2026</p>
+                    <p className="text-[10px] text-slate-500">Diverifikasi Admin • 05 Juli 2026</p>
+                  </div>
+                  <span className="font-bold text-emerald-700">Lunas (Rp 350.000)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            TAB 6: RESCHEDULE (PERMOHONAN RESCHEDULE JADWAL)
+            ========================================== */}
+        {parentActiveTab === "reschedule" && (
+          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn pb-24 font-sans">
+            <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 border border-teal-200">
+                  <RotateCw size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">
+                    Formulir Reschedule Sesi
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Ajukan perubahan jadwal sesi latihan untuk <strong className="text-slate-800">{student.name}</strong>
+                  </p>
+                </div>
+              </div>
+
+              {rescheduleSent ? (
+                <div className="p-6 text-center space-y-3 bg-emerald-50 rounded-2xl border border-emerald-200 animate-fadeIn">
+                  <div className="h-12 w-12 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-md">
+                    <Check size={24} />
+                  </div>
+                  <h4 className="text-sm font-black text-emerald-950">Permohonan Berhasil Dikirim!</h4>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    Permohonan reschedule untuk siswa <strong>{student.name}</strong> telah diteruskan ke Admin &amp; Pelatih via WhatsApp untuk persetujuan.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRescheduleSent(false);
+                      setParentActiveTab("home");
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    Kembali ke Beranda
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Pilih Sesi Latihan yang Ingin Di-reschedule <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={rescheduleSessionId}
+                      onChange={(e) => setRescheduleSessionId(e.target.value)}
+                      className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                    >
+                      <option value="">-- Pilih Sesi Latihan --</option>
+                      {studentSchedules.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title} ({s.date || "Jadwal"} • {s.timeStart}-{s.timeEnd} WIB di {s.poolArea})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                        Usulan Tanggal Baru <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        min={todayISO}
+                        value={rescheduleTargetDate}
+                        onChange={(e) => setRescheduleTargetDate(e.target.value)}
+                        className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                        Usulan Jam Baru <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={rescheduleTargetTime}
+                        onChange={(e) => setRescheduleTargetTime(e.target.value)}
+                        className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Alasan Reschedule <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      value={rescheduleReason}
+                      onChange={(e) => setRescheduleReason(e.target.value)}
+                      placeholder="Contoh: Siswa ada agenda sekolah mendadak, sakit / pemulihan stamina, dll."
+                      rows={3}
+                      className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition resize-none"
+                    />
+                  </div>
+
+                  <div className="p-3.5 bg-teal-50/80 rounded-2xl border border-teal-100 text-xs text-teal-900 space-y-1">
+                    <p className="font-bold">Ketentuan Reschedule:</p>
+                    <p className="text-[11px] text-teal-800 leading-relaxed">
+                      Pengajuan reschedule harap dilakukan paling lambat 6 jam sebelum sesi dimulai agar pelatih dapat menyesuaikan alokasi waktu dan jalur kolam renang.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setParentActiveTab("home")}
+                      className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!rescheduleTargetDate || !rescheduleReason.trim()}
+                      onClick={() => {
+                        const msg = `Halo Admin GIM Swimming,%0ASaya orang tua dari ${student.name} ingin mengajukan permohonan reschedule sesi latihan:%0A- Usulan Tanggal Baru: ${rescheduleTargetDate}%0A- Usulan Jam: ${rescheduleTargetTime} WIB%0A- Alasan: ${rescheduleReason}%0AMohon konfirmasinya. Terima kasih!`;
+                        window.open(`https://wa.me/628973180423?text=${msg}`, "_blank");
+                        setRescheduleSent(true);
+                      }}
+                      className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Send size={14} />
+                      <span>Kirim ke Admin (WA)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            TAB 7: PENGUMUMAN (INFORMASI & BERITA KLUB)
+            ========================================== */}
+        {parentActiveTab === "pengumuman" && (
+          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn pb-24 font-sans">
+            <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
+                  <Megaphone size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">
+                    Pengumuman &amp; Berita Klub
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Informasi resmi GIM Swimming Club untuk orang tua &amp; siswa
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {/* Pengumuman 1 */}
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
+                      Penting • Ujian Naik Tingkat
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">14 Sep 2026</span>
+                  </div>
+                  <h5 className="text-xs sm:text-sm font-black text-slate-900">
+                    Pelaksanaan Ujian Kenaikan Tingkatan &amp; Sertifikasi Renang
+                  </h5>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Ujian evaluasi tingkatan renang periode September akan dilaksanakan serentak di Kolam Utama A. Mohon orang tua memastikan kesiapan fisik siswa dan pakaian renang sesuai standar.
+                  </p>
+                </div>
+
+                {/* Pengumuman 2 */}
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-[10px] font-black uppercase">
+                      Jadwal Kolam
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">01 Sep 2026</span>
+                  </div>
+                  <h5 className="text-xs sm:text-sm font-black text-slate-900">
+                    Penggunaan Fasilitas Kolam Renang Nalendra &amp; Wera 312
+                  </h5>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Semua sesi renang tetap berlangsung sesuai jadwal yang telah ditentukan pada aplikasi. Presensi GPS dibuka 2 jam sebelum sesi latihan dimulai.
+                  </p>
+                </div>
+
+                {/* Pengumuman 3 */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                      Tips &amp; Kesehatan
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">Terbaru</span>
+                  </div>
+                  <h5 className="text-xs sm:text-sm font-black text-slate-900">
+                    Panduan Pemanasan &amp; Perlengkapan Wajib Siswa
+                  </h5>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Wajib membawa kacamata renang (goggles), pakaian renang resmi, dan handuk pribadi untuk menjaga kebersihan dan kenyamanan selama sesi berlangsung.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ==========================================
@@ -3744,7 +4244,7 @@ export default function ParentBody({
       )}
 
       {/* ==========================================
-          FLOATING WHATSAPP BUTTON (DIRECT TO ADMIN WA)
+          FLOATING WHATSAPP BUTTON (MATCHING LANDING PAGE STYLE)
           ========================================== */}
       {mounted &&
         parentActiveTab === "home" &&
@@ -3753,403 +4253,28 @@ export default function ParentBody({
             href={`https://wa.me/628973180423?text=Halo%20Admin%20GIM%20Swimming,%20saya%20orang%20tua%20dari%20${encodeURIComponent(student.name)}%20ingin%20bertanya.`}
             target="_blank"
             rel="noopener noreferrer"
-            className="fixed bottom-20 right-5 md:bottom-20 md:right-8 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xl shadow-emerald-600/35 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group"
-            title="Chat Admin via WhatsApp"
+            className="fixed bottom-20 right-5 md:bottom-8 md:right-8 z-40 flex items-center justify-center h-14 w-14 rounded-full bg-[#25D366] text-white shadow-2xl transition-all duration-300 hover:bg-[#128C7E] hover:scale-110 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 cursor-pointer"
+            aria-label="Contact WhatsApp Admin"
           >
-            <MessageCircle size={20} className="shrink-0" />
-            <span className="hidden sm:inline font-black">Chat Admin WA</span>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+            {/* Tooltip / Label */}
+            <span className="absolute right-16 scale-0 bg-slate-900/90 text-white text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition-all duration-300 origin-right group-hover:scale-100 shadow-lg pointer-events-none flex items-center gap-1.5">
+              <span>Hubungi Kami via WA</span>
+              <MessageCircle size={13} className="text-emerald-400" />
             </span>
+
+            {/* Pulsing ring animation */}
+            <span className="absolute inset-0 rounded-full bg-[#25D366] opacity-40 animate-ping pointer-events-none group-hover:animate-none" />
+
+            {/* WhatsApp Image Icon */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo/wa.png"
+              alt="WhatsApp Logo"
+              className="h-8 w-8 relative z-10 object-contain"
+            />
           </a>,
           document.body
         )}
-
-      {/* ==========================================
-          MODAL: STATUS & RIWAYAT KEUANGAN SISWA
-          ========================================== */}
-      {showKeuanganModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div
-            onClick={() => setShowKeuanganModal(false)}
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
-          />
-          <div className="relative z-10 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-200">
-                  <CreditCard size={20} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    Status &amp; Riwayat Keuangan Siswa
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Siswa: <strong className="text-slate-800 capitalize">{student.name}</strong> • Kelas {student.class}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowKeuanganModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Tagihan Saat Ini Card */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 text-white space-y-3 shadow-md shadow-blue-500/20">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-cyan-100 uppercase tracking-wider">
-                    Tagihan SPP Aktif
-                  </span>
-                  <h3 className="text-xl font-black mt-0.5">
-                    Rp {(invoice?.amount || 350000).toLocaleString("id-ID")}
-                  </h3>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${invoice?.status === "Lunas"
-                    ? "bg-emerald-400 text-emerald-950 border-emerald-300"
-                    : invoice?.status === "Menunggu Konfirmasi"
-                      ? "bg-amber-400 text-amber-950 border-amber-300"
-                      : "bg-rose-400 text-rose-950 border-rose-300"
-                  }`}>
-                  {invoice?.status || "Belum Dibayar"}
-                </span>
-              </div>
-
-              <div className="pt-2 border-t border-white/20 text-xs flex items-center justify-between text-cyan-100">
-                <span>Paket: Kursus Renang 4 Sesi / Bulan</span>
-                <span>Jatuh Tempo: 10 Tiap Bulan</span>
-              </div>
-            </div>
-
-            {/* Rekening Transfer Bank BCA */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700">Rekening Resmi Pembayaran:</span>
-                <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                  Bank BCA
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
-                <div>
-                  <p className="text-base font-mono font-black text-slate-900 tracking-wider select-all">
-                    88921-2291
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    a.n GIM Swimming Club
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyBCA}
-                  className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer border border-blue-100"
-                >
-                  {copiedBank ? (
-                    <>
-                      <Check size={13} className="text-emerald-600" />
-                      <span>Tersalin!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={13} />
-                      <span>Salin No. Rek</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {invoice?.status !== "Lunas" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowKeuanganModal(false);
-                    onUploadReceipt(invoice?.id || "inv-1");
-                  }}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <Upload size={14} />
-                  <span>Unggah Bukti Transfer SPP</span>
-                </button>
-              )}
-            </div>
-
-            {/* Riwayat Pembayaran Tervalidasi */}
-            <div className="space-y-2">
-              <h5 className="text-xs font-bold text-slate-700">Riwayat Pembayaran Terdahulu:</h5>
-              <div className="space-y-2">
-                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
-                  <div>
-                    <p className="font-bold text-slate-900">SPP Bulan Agustus 2026</p>
-                    <p className="text-[10px] text-slate-500">Diverifikasi Admin • 08 Agustus 2026</p>
-                  </div>
-                  <span className="font-bold text-emerald-700">Lunas (Rp 350.000)</span>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
-                  <div>
-                    <p className="font-bold text-slate-900">SPP Bulan Juli 2026</p>
-                    <p className="text-[10px] text-slate-500">Diverifikasi Admin • 05 Juli 2026</p>
-                  </div>
-                  <span className="font-bold text-emerald-700">Lunas (Rp 350.000)</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowKeuanganModal(false)}
-                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==========================================
-          MODAL: PERMOHONAN RESCHEDULE JADWAL SISWA
-          ========================================== */}
-      {showRescheduleModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div
-            onClick={() => setShowRescheduleModal(false)}
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
-          />
-          <div className="relative z-10 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 border border-teal-200">
-                  <RotateCw size={20} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    Permohonan Reschedule Jadwal
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Ajukan perubahan jadwal sesi latihan {student.name}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRescheduleModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {rescheduleSent ? (
-              <div className="p-6 text-center space-y-3 bg-emerald-50 rounded-2xl border border-emerald-200 animate-fadeIn">
-                <div className="h-12 w-12 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-md">
-                  <Check size={24} />
-                </div>
-                <h4 className="text-sm font-black text-emerald-950">Permohonan Berhasil Dikirim!</h4>
-                <p className="text-xs text-emerald-800 leading-relaxed">
-                  Permohonan reschedule untuk siswa <strong>{student.name}</strong> telah diteruskan ke Admin &amp; Pelatih via WhatsApp untuk persetujuan.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRescheduleSent(false);
-                    setShowRescheduleModal(false);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition"
-                >
-                  Selesai
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3.5">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Pilih Sesi Latihan yang Ingin Di-reschedule <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={rescheduleSessionId}
-                    onChange={(e) => setRescheduleSessionId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
-                  >
-                    <option value="">-- Pilih Sesi Latihan --</option>
-                    {studentSchedules.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.title} ({s.date || "Jadwal"} • {s.timeStart}-{s.timeEnd} WIB di {s.poolArea})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Usulan Tanggal Baru <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      min={todayISO}
-                      value={rescheduleTargetDate}
-                      onChange={(e) => setRescheduleTargetDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Usulan Jam Baru <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="time"
-                      value={rescheduleTargetTime}
-                      onChange={(e) => setRescheduleTargetTime(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Alasan Reschedule <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    value={rescheduleReason}
-                    onChange={(e) => setRescheduleReason(e.target.value)}
-                    placeholder="Contoh: Siswa ada agenda sekolah mendadak, sakit / pemulihan stamina, dll."
-                    rows={3}
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition resize-none"
-                  />
-                </div>
-
-                <div className="p-3 bg-teal-50/80 rounded-2xl border border-teal-100 text-xs text-teal-900 space-y-1">
-                  <p className="font-bold">Ketentuan Reschedule:</p>
-                  <p className="text-[11px] text-teal-800 leading-relaxed">
-                    Pengajuan reschedule harap dilakukan paling lambat 6 jam sebelum sesi dimulai agar pelatih dapat menyesuaikan alokasi waktu dan jalur kolam renang.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowRescheduleModal(false)}
-                    className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!rescheduleTargetDate || !rescheduleReason.trim()}
-                    onClick={() => {
-                      const msg = `Halo Admin GIM Swimming,%0ASaya orang tua dari ${student.name} ingin mengajukan permohonan reschedule sesi latihan:%0A- Usulan Tanggal Baru: ${rescheduleTargetDate}%0A- Usulan Jam: ${rescheduleTargetTime} WIB%0A- Alasan: ${rescheduleReason}%0AMohon konfirmasinya. Terima kasih!`;
-                      window.open(`https://wa.me/628973180423?text=${msg}`, "_blank");
-                      setRescheduleSent(true);
-                    }}
-                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
-                  >
-                    <Send size={14} />
-                    <span>Kirim ke Admin (WA)</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ==========================================
-          MODAL: PENGUMUMAN RESMI KLUB RENANG
-          ========================================== */}
-      {showPengumumanModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div
-            onClick={() => setShowPengumumanModal(false)}
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
-          />
-          <div className="relative z-10 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4 my-auto border border-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
-                  <Megaphone size={20} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    Pengumuman &amp; Berita Klub
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Informasi resmi GIM Swimming Club untuk orang tua &amp; siswa
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPengumumanModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {/* Pengumuman 1 */}
-              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
-                    Penting • Ujian Naik Tingkat
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold">14 Sep 2026</span>
-                </div>
-                <h5 className="text-xs font-black text-slate-900">
-                  Pelaksanaan Ujian Kenaikan Tingkatan &amp; Sertifikasi Renang
-                </h5>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Ujian evaluasi tingkatan renang periode September akan dilaksanakan serentak di Kolam Utama A. Mohon orang tua memastikan kesiapan fisik siswa dan pakaian renang sesuai standar.
-                </p>
-              </div>
-
-              {/* Pengumuman 2 */}
-              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-[10px] font-black uppercase">
-                    Jadwal Kolam
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold">01 Sep 2026</span>
-                </div>
-                <h5 className="text-xs font-black text-slate-900">
-                  Penggunaan Fasilitas Kolam Renang Nalendra &amp; Wera 312
-                </h5>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Semua sesi renang tetap berlangsung sesuai jadwal yang telah ditentukan pada aplikasi. Presensi GPS dibuka 2 jam sebelum sesi latihan dimulai.
-                </p>
-              </div>
-
-              {/* Pengumuman 3 */}
-              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
-                    Tips &amp; Kesehatan
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold">Terbaru</span>
-                </div>
-                <h5 className="text-xs font-black text-slate-900">
-                  Panduan Pemanasan &amp; Perlengkapan Wajib Siswa
-                </h5>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Wajib membawa kacamata renang (goggles), pakaian renang resmi, dan handuk pribadi untuk menjaga kebersihan dan kenyamanan selama sesi berlangsung.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowPengumumanModal(false)}
-                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Profile Edit Modal */}
       <EditProfileModal
