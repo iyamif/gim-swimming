@@ -304,6 +304,41 @@ func (h *AppHandler) UpdateCoach(c *gin.Context) {
 	})
 }
 
+// UpdateCoachStatus handles PATCH /api/v1/coaches/:id/status
+func (h *AppHandler) UpdateCoachStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "ID pelatih tidak valid",
+		})
+		return
+	}
+
+	var input model.UpdateCoachStatusInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if err := h.appService.UpdateCoachStatus(c.Request.Context(), id, input.Status); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Status pelatih berhasil diperbarui",
+	})
+}
+
 // DeleteCoach handles DELETE /api/v1/coaches/:id
 func (h *AppHandler) DeleteCoach(c *gin.Context) {
 	idStr := c.Param("id")

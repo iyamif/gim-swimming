@@ -78,6 +78,7 @@ interface AppsBodyProps {
     experience?: string;
     pay_per_session?: number;
   }) => void;
+  onUpdateCoachStatus?: (coachId: string, status: string) => Promise<void> | void;
   onUpdateCoach?: (coachId: string, data: {
     name: string;
     spec?: string;
@@ -85,6 +86,7 @@ interface AppsBodyProps {
     email: string;
     class: string;
     avatar?: string;
+    status?: string;
     pay_per_session?: number;
   }) => Promise<void> | void;
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
@@ -133,6 +135,7 @@ export default function AppsBody({
   onDeleteStudent,
   onAddStudent,
   onAddCoach,
+  onUpdateCoachStatus,
   onUpdateCoach,
   onDeleteCoach,
 }: AppsBodyProps) {
@@ -213,6 +216,7 @@ export default function AppsBody({
           attendances={attendances}
           pools={pools}
           classPrograms={classPrograms}
+          onUpdateCoachStatus={onUpdateCoachStatus}
           onUpdateCoach={onUpdateCoach}
           onDeleteCoach={onDeleteCoach}
           setActiveTab={setActiveTab}

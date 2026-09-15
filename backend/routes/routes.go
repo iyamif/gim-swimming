@@ -133,6 +133,7 @@ func SetupRoutes(
 			coachGroup.GET("", appHandler.GetCoaches)
 			coachGroup.POST("", appHandler.CreateCoach)
 			coachGroup.PUT("/:id", appHandler.UpdateCoach)
+			coachGroup.PATCH("/:id/status", appHandler.UpdateCoachStatus)
 			coachGroup.DELETE("/:id", appHandler.DeleteCoach)
 		}
 

@@ -309,6 +309,7 @@ export async function fetchCoaches(): Promise<Coach[]> {
         email: c.email,
         class: c.class,
         avatar: c.avatar || "",
+        status: c.status || "Active",
         pay_per_session: payRate,
         payPerSession: payRate,
       };
@@ -326,6 +327,7 @@ export async function createCoach(payload: {
   email: string;
   class: string;
   avatar?: string;
+  status?: string;
   pay_per_session?: number;
 }): Promise<Coach | null> {
   try {
@@ -346,6 +348,7 @@ export async function createCoach(payload: {
       email: c.email,
       class: c.class,
       avatar: c.avatar || payload.avatar || "",
+      status: c.status || payload.status || "Active",
       pay_per_session: payRate,
       payPerSession: payRate,
     };
@@ -364,6 +367,7 @@ export async function updateCoach(
     email: string;
     class: string;
     avatar?: string;
+    status?: string;
     pay_per_session?: number;
   }
 ): Promise<Coach | null> {
@@ -388,11 +392,30 @@ export async function updateCoach(
       email: c.email,
       class: c.class,
       avatar: c.avatar || payload.avatar || "",
+      status: c.status || payload.status || "Active",
       pay_per_session: payRate,
       payPerSession: payRate,
     };
   } catch (err) {
     console.error("updateCoach error:", err);
+    throw err;
+  }
+}
+
+export async function updateCoachStatus(id: string | number, status: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/coaches/${id}/status`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || "Gagal memperbarui status pelatih");
+    }
+    return true;
+  } catch (err) {
+    console.error("updateCoachStatus error:", err);
     throw err;
   }
 }

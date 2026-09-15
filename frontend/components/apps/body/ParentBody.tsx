@@ -55,6 +55,7 @@ import {
   Globe,
   HelpCircle,
   Shield,
+  ShieldAlert,
   ExternalLink,
   Mail,
 } from "lucide-react";
@@ -942,8 +943,16 @@ export default function ParentBody({
     );
   };
 
+  const isAccountInactive =
+    (student?.status || "").toLowerCase().trim() === "inactive" ||
+    (student?.status || "").toLowerCase().trim() === "tidak aktif";
+
   const handlePerformCheckIn = async (schedule: ScheduleSession, lateReason?: string) => {
     if (!onCheckInAttendance) return;
+    if (isAccountInactive) {
+      alert("Akun Anda saat ini berstatus non-aktif. Fitur presensi tidak dapat digunakan.");
+      return;
+    }
     const effectiveLoc = getEffectiveCoords(schedule.poolArea);
     if (!effectiveLoc) {
       alert("Harap aktifkan GPS perangkat atau gunakan mode simulasi kolam untuk tes.");
@@ -1323,8 +1332,42 @@ export default function ParentBody({
             ========================================== */}
         {parentActiveTab === "home" && (
           <>
+            {/* Account Inactive Alert Banner */}
+            {isAccountInactive && (
+              <div className="-mt-10 p-4 rounded-3xl bg-gradient-to-r from-red-500/10 via-rose-500/10 to-amber-500/10 border border-red-200 text-red-800 shadow-sm flex items-start gap-3 animate-fadeIn relative z-20">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-red-500 text-white shrink-0 shadow-md shadow-red-500/20">
+                  <ShieldAlert size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-black text-red-900">
+                      Akun Anda Berstatus Non-Aktif
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold">
+                      Fitur Dibatasi
+                    </span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-red-700 leading-relaxed mt-0.5">
+                    Akun siswa saat ini telah dinonaktifkan oleh Administrator. Seluruh fitur presensi, pengajuan reschedule, dan transaksi pembayaran dinonaktifkan sementara.
+                  </p>
+                  <a
+                    href={`https://wa.me/6281234567890?text=${encodeURIComponent(
+                      `Halo Admin GIM Swimming, akun siswa saya (${student.name}) saat ini berstatus non-aktif. Mohon bantuannya untuk mengaktifkan kembali akun saya. Terima kasih.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/logo/wa.png" alt="WhatsApp" className="h-4 w-4 object-contain" />
+                    <span>Hubungi Admin via WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+            )}
+
             {/* Calendar Card Overview */}
-            <div className="-mt-10 relative z-10">
+            <div className={isAccountInactive ? "relative z-10" : "-mt-10 relative z-10"}>
               <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -1928,11 +1971,16 @@ export default function ParentBody({
 
                   {invoice.status === "Belum Dibayar" ? (
                     <button
-                      onClick={() => onUploadReceipt(invoice.id)}
-                      className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold transition cursor-pointer shadow-xs flex items-center gap-1"
+                      disabled={isAccountInactive}
+                      onClick={() => !isAccountInactive && onUploadReceipt(invoice.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold transition flex items-center gap-1 ${
+                        isAccountInactive
+                          ? "bg-slate-300 cursor-not-allowed opacity-60"
+                          : "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-xs"
+                      }`}
                     >
                       <Upload size={12} />
-                      <span>Bayar</span>
+                      <span>{isAccountInactive ? "Non-Aktif" : "Bayar"}</span>
                     </button>
                   ) : (
                     <span className="px-2 py-1 rounded-lg bg-amber-200/80 text-amber-900 text-[10px] font-black uppercase tracking-wider border border-amber-300">
@@ -3669,11 +3717,16 @@ export default function ParentBody({
               {invoice?.status !== "Lunas" && (
                 <button
                   type="button"
-                  onClick={() => onUploadReceipt(invoice?.id || "inv-1")}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold text-xs sm:text-sm transition cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-95"
+                  disabled={isAccountInactive}
+                  onClick={() => !isAccountInactive && onUploadReceipt(invoice?.id || "inv-1")}
+                  className={`w-full py-3.5 rounded-2xl text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 ${
+                    isAccountInactive
+                      ? "bg-slate-300 cursor-not-allowed opacity-60"
+                      : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 cursor-pointer shadow-md shadow-blue-500/20 active:scale-95"
+                  }`}
                 >
                   <Upload size={16} />
-                  <span>Unggah Bukti Transfer SPP</span>
+                  <span>{isAccountInactive ? "Akun Non-Aktif (Pembayaran Dibekukan)" : "Unggah Bukti Transfer SPP"}</span>
                 </button>
               )}
             </div>
@@ -3722,6 +3775,15 @@ export default function ParentBody({
                   </p>
                 </div>
               </div>
+
+              {isAccountInactive && (
+                <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
+                  <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    <strong>Akun Anda Berstatus Non-Aktif.</strong> Pengajuan reschedule tidak dapat diproses selama akun belum diaktifkan kembali oleh Admin.
+                  </p>
+                </div>
+              )}
 
               {rescheduleSent ? (
                 <div className="p-6 text-center space-y-3 bg-emerald-50 rounded-2xl border border-emerald-200 animate-fadeIn">
@@ -3819,16 +3881,21 @@ export default function ParentBody({
                     </button>
                     <button
                       type="button"
-                      disabled={!rescheduleTargetDate || !rescheduleReason.trim()}
+                      disabled={isAccountInactive || !rescheduleTargetDate || !rescheduleReason.trim()}
                       onClick={() => {
+                        if (isAccountInactive) return;
                         const msg = `Halo Admin GIM Swimming,%0ASaya orang tua dari ${student.name} ingin mengajukan permohonan reschedule sesi latihan:%0A- Usulan Tanggal Baru: ${rescheduleTargetDate}%0A- Usulan Jam: ${rescheduleTargetTime} WIB%0A- Alasan: ${rescheduleReason}%0AMohon konfirmasinya. Terima kasih!`;
                         window.open(`https://wa.me/628973180423?text=${msg}`, "_blank");
                         setRescheduleSent(true);
                       }}
-                      className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      className={`flex-1 py-3 rounded-2xl text-white font-black text-xs transition flex items-center justify-center gap-1.5 ${
+                        isAccountInactive
+                          ? "bg-slate-300 cursor-not-allowed opacity-60"
+                          : "bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 cursor-pointer shadow-md disabled:opacity-50"
+                      }`}
                     >
                       <Send size={14} />
-                      <span>Kirim ke Admin (WA)</span>
+                      <span>{isAccountInactive ? "Akun Non-Aktif" : "Kirim ke Admin (WA)"}</span>
                     </button>
                   </div>
                 </div>

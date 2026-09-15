@@ -32,6 +32,7 @@ interface PelatihTabProps {
   pools?: PoolVenue[];
   classPrograms?: ClassProgram[];
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
+  onUpdateCoachStatus?: (coachId: string, status: string) => Promise<void> | void;
   onUpdateCoach?: (coachId: string, data: {
     name: string;
     spec?: string;
@@ -39,6 +40,7 @@ interface PelatihTabProps {
     email: string;
     class: string;
     avatar?: string;
+    status?: string;
     pay_per_session?: number;
   }) => Promise<void> | void;
   setActiveTab?: (tab: string) => void;
@@ -53,6 +55,7 @@ export default function PelatihTab({
   pools = [],
   classPrograms = [],
   onDeleteCoach,
+  onUpdateCoachStatus,
   onUpdateCoach,
   setActiveTab,
 }: PelatihTabProps) {
@@ -65,6 +68,7 @@ export default function PelatihTab({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExpertise, setSelectedExpertise] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"Active" | "Inactive" | "ALL">("Active");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [coachToDelete, setCoachToDelete] = useState<Coach | null>(null);
@@ -80,8 +84,17 @@ export default function PelatihTab({
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editClass, setEditClass] = useState("Prestasi");
+  const [editStatus, setEditStatus] = useState<"Active" | "Inactive">("Active");
   const [editPayPerSession, setEditPayPerSession] = useState("100000");
   const [editError, setEditError] = useState("");
+
+  const isCoachActive = (coach: Coach) => {
+    const st = (coach.status || "Active").toLowerCase().trim();
+    return st === "active" || st === "aktif";
+  };
+
+  const activeCount = coaches.filter(isCoachActive).length;
+  const inactiveCount = coaches.filter((c) => !isCoachActive(c)).length;
 
   const handleOpenEdit = (coach: Coach) => {
     setCoachToEdit(coach);
@@ -90,6 +103,7 @@ export default function PelatihTab({
     setEditPhone(coach.phone || "");
     setEditEmail(coach.email || "");
     setEditClass(coach.class || "Prestasi");
+    setEditStatus(isCoachActive(coach) ? "Active" : "Inactive");
     setEditPayPerSession(String(coach.pay_per_session || coach.payPerSession || 100000));
     setEditError("");
   };
@@ -124,8 +138,13 @@ export default function PelatihTab({
           email: editEmail.trim(),
           class: editClass,
           avatar: coachToEdit.avatar,
+          status: editStatus,
           pay_per_session: numericPay,
         });
+      }
+
+      if (onUpdateCoachStatus && coachToEdit.status !== editStatus) {
+        await onUpdateCoachStatus(String(coachToEdit.id), editStatus);
       }
 
       // Update local selectedCoach if it's currently selected
@@ -137,6 +156,7 @@ export default function PelatihTab({
           phone: editPhone.trim(),
           email: editEmail.trim(),
           class: editClass,
+          status: editStatus,
           pay_per_session: numericPay,
           payPerSession: numericPay,
         });
@@ -207,7 +227,7 @@ export default function PelatihTab({
 
   if (sessionRole !== "admin" && sessionRole !== "pelatih") return null;
 
-  // Filter coaches based on search query & expertise
+  // Filter coaches based on search query, expertise & status
   const filteredCoaches = useMemo(() => {
     return coaches.filter((coach) => {
       const matchesQuery =
@@ -221,9 +241,17 @@ export default function PelatihTab({
         (coach.spec && coach.spec.toLowerCase().includes(selectedExpertise.toLowerCase())) ||
         (coach.class && coach.class.toLowerCase().includes(selectedExpertise.toLowerCase()));
 
-      return matchesQuery && matchesExpertise;
+      const active = isCoachActive(coach);
+      const matchesStatus =
+        statusFilter === "ALL"
+          ? true
+          : statusFilter === "Active"
+          ? active
+          : !active;
+
+      return matchesQuery && matchesExpertise && matchesStatus;
     });
-  }, [coaches, searchQuery, selectedExpertise]);
+  }, [coaches, searchQuery, selectedExpertise, statusFilter]);
 
   // Featured Coach (first coach or top coach in the list)
   const featuredCoach = filteredCoaches[0] || coaches[0];
@@ -284,36 +312,31 @@ export default function PelatihTab({
   };
 
   return (
-    <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12">
       {/* ==========================================
-          1. TOP VIBRANT BLUE HEADER (HERO SECTION)
+          1. HEADER / HERO SECTION (BLUE GRADIENT)
           ========================================== */}
-      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-14 sm:pb-16 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
-        {/* Subtle geometric circles */}
-        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
-        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
-        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+      <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 px-4 sm:px-6 pt-6 sm:pt-8 pb-14 sm:pb-16 text-white shadow-lg overflow-hidden">
+        {/* Background ambient water wave decoration */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Ambient Depth Glow */}
-        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
-
-        <div className="max-w-3xl mx-auto relative z-10 space-y-3">
-          {/* Header Title & Subtitle */}
+        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-10">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Pelatih
-            </h2>
-            <p className="text-xs text-cyan-100 font-medium mt-1">
-              Total {coaches.length} Instruktur Renang Terdaftar • Jadwal Sesi &amp; Keahlian
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-xs font-bold tracking-wider uppercase">
+                GIM Coaches
+              </span>
+              <span className="text-blue-100 text-xs font-medium">
+                • {coaches.length} Pelatih Terdaftar
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-xs">
+              Daftar Pelatih &amp; Instruktur
+            </h1>
+            <p className="text-xs sm:text-sm text-blue-100 font-medium mt-0.5">
+              Kelola instruktur renang berlisensi &amp; tarif per sesi
             </p>
-          </div>
-
-          {/* Column labels matching mockup */}
-          <div className="grid grid-cols-3 text-xs font-bold text-cyan-100/90 pt-1">
-            <span className="text-left">Foto</span>
-            <span className="text-center sm:text-left">Specialties</span>
-            <span className="text-right">Status</span>
           </div>
         </div>
       </div>
@@ -390,9 +413,17 @@ export default function PelatihTab({
 
               {/* Badges on Right */}
               <div className="flex items-center gap-2 shrink-0">
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black">
-                  Available
-                </span>
+                {isCoachActive(featuredCoach) ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Aktif
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    Non-Aktif
+                  </span>
+                )}
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
               </div>
             </div>
@@ -405,7 +436,7 @@ export default function PelatihTab({
         <div className="relative">
           <input
             type="text"
-            placeholder="Find coach name or specialty..."
+            placeholder="Cari nama pelatih atau spesialisasi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-3 pl-10 pr-10 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition"
@@ -421,6 +452,47 @@ export default function PelatihTab({
               <X size={16} />
             </button>
           )}
+        </div>
+
+        {/* Status Filter Buttons Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setStatusFilter("Active")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+              statusFilter === "Active"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${statusFilter === "Active" ? "bg-white" : "bg-emerald-500"}`} />
+            <span>Aktif ({activeCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter("Inactive")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+              statusFilter === "Inactive"
+                ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${statusFilter === "Inactive" ? "bg-white" : "bg-rose-500"}`} />
+            <span>Tidak Aktif ({inactiveCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter("ALL")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+              statusFilter === "ALL"
+                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+            }`}
+          >
+            <span>Semua ({coaches.length})</span>
+          </button>
         </div>
 
         {/* ==========================================
@@ -534,8 +606,19 @@ export default function PelatihTab({
                       </div>
                     </div>
 
-                    {/* Right: Chevron */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    {/* Right: Status badge & Chevron */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isCoachActive(coach) ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Aktif
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                          Non-Aktif
+                        </span>
+                      )}
                       <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-600 transition" />
                     </div>
                   </div>
@@ -632,8 +715,10 @@ export default function PelatihTab({
                 <span className="font-bold text-slate-900">{getCoachHandledStudentsCount(selectedCoach)} org</span>
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
-                <span className="text-slate-500">Status Ketersediaan</span>
-                <span className="font-bold text-emerald-600">Available (Aktif Melatih)</span>
+                <span className="text-slate-500">Status Akun Pelatih</span>
+                <span className={`font-black ${isCoachActive(selectedCoach) ? "text-emerald-600" : "text-rose-600"}`}>
+                  {isCoachActive(selectedCoach) ? "Aktif Melatih" : "Tidak Aktif (Dinonaktifkan)"}
+                </span>
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-500">Pay Per Sesi</span>
@@ -681,6 +766,50 @@ export default function PelatihTab({
 
             {/* Actions */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
+              {/* Quick Toggle Status for Admin */}
+              {sessionRole === "admin" && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const nextStatus = isCoachActive(selectedCoach) ? "Inactive" : "Active";
+                    if (onUpdateCoachStatus) {
+                      await onUpdateCoachStatus(String(selectedCoach.id), nextStatus);
+                    } else if (onUpdateCoach) {
+                      await onUpdateCoach(String(selectedCoach.id), {
+                        name: selectedCoach.name,
+                        spec: selectedCoach.spec,
+                        phone: selectedCoach.phone,
+                        email: selectedCoach.email,
+                        class: selectedCoach.class,
+                        avatar: selectedCoach.avatar,
+                        status: nextStatus,
+                        pay_per_session: selectedCoach.pay_per_session || selectedCoach.payPerSession || 100000,
+                      });
+                    }
+                    setSelectedCoach({
+                      ...selectedCoach,
+                      status: nextStatus,
+                    });
+                  }}
+                  className={`w-full py-2.5 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border cursor-pointer ${
+                    isCoachActive(selectedCoach)
+                      ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
+                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                  }`}
+                >
+                  {isCoachActive(selectedCoach) ? (
+                    <>
+                      <X size={15} />
+                      <span>Nonaktifkan Akun Pelatih</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      <span>Aktifkan Kembali Akun Pelatih</span>
+                    </>
+                  )}
+                </button>
+              )}
 
               {selectedCoach.phone && (
                 <a
@@ -725,7 +854,7 @@ export default function PelatihTab({
                     Edit Data Pelatih
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Perbarui profil, kelas &amp; nominal pay per sesi
+                    Perbarui profil, kelas, status &amp; nominal pay per sesi
                   </p>
                 </div>
               </div>
@@ -822,21 +951,37 @@ export default function PelatihTab({
                 </div>
               </div>
 
-              {/* Pay Per Session Input Field */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Pay Per Sesi (Rp)
-                </label>
-                <input
-                  type="number"
-                  step="5000"
-                  min="0"
-                  required
-                  value={editPayPerSession}
-                  onChange={(e) => setEditPayPerSession(e.target.value)}
-                  placeholder="Contoh: 100000"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
-                />
+              {/* Status Pelatih & Pay Per Session */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Status Akun Pelatih
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    <option value="Active">Aktif Melatih</option>
+                    <option value="Inactive">Tidak Aktif (Dinonaktifkan)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Pay Per Sesi (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    step="5000"
+                    min="0"
+                    required
+                    value={editPayPerSession}
+                    onChange={(e) => setEditPayPerSession(e.target.value)}
+                    placeholder="Contoh: 100000"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
               </div>
 
               {/* Actions */}

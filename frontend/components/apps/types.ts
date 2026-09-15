@@ -36,6 +36,7 @@ export interface Coach {
   email: string;
   class: string;
   avatar?: string;
+  status?: string;
   pay_per_session?: number;
   payPerSession?: number;
 }

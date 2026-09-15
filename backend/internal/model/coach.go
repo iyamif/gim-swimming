@@ -12,6 +12,7 @@ type Coach struct {
 	Email         string    `json:"email"`
 	Class         string    `json:"class"`
 	Avatar        string    `json:"avatar"`
+	Status        string    `json:"status"`
 	PayPerSession float64   `json:"pay_per_session"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -25,6 +26,7 @@ type CreateCoachInput struct {
 	Email         string  `json:"email" binding:"required,email"`
 	Class         string  `json:"class" binding:"required"`
 	Avatar        string  `json:"avatar"`
+	Status        string  `json:"status"`
 	PayPerSession float64 `json:"pay_per_session"`
 }
 
@@ -36,5 +38,11 @@ type UpdateCoachInput struct {
 	Email         string  `json:"email" binding:"required,email"`
 	Class         string  `json:"class" binding:"required"`
 	Avatar        string  `json:"avatar"`
+	Status        string  `json:"status"`
 	PayPerSession float64 `json:"pay_per_session"`
+}
+
+// UpdateCoachStatusInput represents payload for updating coach membership status
+type UpdateCoachStatusInput struct {
+	Status string `json:"status" binding:"required"`
 }

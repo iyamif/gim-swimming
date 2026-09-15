@@ -98,6 +98,7 @@ func runMigrations() error {
 		email VARCHAR(255) NOT NULL,
 		class VARCHAR(100) NOT NULL,
 		avatar TEXT DEFAULT '',
+		status VARCHAR(50) DEFAULT 'Active',
 		pay_per_session NUMERIC(12,2) DEFAULT 100000,
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -294,6 +295,8 @@ func runMigrations() error {
 	ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS fcm_token TEXT DEFAULT '';
 	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS pay_per_session NUMERIC(12,2) DEFAULT 100000;
 	UPDATE coaches SET pay_per_session = 100000 WHERE pay_per_session IS NULL OR pay_per_session = 0;
+	ALTER TABLE coaches ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active';
+	UPDATE coaches SET status = 'Active' WHERE status IS NULL OR status = '';
 
 	-- Automatically assign a random existing coach to students who don't have coach_name assigned yet
 	DO $$

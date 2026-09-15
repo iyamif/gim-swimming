@@ -30,6 +30,7 @@ type AppService interface {
 	GetCoaches(ctx context.Context) ([]model.Coach, error)
 	CreateCoach(ctx context.Context, input *model.CreateCoachInput) (*model.Coach, error)
 	UpdateCoach(ctx context.Context, id int64, input *model.UpdateCoachInput) (*model.Coach, error)
+	UpdateCoachStatus(ctx context.Context, id int64, status string) error
 	DeleteCoach(ctx context.Context, id int64) error
 
 	// Schedules
@@ -427,9 +428,14 @@ func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachIn
 		Email:         input.Email,
 		Class:         input.Class,
 		Avatar:        input.Avatar,
+		Status:        input.Status,
 		PayPerSession: payPerSession,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
+	}
+
+	if coach.Status == "" {
+		coach.Status = "Active"
 	}
 
 	if coach.Spec == "" {
@@ -533,6 +539,9 @@ func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.Upd
 	if input.Avatar != "" {
 		existing.Avatar = input.Avatar
 	}
+	if input.Status != "" {
+		existing.Status = input.Status
+	}
 	if input.PayPerSession > 0 {
 		existing.PayPerSession = input.PayPerSession
 	}
@@ -543,6 +552,21 @@ func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.Upd
 	}
 
 	return existing, nil
+}
+
+// UpdateCoachStatus updates a coach's membership status (Active vs Inactive)
+func (s *appService) UpdateCoachStatus(ctx context.Context, id int64, status string) error {
+	norm := strings.TrimSpace(status)
+	if !strings.EqualFold(norm, "active") && !strings.EqualFold(norm, "inactive") && !strings.EqualFold(norm, "aktif") && !strings.EqualFold(norm, "tidak aktif") {
+		return errors.New("status pelatih tidak valid (pilih Aktif atau Tidak Aktif)")
+	}
+
+	dbStatus := "Active"
+	if strings.EqualFold(norm, "inactive") || strings.EqualFold(norm, "tidak aktif") {
+		dbStatus = "Inactive"
+	}
+
+	return s.coachRepo.UpdateStatus(ctx, id, dbStatus)
 }
 
 // DeleteCoach deletes a coach by ID

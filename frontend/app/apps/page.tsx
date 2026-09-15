@@ -14,6 +14,7 @@ import {
   fetchCoaches,
   createCoach,
   updateCoach,
+  updateCoachStatus,
   deleteCoach,
   fetchSchedules,
   createSchedule,
@@ -48,6 +49,7 @@ import {
   ClassProgram,
 } from "../../components/apps/types";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
+import DeactivatedAccountModal from "../../components/apps/DeactivatedAccountModal";
 import {
   playNotificationChime,
   triggerNotificationHaptic,
@@ -389,6 +391,18 @@ export default function AppsPage() {
             }
             return latestNotifications;
           });
+        }
+        // Sync students & coaches periodically during poll to immediately detect status changes (e.g. account deactivation)
+        if (role.toLowerCase().trim() === "orang tua") {
+          const freshStudents = await fetchStudents();
+          if (isSubscribed && freshStudents && freshStudents.length > 0) {
+            setStudents(freshStudents);
+          }
+        } else if (role.toLowerCase().trim() === "pelatih") {
+          const freshCoaches = await fetchCoaches();
+          if (isSubscribed && freshCoaches && freshCoaches.length > 0) {
+            setCoaches(freshCoaches);
+          }
         }
       } catch (err) {
         // Silent error handling for background polling
@@ -874,6 +888,18 @@ export default function AppsPage() {
     }
   };
 
+  // Handler: Update Coach Status (Active / Inactive) (Admin)
+  const handleUpdateCoachStatus = async (coachId: string, status: string) => {
+    try {
+      await updateCoachStatus(coachId, status);
+      const updatedCoaches = await fetchCoaches();
+      setCoaches(updatedCoaches);
+    } catch (err) {
+      console.error("Failed to update coach status:", err);
+      throw err;
+    }
+  };
+
   // Handler: Upload tuition receipt (Orang Tua view) to PostgreSQL DB
   const handleParentUploadReceipt = async (invoiceId: string) => {
     try {
@@ -1079,6 +1105,11 @@ export default function AppsPage() {
       invoices[0] ||
       defaultInvoice;
 
+    const isStudentInactive =
+      currentStudent?.status?.toLowerCase() === "inactive" ||
+      currentStudent?.status?.toLowerCase() === "tidak aktif" ||
+      currentStudent?.status?.toLowerCase() === "nonaktif";
+
     return (
       <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col">
         <PullToRefresh onRefresh={handlePullRefresh} className="flex-1">
@@ -1102,6 +1133,13 @@ export default function AppsPage() {
             onRefresh={handlePullRefresh}
           />
         </PullToRefresh>
+
+        <DeactivatedAccountModal
+          isOpen={isStudentInactive}
+          userName={currentStudent?.name || sessionUser}
+          userRole="orang tua"
+          onLogout={handleLogout}
+        />
 
         <IOSInstallModal
           isOpen={showIOSPrompt}
@@ -1128,6 +1166,20 @@ export default function AppsPage() {
   // Active Tab Title for Desktop Header
   const currentTabItem = navItems.find((item) => item.id === activeTab);
   const currentTabTitle = currentTabItem?.fullLabel || currentTabItem?.label || "Dashboard";
+
+  // Check if Coach account is deactivated
+  const normalizedCoachUser = (sessionUser || "").toLowerCase().trim();
+  const currentCoach = coaches.find(
+    (c) =>
+      c.name.toLowerCase().includes(normalizedCoachUser) ||
+      c.email?.toLowerCase().includes(normalizedCoachUser) ||
+      (c.phone && c.phone.replace(/[^0-9]/g, "").includes(normalizedCoachUser.replace(/[^0-9]/g, "")))
+  );
+  const isCoachInactive =
+    sessionRole === "pelatih" &&
+    (currentCoach?.status?.toLowerCase() === "inactive" ||
+      currentCoach?.status?.toLowerCase() === "tidak aktif" ||
+      currentCoach?.status?.toLowerCase() === "nonaktif");
 
   // ==========================================
   // ADMIN & PELATIH (COACH) VIEW: Sidebar layout
@@ -1215,6 +1267,7 @@ export default function AppsPage() {
             onAddStudent={handleAddSiswaSubmit}
             onAddCoach={handleAddPelatihSubmit}
             onUpdateCoach={handleUpdateCoach}
+            onUpdateCoachStatus={handleUpdateCoachStatus}
             onDeleteCoach={handleDeleteCoach}
             financialTransactions={financialTransactions}
             pools={pools}
@@ -1228,6 +1281,13 @@ export default function AppsPage() {
       <IOSInstallModal
         isOpen={showIOSPrompt}
         onClose={() => setShowIOSPrompt(false)}
+      />
+
+      <DeactivatedAccountModal
+        isOpen={isCoachInactive}
+        userName={currentCoach?.name || sessionUser}
+        userRole="pelatih"
+        onLogout={handleLogout}
       />
 
       {/* Centered Floating Loading Screen Overlay only during Pull-to-Refresh */}

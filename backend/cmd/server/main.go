@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Services
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
+	authService := service.NewAuthService(userRepo, studentRepo, coachRepo, cfg.JWTSecret)
 	pushService := service.NewPushService(cfg, pushRepo, attendanceRepo)
 	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, financialRepo, poolRepo, classProgRepo, payrollRepo, pushService)
 

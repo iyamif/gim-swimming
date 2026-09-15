@@ -49,18 +49,22 @@ type AuthService interface {
 }
 
 type authService struct {
-	userRepo  repository.UserRepository
-	jwtSecret string
-	otpMu     sync.RWMutex
-	otpStore  map[string]*resetOTPEntry
+	userRepo    repository.UserRepository
+	studentRepo repository.StudentRepository
+	coachRepo   repository.CoachRepository
+	jwtSecret   string
+	otpMu       sync.RWMutex
+	otpStore    map[string]*resetOTPEntry
 }
 
 // NewAuthService creates a new AuthService instance
-func NewAuthService(userRepo repository.UserRepository, jwtSecret string) AuthService {
+func NewAuthService(userRepo repository.UserRepository, studentRepo repository.StudentRepository, coachRepo repository.CoachRepository, jwtSecret string) AuthService {
 	return &authService{
-		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
-		otpStore:  make(map[string]*resetOTPEntry),
+		userRepo:    userRepo,
+		studentRepo: studentRepo,
+		coachRepo:   coachRepo,
+		jwtSecret:   jwtSecret,
+		otpStore:    make(map[string]*resetOTPEntry),
 	}
 }
 
@@ -132,6 +136,62 @@ func (s *authService) Login(ctx context.Context, input model.LoginInput) (string
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
 	if err != nil {
 		return "", nil, errors.New("kredensial tidak valid")
+	}
+
+	// Check user membership / account activation status
+	if strings.EqualFold(user.Role, model.RoleOrangTua) {
+		if s.studentRepo != nil {
+			students, _ := s.studentRepo.FindByUserID(ctx, user.ID)
+			if len(students) == 0 {
+				allStudents, _ := s.studentRepo.FindAll(ctx)
+				for _, st := range allStudents {
+					if (st.UserID != nil && *st.UserID == user.ID) ||
+						strings.EqualFold(st.Name, user.Username) ||
+						strings.EqualFold(st.Parent, user.Username) ||
+						strings.EqualFold(st.Phone, user.Username) ||
+						(cleanInput != "" && (strings.EqualFold(st.Phone, cleanInput) || strings.EqualFold(st.Name, cleanInput) || strings.EqualFold(st.Parent, cleanInput))) {
+						students = append(students, st)
+					}
+				}
+			}
+
+			if len(students) > 0 {
+				allInactive := true
+				for _, st := range students {
+					stStatus := strings.ToLower(strings.TrimSpace(st.Status))
+					if stStatus == "active" || stStatus == "aktif" || stStatus == "" {
+						allInactive = false
+						break
+					}
+				}
+				if allInactive {
+					return "", nil, errors.New("Akun Anda telah dinonaktifkan oleh Admin. Silakan hubungi Admin untuk mengaktifkan kembali akun Anda.")
+				}
+			}
+		}
+	} else if strings.EqualFold(user.Role, model.RolePelatih) {
+		if s.coachRepo != nil {
+			coach, _ := s.coachRepo.FindByUserID(ctx, user.ID)
+			if coach == nil {
+				allCoaches, _ := s.coachRepo.FindAll(ctx)
+				for _, c := range allCoaches {
+					if (c.UserID != nil && *c.UserID == user.ID) ||
+						strings.EqualFold(c.Name, user.Username) ||
+						strings.EqualFold(c.Email, user.Email) ||
+						(cleanInput != "" && (strings.EqualFold(c.Phone, cleanInput) || strings.EqualFold(c.Name, cleanInput) || strings.EqualFold(c.Email, cleanInput))) {
+						coach = &c
+						break
+					}
+				}
+			}
+
+			if coach != nil {
+				cStatus := strings.ToLower(strings.TrimSpace(coach.Status))
+				if cStatus == "inactive" || cStatus == "tidak aktif" {
+					return "", nil, errors.New("Akun Pelatih Anda telah dinonaktifkan oleh Admin. Silakan hubungi Admin untuk mengaktifkan kembali akun Anda.")
+				}
+			}
+		}
 	}
 
 	// Generate JWT

@@ -12,6 +12,7 @@ import (
 type CoachRepository interface {
 	Create(ctx context.Context, coach *model.Coach) error
 	Update(ctx context.Context, coach *model.Coach) error
+	UpdateStatus(ctx context.Context, coachID int64, status string) error
 	FindAll(ctx context.Context) ([]model.Coach, error)
 	FindByID(ctx context.Context, id int64) (*model.Coach, error)
 	FindByUserID(ctx context.Context, userID int64) (*model.Coach, error)
@@ -32,9 +33,12 @@ func (r *pgCoachRepository) Create(ctx context.Context, coach *model.Coach) erro
 	if coach.PayPerSession <= 0 {
 		coach.PayPerSession = 100000
 	}
+	if coach.Status == "" {
+		coach.Status = "Active"
+	}
 	query := `
-		INSERT INTO coaches (user_id, name, spec, phone, email, class, avatar, pay_per_session, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO coaches (user_id, name, spec, phone, email, class, avatar, status, pay_per_session, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id;
 	`
 	return r.db.QueryRowContext(
@@ -47,6 +51,7 @@ func (r *pgCoachRepository) Create(ctx context.Context, coach *model.Coach) erro
 		coach.Email,
 		coach.Class,
 		coach.Avatar,
+		coach.Status,
 		coach.PayPerSession,
 		coach.CreatedAt,
 		coach.UpdatedAt,
@@ -57,10 +62,13 @@ func (r *pgCoachRepository) Update(ctx context.Context, coach *model.Coach) erro
 	if coach.PayPerSession <= 0 {
 		coach.PayPerSession = 100000
 	}
+	if coach.Status == "" {
+		coach.Status = "Active"
+	}
 	query := `
 		UPDATE coaches
-		SET user_id = $1, name = $2, spec = $3, phone = $4, email = $5, class = $6, avatar = $7, pay_per_session = $8, updated_at = $9
-		WHERE id = $10;
+		SET user_id = $1, name = $2, spec = $3, phone = $4, email = $5, class = $6, avatar = $7, status = $8, pay_per_session = $9, updated_at = $10
+		WHERE id = $11;
 	`
 	_, err := r.db.ExecContext(
 		ctx,
@@ -72,10 +80,17 @@ func (r *pgCoachRepository) Update(ctx context.Context, coach *model.Coach) erro
 		coach.Email,
 		coach.Class,
 		coach.Avatar,
+		coach.Status,
 		coach.PayPerSession,
 		coach.UpdatedAt,
 		coach.ID,
 	)
+	return err
+}
+
+func (r *pgCoachRepository) UpdateStatus(ctx context.Context, coachID int64, status string) error {
+	query := `UPDATE coaches SET status = $1, updated_at = NOW() WHERE id = $2;`
+	_, err := r.db.ExecContext(ctx, query, status, coachID)
 	return err
 }
 
@@ -90,6 +105,7 @@ func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) 
 			c.email, 
 			c.class, 
 			COALESCE(NULLIF(c.avatar, ''), COALESCE(u.avatar, '')), 
+			COALESCE(NULLIF(c.status, ''), 'Active'),
 			COALESCE(c.pay_per_session, 100000),
 			c.created_at, 
 			c.updated_at
@@ -121,6 +137,7 @@ func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) 
 			&c.Email,
 			&c.Class,
 			&c.Avatar,
+			&c.Status,
 			&c.PayPerSession,
 			&c.CreatedAt,
 			&c.UpdatedAt,
@@ -148,6 +165,7 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 			c.email, 
 			c.class, 
 			COALESCE(NULLIF(c.avatar, ''), COALESCE(u.avatar, '')), 
+			COALESCE(NULLIF(c.status, ''), 'Active'),
 			COALESCE(c.pay_per_session, 100000),
 			c.created_at, 
 			c.updated_at
@@ -171,6 +189,7 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 		&c.Email,
 		&c.Class,
 		&c.Avatar,
+		&c.Status,
 		&c.PayPerSession,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -199,6 +218,7 @@ func (r *pgCoachRepository) FindByUserID(ctx context.Context, userID int64) (*mo
 			c.email, 
 			c.class, 
 			COALESCE(NULLIF(c.avatar, ''), COALESCE(u.avatar, '')), 
+			COALESCE(NULLIF(c.status, ''), 'Active'),
 			COALESCE(c.pay_per_session, 100000),
 			c.created_at, 
 			c.updated_at
@@ -218,6 +238,7 @@ func (r *pgCoachRepository) FindByUserID(ctx context.Context, userID int64) (*mo
 		&c.Email,
 		&c.Class,
 		&c.Avatar,
+		&c.Status,
 		&c.PayPerSession,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -246,4 +267,3 @@ func (r *pgCoachRepository) Delete(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
-
