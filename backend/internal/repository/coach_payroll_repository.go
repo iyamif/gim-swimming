@@ -18,6 +18,7 @@ type CoachPayrollRepository interface {
 	FindAll(ctx context.Context, month string) ([]model.CoachPayroll, error)
 	FindByID(ctx context.Context, id string) (*model.CoachPayroll, error)
 	Approve(ctx context.Context, id string, notes string) (*model.CoachPayroll, error)
+	DeleteByCoach(ctx context.Context, coachID, coachName string) error
 }
 
 type pgCoachPayrollRepository struct {
@@ -251,3 +252,14 @@ func (r *pgCoachPayrollRepository) Approve(ctx context.Context, id string, notes
 	}
 	return &p, nil
 }
+
+// DeleteByCoach removes all payroll records for a coach
+func (r *pgCoachPayrollRepository) DeleteByCoach(ctx context.Context, coachID, coachName string) error {
+	query := `
+		DELETE FROM coach_payrolls
+		WHERE coach_id = $1 OR LOWER(coach_name) = LOWER($2);
+	`
+	_, err := r.db.ExecContext(ctx, query, coachID, coachName)
+	return err
+}
+

@@ -165,6 +165,7 @@ func runMigrations() error {
 		distance_km NUMERIC(8, 3) DEFAULT 0,
 		is_valid_location BOOLEAN DEFAULT true,
 		notes TEXT DEFAULT '',
+		photo TEXT DEFAULT '',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -288,6 +289,7 @@ func runMigrations() error {
 	ALTER TABLE coaches ALTER COLUMN avatar TYPE TEXT;
 	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS is_late BOOLEAN DEFAULT false;
 	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS late_reason TEXT DEFAULT '';
+	ALTER TABLE attendances ADD COLUMN IF NOT EXISTS photo TEXT DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_role VARCHAR(50) DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_user_id VARCHAR(50) DEFAULT '';
 	ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_name VARCHAR(255) DEFAULT '';

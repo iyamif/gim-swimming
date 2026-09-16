@@ -344,8 +344,106 @@ func (s *appService) UpdateStudentStatus(ctx context.Context, id int64, status s
 	return s.studentRepo.UpdateStatus(ctx, id, dbStatus)
 }
 
-// DeleteStudent deletes a student by ID
+// DeleteStudent deletes a student by ID, cascading removal of associated schedules, user login, attendances, and invoices
 func (s *appService) DeleteStudent(ctx context.Context, id int64) error {
+	student, err := s.studentRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if student == nil {
+		return errors.New("data siswa tidak ditemukan")
+	}
+
+	studentIDStr := fmt.Sprintf("%d", id)
+	studentName := student.Name
+
+	// 1. Process all schedules associated with this student
+	allSchedules, err := s.scheduleRepo.FindAll(ctx)
+	if err == nil {
+		for _, sch := range allSchedules {
+			containsStudent := false
+			var updatedIDs []string
+			var updatedNames []string
+
+			for idx, sid := range sch.StudentIDs {
+				sName := ""
+				if idx < len(sch.StudentNames) {
+					sName = sch.StudentNames[idx]
+				}
+
+				isThisStudent := (sid == studentIDStr) || (studentName != "" && strings.EqualFold(strings.TrimSpace(sName), strings.TrimSpace(studentName)))
+				if isThisStudent {
+					containsStudent = true
+				} else {
+					updatedIDs = append(updatedIDs, sid)
+					if sName != "" {
+						updatedNames = append(updatedNames, sName)
+					}
+				}
+			}
+
+			// Also check studentNames if studentIDs didn't match directly
+			if !containsStudent && studentName != "" {
+				for _, sName := range sch.StudentNames {
+					if strings.EqualFold(strings.TrimSpace(sName), strings.TrimSpace(studentName)) {
+						containsStudent = true
+						break
+					}
+				}
+				if containsStudent {
+					updatedNames = nil
+					for _, sName := range sch.StudentNames {
+						if !strings.EqualFold(strings.TrimSpace(sName), strings.TrimSpace(studentName)) {
+							updatedNames = append(updatedNames, sName)
+						}
+					}
+				}
+			}
+
+			if containsStudent {
+				// If no students left in this schedule (or single student session), delete the schedule completely
+				if len(updatedIDs) == 0 && len(updatedNames) == 0 {
+					_ = s.scheduleRepo.Delete(ctx, sch.ID)
+				} else {
+					// Otherwise, update the schedule with remaining students
+					schCopy := sch
+					schCopy.StudentIDs = updatedIDs
+					schCopy.StudentNames = updatedNames
+					_ = s.scheduleRepo.Update(ctx, &schCopy)
+				}
+			}
+		}
+	}
+
+	// 2. Clean up attendances and notifications for this student
+	if s.attendanceRepo != nil {
+		_ = s.attendanceRepo.DeleteByPerson(ctx, "student", studentIDStr, studentName)
+		_ = s.attendanceRepo.DeleteNotificationsByTarget(ctx, "orang tua", studentIDStr, studentName)
+	}
+
+	// 3. Clean up invoices for this student
+	if s.invoiceRepo != nil {
+		_ = s.invoiceRepo.DeleteByStudentIDOrName(ctx, studentIDStr, studentName)
+	}
+
+	// 4. Delete associated user login account if exists
+	if s.userRepo != nil {
+		if student.UserID != nil && *student.UserID > 0 {
+			_ = s.userRepo.Delete(ctx, *student.UserID)
+		} else {
+			rawParts := strings.Fields(student.Name)
+			if len(rawParts) > 0 {
+				rawUsername := strings.ToLower(rawParts[0])
+				reg := regexp.MustCompile("[^a-z0-9_]")
+				username := reg.ReplaceAllString(rawUsername, "")
+				if username != "" {
+					_ = s.userRepo.DeleteByUsernameOrEmail(ctx, username, fmt.Sprintf("%s@gimswimming.com", username))
+				}
+			}
+		}
+	}
+
+	// 5. Finally delete the student record (attendance_logs cascades automatically)
 	return s.studentRepo.Delete(ctx, id)
 }
 
@@ -569,8 +667,46 @@ func (s *appService) UpdateCoachStatus(ctx context.Context, id int64, status str
 	return s.coachRepo.UpdateStatus(ctx, id, dbStatus)
 }
 
-// DeleteCoach deletes a coach by ID
+// DeleteCoach deletes a coach by ID, cascading removal of associated schedules, user login, attendances, and payrolls
 func (s *appService) DeleteCoach(ctx context.Context, id int64) error {
+	coach, err := s.coachRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if coach == nil {
+		return errors.New("data pelatih tidak ditemukan")
+	}
+
+	coachIDStr := fmt.Sprintf("%d", id)
+	coachName := coach.Name
+
+	// 1. Delete all schedules assigned to this coach
+	if s.scheduleRepo != nil {
+		_ = s.scheduleRepo.DeleteByCoach(ctx, coachIDStr, coachName)
+	}
+
+	// 2. Clean up attendances and notifications for this coach
+	if s.attendanceRepo != nil {
+		_ = s.attendanceRepo.DeleteByPerson(ctx, "coach", coachIDStr, coachName)
+		_ = s.attendanceRepo.DeleteNotificationsByTarget(ctx, "pelatih", coachIDStr, coachName)
+	}
+
+	// 3. Clean up coach payroll records
+	if s.payrollRepo != nil {
+		_ = s.payrollRepo.DeleteByCoach(ctx, coachIDStr, coachName)
+	}
+
+	// 4. Delete associated user login account if exists
+	if s.userRepo != nil {
+		if coach.UserID != nil && *coach.UserID > 0 {
+			_ = s.userRepo.Delete(ctx, *coach.UserID)
+		}
+		if coach.Email != "" {
+			_ = s.userRepo.DeleteByUsernameOrEmail(ctx, "", coach.Email)
+		}
+	}
+
+	// 5. Finally delete the coach record
 	return s.coachRepo.Delete(ctx, id)
 }
 
@@ -1199,6 +1335,7 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 		DistanceKm:      math.Round(distanceKm*100) / 100,
 		IsValidLocation: isValidLocation,
 		Notes:           input.Notes,
+		Photo:           input.Photo,
 		CreatedAt:       now,
 	}
 
@@ -1278,6 +1415,36 @@ func (s *appService) CheckInAttendance(ctx context.Context, input *model.CheckIn
 		IsRead:       false,
 		CreatedAt:    now,
 	})
+
+	// 7. When Coach Checks In (Masuk), also send notification to all enrolled students & parents
+	if input.PersonType == "coach" && !isCheckOut {
+		for idx, studentName := range schedule.StudentNames {
+			trimmedName := strings.TrimSpace(studentName)
+			if trimmedName == "" {
+				continue
+			}
+			studentID := ""
+			if idx < len(schedule.StudentIDs) {
+				studentID = schedule.StudentIDs[idx]
+			}
+
+			coachArrivalTitle := fmt.Sprintf("Pelatih Telah Hadir: %s 🏊‍♂️", input.PersonName)
+			coachArrivalMsg := fmt.Sprintf("Halo %s, Pelatih %s telah melakukan presensi kehadiran di %s untuk sesi '%s' (%s, %s - %s WIB). Latihan siap dimulai!",
+				trimmedName, input.PersonName, schedule.PoolArea, schedule.Title, schedule.Date, schedule.TimeStart, schedule.TimeEnd)
+
+			_ = s.attendanceRepo.CreateNotification(ctx, &model.AdminNotification{
+				Title:        coachArrivalTitle,
+				Message:      coachArrivalMsg,
+				Type:         "coach_checked_in",
+				TargetRole:   "orang tua",
+				TargetUserID: studentID,
+				TargetName:   trimmedName,
+				ScheduleID:   schedule.ID,
+				IsRead:       false,
+				CreatedAt:    now,
+			})
+		}
+	}
 
 	// Dispatch Native Mobile Web Push for attendance check-in
 	if s.pushService != nil {

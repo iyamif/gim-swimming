@@ -330,18 +330,9 @@ export default function AppsPage() {
           // Update notifications state immediately
           setNotifications(latestNotifications);
 
-          // Sound chime & haptic feedback
+          // Sound chime & haptic feedback for in-app alert
           playNotificationChime();
           triggerNotificationHaptic();
-
-          // Native browser Web Notification
-          const newest = newUnreadItems[0];
-          if (newest) {
-            showWebNotification(newest.title, {
-              body: newest.message,
-              icon: "/icon.png",
-            });
-          }
 
           // Check if schedules or attendances need silent sync in the background
           const hasScheduleUpdate = newUnreadItems.some(
@@ -843,8 +834,16 @@ export default function AppsPage() {
   const handleDeleteStudent = async (studentId: string) => {
     try {
       await deleteStudent(studentId);
-      const updatedStudents = await fetchStudents();
+      const [updatedStudents, updatedSchedules, updatedInvoices, updatedAttendances] = await Promise.all([
+        fetchStudents(),
+        fetchSchedules(),
+        fetchInvoices(),
+        fetchAttendances(),
+      ]);
       setStudents(updatedStudents);
+      setSchedules(updatedSchedules);
+      setInvoices(updatedInvoices);
+      setAttendances(updatedAttendances);
     } catch (err) {
       console.error("Failed to delete student:", err);
       throw err;
@@ -855,8 +854,14 @@ export default function AppsPage() {
   const handleDeleteCoach = async (coachId: string) => {
     try {
       await deleteCoach(coachId);
-      const updatedCoaches = await fetchCoaches();
+      const [updatedCoaches, updatedSchedules, updatedAttendances] = await Promise.all([
+        fetchCoaches(),
+        fetchSchedules(),
+        fetchAttendances(),
+      ]);
       setCoaches(updatedCoaches);
+      setSchedules(updatedSchedules);
+      setAttendances(updatedAttendances);
     } catch (err) {
       console.error("Failed to delete coach:", err);
       throw err;

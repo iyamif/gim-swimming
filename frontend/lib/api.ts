@@ -864,6 +864,7 @@ export async function checkInAttendance(payload: {
   latitude: number;
   longitude: number;
   notes?: string;
+  photo?: string;
 }): Promise<AttendanceRecord> {
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/v1/attendances/checkin`, {

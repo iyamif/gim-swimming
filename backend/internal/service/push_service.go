@@ -460,6 +460,48 @@ func (s *pushService) SendAttendancePushNotification(ctx context.Context, att *m
 		for _, sub := range adminSubs {
 			_ = s.sendSinglePush(bgCtx, &sub, payload)
 		}
+
+		// Also dispatch push notification to enrolled students/parents when Coach checks in
+		if record.PersonType == "coach" && session != nil && (len(session.StudentNames) > 0 || len(session.StudentIDs) > 0) {
+			studentSubs, err := s.pushRepo.FindForStudents(bgCtx, session.StudentNames, session.StudentIDs)
+			if err == nil && len(studentSubs) > 0 {
+				for _, sub := range studentSubs {
+					subStudentName := sub.StudentName
+					if subStudentName == "" {
+						subStudentName = sub.Username
+					}
+
+					unreadStudentCount, _ := s.pushRepo.GetUnreadNotificationCount(bgCtx, "orang tua", subStudentName, sub.UserID)
+					if unreadStudentCount <= 0 {
+						unreadStudentCount = 1
+					}
+
+					studentTitle := fmt.Sprintf("Pelatih Telah Hadir: %s 🏊‍♂️", record.PersonName)
+					studentBody := fmt.Sprintf("Pelatih %s telah tiba di %s untuk sesi '%s' (%s - %s WIB). Sesi latihan siap dimulai!",
+						record.PersonName, record.PoolArea, scheduleTitle, session.TimeStart, session.TimeEnd)
+
+					studentPushPayload := &model.WebPushPayload{
+						Title:       studentTitle,
+						Body:        studentBody,
+						Message:     studentBody,
+						Icon:        "/icon.png",
+						Badge:       "/icon.png",
+						Tag:         fmt.Sprintf("coach-arrival-%s-%d", session.ID, record.ID),
+						UnreadCount: unreadStudentCount,
+						Data: map[string]interface{}{
+							"url":           "/apps",
+							"type":          "attendance",
+							"attendance_id": record.ID,
+							"schedule_id":   session.ID,
+							"role":          "orang tua",
+							"tab":           "jadwal",
+						},
+					}
+
+					_ = s.sendSinglePush(bgCtx, &sub, studentPushPayload)
+				}
+			}
+		}
 	}(*att)
 }
 

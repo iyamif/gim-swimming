@@ -16,6 +16,7 @@ type InvoiceRepository interface {
 	FindByID(ctx context.Context, id string) (*model.Invoice, error)
 	UpdateStatus(ctx context.Context, id string, status string, receiptURL *string) error
 	UploadReceipt(ctx context.Context, id string, receiptURL string) error
+	DeleteByStudentIDOrName(ctx context.Context, studentID, studentName string) error
 }
 
 type pgInvoiceRepository struct {
@@ -180,3 +181,14 @@ func (r *pgInvoiceRepository) UploadReceipt(ctx context.Context, id string, rece
 	_, err = r.db.ExecContext(ctx, query, receiptURL, rawID)
 	return err
 }
+
+// DeleteByStudentIDOrName removes all invoices belonging to a specific student
+func (r *pgInvoiceRepository) DeleteByStudentIDOrName(ctx context.Context, studentID, studentName string) error {
+	query := `
+		DELETE FROM invoices
+		WHERE student_id = $1 OR LOWER(name) = LOWER($2);
+	`
+	_, err := r.db.ExecContext(ctx, query, studentID, studentName)
+	return err
+}
+

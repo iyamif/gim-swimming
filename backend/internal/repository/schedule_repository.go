@@ -17,6 +17,7 @@ type ScheduleRepository interface {
 	FindByID(ctx context.Context, id string) (*model.ScheduleSession, error)
 	Update(ctx context.Context, s *model.ScheduleSession) error
 	Delete(ctx context.Context, id string) error
+	DeleteByCoach(ctx context.Context, coachID string, coachName string) error
 }
 
 type pgScheduleRepository struct {
@@ -246,8 +247,50 @@ func (r *pgScheduleRepository) Delete(ctx context.Context, id string) error {
 		}
 	}
 
+	schIDStr := fmt.Sprintf("sch-%d", rawID)
+	rawIDStr := fmt.Sprintf("%d", rawID)
+
+	// Clean up related attendances and notifications
+	_, _ = r.db.ExecContext(ctx, `DELETE FROM attendances WHERE schedule_id = $1 OR schedule_id = $2;`, schIDStr, rawIDStr)
+	_, _ = r.db.ExecContext(ctx, `DELETE FROM notifications WHERE schedule_id = $1 OR schedule_id = $2;`, schIDStr, rawIDStr)
+
 	query := `DELETE FROM schedules WHERE id = $1;`
 	_, err = r.db.ExecContext(ctx, query, rawID)
 	return err
 }
+
+// DeleteByCoach removes all schedules assigned to a coach and their associated records
+func (r *pgScheduleRepository) DeleteByCoach(ctx context.Context, coachID string, coachName string) error {
+	// 1. Find all schedule IDs for this coach
+	queryFind := `
+		SELECT id FROM schedules
+		WHERE coach_id = $1 OR (coach_name <> '' AND LOWER(coach_name) = LOWER($2));
+	`
+	rows, err := r.db.QueryContext(ctx, queryFind, coachID, coachName)
+	if err == nil {
+		var ids []int64
+		for rows.Next() {
+			var sid int64
+			if err := rows.Scan(&sid); err == nil {
+				ids = append(ids, sid)
+			}
+		}
+		rows.Close()
+
+		for _, sid := range ids {
+			schIDStr := fmt.Sprintf("sch-%d", sid)
+			rawIDStr := fmt.Sprintf("%d", sid)
+			_, _ = r.db.ExecContext(ctx, `DELETE FROM attendances WHERE schedule_id = $1 OR schedule_id = $2;`, schIDStr, rawIDStr)
+			_, _ = r.db.ExecContext(ctx, `DELETE FROM notifications WHERE schedule_id = $1 OR schedule_id = $2;`, schIDStr, rawIDStr)
+		}
+	}
+
+	queryDelete := `
+		DELETE FROM schedules
+		WHERE coach_id = $1 OR (coach_name <> '' AND LOWER(coach_name) = LOWER($2));
+	`
+	_, err = r.db.ExecContext(ctx, queryDelete, coachID, coachName)
+	return err
+}
+
 

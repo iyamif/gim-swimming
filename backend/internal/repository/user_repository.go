@@ -18,6 +18,8 @@ type UserRepository interface {
 	FindByPhoneOrIdentifier(ctx context.Context, identifier string) (*model.User, error)
 	UpdateAvatar(ctx context.Context, username string, avatar string) error
 	UpdatePassword(ctx context.Context, userID int64, hashedPassword string) error
+	Delete(ctx context.Context, id int64) error
+	DeleteByUsernameOrEmail(ctx context.Context, username, email string) error
 }
 
 // pgUserRepository implements UserRepository for PostgreSQL
@@ -260,3 +262,18 @@ func (r *pgUserRepository) UpdateAvatar(ctx context.Context, username string, av
 
 	return nil
 }
+
+// Delete removes a user by ID from the users table
+func (r *pgUserRepository) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM users WHERE id = $1;`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// DeleteByUsernameOrEmail removes a user by username or email
+func (r *pgUserRepository) DeleteByUsernameOrEmail(ctx context.Context, username, email string) error {
+	query := `DELETE FROM users WHERE LOWER(username) = LOWER($1) OR (email <> '' AND LOWER(email) = LOWER($2));`
+	_, err := r.db.ExecContext(ctx, query, username, email)
+	return err
+}
+

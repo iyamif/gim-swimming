@@ -25,6 +25,7 @@ type AttendanceRecord struct {
 	DistanceKm      float64   `json:"distance_km"`
 	IsValidLocation bool      `json:"is_valid_location"`
 	Notes           string    `json:"notes,omitempty"`
+	Photo           string    `json:"photo,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
@@ -39,6 +40,7 @@ type CheckInInput struct {
 	Latitude   float64 `json:"latitude"`
 	Longitude  float64 `json:"longitude"`
 	Notes      string  `json:"notes"`
+	Photo      string  `json:"photo"`
 }
 
 // AdminNotification represents in-app notification for admin, coach, or student

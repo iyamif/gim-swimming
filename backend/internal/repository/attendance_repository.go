@@ -20,6 +20,8 @@ type AttendanceRepository interface {
 	FindByScheduleAndPerson(ctx context.Context, scheduleID, personID, personType string) (*model.AttendanceRecord, error)
 	OverrideAttendance(ctx context.Context, att *model.AttendanceRecord) error
 	UpdateStatus(ctx context.Context, id int64, status, notes string) error
+	DeleteByPerson(ctx context.Context, personType, personID, personName string) error
+	DeleteByScheduleID(ctx context.Context, scheduleID string) error
 
 	// Notifications
 	CreateNotification(ctx context.Context, notif *model.AdminNotification) error
@@ -27,6 +29,8 @@ type AttendanceRepository interface {
 	MarkNotificationRead(ctx context.Context, id int64) error
 	ClearAllNotifications(ctx context.Context, role, name, userId string) error
 	HasNotification(ctx context.Context, notifType, scheduleID, targetRole, targetName string) (bool, error)
+	DeleteNotificationsByScheduleID(ctx context.Context, scheduleID string) error
+	DeleteNotificationsByTarget(ctx context.Context, targetRole, targetUserID, targetName string) error
 }
 
 type attendanceRepository struct {
@@ -44,11 +48,11 @@ func (r *attendanceRepository) Create(ctx context.Context, att *model.Attendance
 		INSERT INTO attendances (
 			schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
 			user_id, user_role, person_type, person_id, person_name, status,
-			is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+			is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, photo, created_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7,
 			$8, $9, $10, $11, $12, $13,
-			$14, $15, $16, $17, $18, $19, $20, $21
+			$14, $15, $16, $17, $18, $19, $20, $21, $22
 		) RETURNING id, created_at
 	`
 
@@ -79,6 +83,7 @@ func (r *attendanceRepository) Create(ctx context.Context, att *model.Attendance
 		att.DistanceKm,
 		att.IsValidLocation,
 		att.Notes,
+		att.Photo,
 		att.CreatedAt,
 	).Scan(&att.ID, &att.CreatedAt)
 }
@@ -88,7 +93,7 @@ func (r *attendanceRepository) FindAll(ctx context.Context) ([]model.AttendanceR
 	query := `
 		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
 		       user_id, user_role, person_type, person_id, person_name, status,
-		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, COALESCE(photo, ''), created_at
 		FROM attendances
 		ORDER BY created_at DESC
 	`
@@ -126,6 +131,7 @@ func (r *attendanceRepository) FindAll(ctx context.Context) ([]model.AttendanceR
 			&att.DistanceKm,
 			&att.IsValidLocation,
 			&notes,
+			&att.Photo,
 			&att.CreatedAt,
 		)
 		if err != nil {
@@ -160,7 +166,7 @@ func (r *attendanceRepository) FindByScheduleID(ctx context.Context, scheduleID 
 	query := `
 		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
 		       user_id, user_role, person_type, person_id, person_name, status,
-		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, COALESCE(photo, ''), created_at
 		FROM attendances
 		WHERE schedule_id = $1
 		ORDER BY created_at DESC
@@ -199,6 +205,7 @@ func (r *attendanceRepository) FindByScheduleID(ctx context.Context, scheduleID 
 			&att.DistanceKm,
 			&att.IsValidLocation,
 			&notes,
+			&att.Photo,
 			&att.CreatedAt,
 		)
 		if err != nil {
@@ -233,7 +240,7 @@ func (r *attendanceRepository) FindByCoachID(ctx context.Context, coachID string
 	query := `
 		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
 		       user_id, user_role, person_type, person_id, person_name, status,
-		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, COALESCE(photo, ''), created_at
 		FROM attendances
 		WHERE person_type = 'coach' AND (person_id = $1 OR user_id = $1)
 		ORDER BY created_at DESC
@@ -272,6 +279,7 @@ func (r *attendanceRepository) FindByCoachID(ctx context.Context, coachID string
 			&att.DistanceKm,
 			&att.IsValidLocation,
 			&notes,
+			&att.Photo,
 			&att.CreatedAt,
 		)
 		if err != nil {
@@ -306,7 +314,7 @@ func (r *attendanceRepository) FindByStudentID(ctx context.Context, studentID st
 	query := `
 		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
 		       user_id, user_role, person_type, person_id, person_name, status,
-		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, COALESCE(photo, ''), created_at
 		FROM attendances
 		WHERE person_type = 'student' AND (person_id = $1 OR user_id = $1)
 		ORDER BY created_at DESC
@@ -345,6 +353,7 @@ func (r *attendanceRepository) FindByStudentID(ctx context.Context, studentID st
 			&att.DistanceKm,
 			&att.IsValidLocation,
 			&notes,
+			&att.Photo,
 			&att.CreatedAt,
 		)
 		if err != nil {
@@ -564,7 +573,7 @@ func (r *attendanceRepository) FindByScheduleAndPerson(ctx context.Context, sche
 	query := `
 		SELECT id, schedule_id, schedule_title, class, date, time_start, time_end, pool_area,
 		       user_id, user_role, person_type, person_id, person_name, status,
-		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, created_at
+		       is_late, late_reason, latitude, longitude, distance_km, is_valid_location, notes, COALESCE(photo, ''), created_at
 		FROM attendances
 		WHERE schedule_id = $1 AND person_id = $2 AND person_type = $3
 		ORDER BY id DESC LIMIT 1;
@@ -593,6 +602,7 @@ func (r *attendanceRepository) FindByScheduleAndPerson(ctx context.Context, sche
 		&att.DistanceKm,
 		&att.IsValidLocation,
 		&notes,
+		&att.Photo,
 		&att.CreatedAt,
 	)
 	if err != nil {
@@ -623,10 +633,12 @@ func (r *attendanceRepository) OverrideAttendance(ctx context.Context, att *mode
 	if err == nil && existing != nil {
 		query := `
 			UPDATE attendances
-			SET status = $1, notes = $2, is_valid_location = true, created_at = NOW()
-			WHERE id = $3;
+			SET status = $1, notes = $2, is_valid_location = true,
+			    photo = CASE WHEN $3 <> '' THEN $3 ELSE photo END,
+			    created_at = NOW()
+			WHERE id = $4;
 		`
-		_, err := r.db.ExecContext(ctx, query, att.Status, att.Notes, existing.ID)
+		_, err := r.db.ExecContext(ctx, query, att.Status, att.Notes, att.Photo, existing.ID)
 		att.ID = existing.ID
 		return err
 	}
@@ -645,4 +657,43 @@ func (r *attendanceRepository) UpdateStatus(ctx context.Context, id int64, statu
 	_, err := r.db.ExecContext(ctx, query, status, notes, id)
 	return err
 }
+
+// DeleteByPerson removes attendance records for a specific person (student or coach)
+func (r *attendanceRepository) DeleteByPerson(ctx context.Context, personType, personID, personName string) error {
+	query := `
+		DELETE FROM attendances
+		WHERE (person_type = $1 OR $1 = '')
+		  AND (person_id = $2 OR LOWER(person_name) = LOWER($3));
+	`
+	_, err := r.db.ExecContext(ctx, query, personType, personID, personName)
+	return err
+}
+
+// DeleteByScheduleID removes all attendance records for a given schedule
+func (r *attendanceRepository) DeleteByScheduleID(ctx context.Context, scheduleID string) error {
+	altID := strings.TrimPrefix(scheduleID, "sch-")
+	query := `DELETE FROM attendances WHERE schedule_id = $1 OR schedule_id = $2;`
+	_, err := r.db.ExecContext(ctx, query, scheduleID, altID)
+	return err
+}
+
+// DeleteNotificationsByScheduleID removes notifications related to a schedule
+func (r *attendanceRepository) DeleteNotificationsByScheduleID(ctx context.Context, scheduleID string) error {
+	altID := strings.TrimPrefix(scheduleID, "sch-")
+	query := `DELETE FROM notifications WHERE schedule_id = $1 OR schedule_id = $2;`
+	_, err := r.db.ExecContext(ctx, query, scheduleID, altID)
+	return err
+}
+
+// DeleteNotificationsByTarget removes notifications targeting a user role/id/name
+func (r *attendanceRepository) DeleteNotificationsByTarget(ctx context.Context, targetRole, targetUserID, targetName string) error {
+	query := `
+		DELETE FROM notifications
+		WHERE (target_role = $1 OR $1 = '')
+		  AND (target_user_id = $2 OR LOWER(target_name) = LOWER($3));
+	`
+	_, err := r.db.ExecContext(ctx, query, targetRole, targetUserID, targetName)
+	return err
+}
+
 

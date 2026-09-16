@@ -20,6 +20,8 @@ import {
   Check,
   Sparkles,
   ShieldCheck,
+  Camera,
+  Maximize2,
 } from "lucide-react";
 import { overrideAttendance } from "../../../lib/api";
 
@@ -70,6 +72,9 @@ export default function KehadiranTab({
   const [overrideStatus, setOverrideStatus] = useState<"Hadir" | "Izin" | "Sakit" | "Tidak Hadir">("Hadir");
   const [overrideNotes, setOverrideNotes] = useState("");
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+
+  // Photo Verification Lightbox state
+  const [selectedPhotoRecord, setSelectedPhotoRecord] = useState<AttendanceRecord | null>(null);
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -487,18 +492,38 @@ export default function KehadiranTab({
                     className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-blue-200 transition"
                   >
                     <div className="flex items-start gap-3.5">
-                      <div
-                        className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 ${isHadir
-                          ? "bg-emerald-50 text-emerald-600"
-                          : isLate
-                            ? "bg-amber-50 text-amber-600"
-                            : isAlpha
-                              ? "bg-rose-50 text-rose-600"
-                              : "bg-blue-50 text-blue-600"
-                          }`}
-                      >
-                        {att.person_name ? att.person_name.charAt(0).toUpperCase() : "U"}
-                      </div>
+                      {att.photo ? (
+                        <div
+                          onClick={() => setSelectedPhotoRecord(att)}
+                          className="relative h-13 w-13 rounded-2xl overflow-hidden cursor-pointer group shrink-0 border-2 border-cyan-400 shadow-sm hover:ring-2 hover:ring-cyan-400/50 transition"
+                          title="Klik untuk melihat foto verifikasi presensi"
+                        >
+                          <img
+                            src={att.photo}
+                            alt={`Foto ${att.person_name}`}
+                            className="h-full w-full object-cover group-hover:scale-110 transition duration-200"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                            <Maximize2 size={16} />
+                          </div>
+                          <span className="absolute bottom-0 inset-x-0 bg-cyan-600/90 text-white text-[8px] font-black text-center py-0.5 uppercase tracking-tighter">
+                            Foto Kolam
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 ${isHadir
+                            ? "bg-emerald-50 text-emerald-600"
+                            : isLate
+                              ? "bg-amber-50 text-amber-600"
+                              : isAlpha
+                                ? "bg-rose-50 text-rose-600"
+                                : "bg-blue-50 text-blue-600"
+                            }`}
+                        >
+                          {att.person_name ? att.person_name.charAt(0).toUpperCase() : "U"}
+                        </div>
+                      )}
 
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -506,6 +531,15 @@ export default function KehadiranTab({
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                             {att.person_type === "coach" ? "Pelatih" : "Siswa"}
                           </span>
+                          {att.photo && (
+                            <button
+                              onClick={() => setSelectedPhotoRecord(att)}
+                              className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100 transition cursor-pointer"
+                            >
+                              <Camera size={11} />
+                              <span>Lihat Foto</span>
+                            </button>
+                          )}
                           <span className="text-xs text-slate-400 font-medium">
                             {att.date || (att.created_at ? new Date(att.created_at).toLocaleDateString("id-ID") : "-")}
                           </span>
@@ -514,6 +548,13 @@ export default function KehadiranTab({
                         <p className="text-xs text-slate-600 mt-0.5">
                           {att.schedule_title || "Sesi Latihan Renang"} • {att.pool_area || "Kolam Utama"}
                         </p>
+
+                        {att.distance_km !== undefined && (
+                          <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                            <MapPin size={11} className="text-rose-500 shrink-0" />
+                            <span>Radius GPS: <b>{att.distance_km} km</b> dari kolam</span>
+                          </p>
+                        )}
 
                         {att.notes && (
                           <p className="text-[11px] text-slate-500 italic mt-0.5 bg-slate-50 px-2 py-1 rounded-lg">
@@ -724,6 +765,107 @@ export default function KehadiranTab({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          5. MODAL LIGHTBOX FOTO PRESENSI (ADMIN)
+          ========================================== */}
+      {selectedPhotoRecord && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn"
+          onClick={() => setSelectedPhotoRecord(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Camera size={18} className="text-cyan-400" />
+                <div>
+                  <h3 className="text-sm font-black tracking-wide">
+                    Verifikasi Foto Presensi Kolam
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    {selectedPhotoRecord.person_type === "coach" ? "Pelatih" : "Siswa"}: {selectedPhotoRecord.person_name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedPhotoRecord(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10 transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Photo Viewport */}
+            <div className="relative bg-slate-950 flex items-center justify-center min-h-[280px] max-h-[55vh] overflow-hidden">
+              {selectedPhotoRecord.photo ? (
+                <img
+                  src={selectedPhotoRecord.photo}
+                  alt={`Bukti Presensi ${selectedPhotoRecord.person_name}`}
+                  className="w-full h-auto max-h-[55vh] object-contain"
+                />
+              ) : (
+                <div className="p-10 text-center text-slate-400">
+                  <Camera size={48} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">Foto tidak tersedia untuk data presensi ini.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Metadata Footer */}
+            <div className="p-5 bg-slate-50 space-y-3 border-t border-slate-100">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold block">WAKTU SESI</span>
+                  <span className="font-bold text-slate-800">
+                    {selectedPhotoRecord.date} ({selectedPhotoRecord.time_start || "--:--"} - {selectedPhotoRecord.time_end || "--:--"})
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold block">LOKASI KOLAM</span>
+                  <span className="font-bold text-slate-800">
+                    {selectedPhotoRecord.pool_area || "Kolam Utama"}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold block">STATUS</span>
+                  <span
+                    className={`font-black ${
+                      selectedPhotoRecord.status === "Hadir" ? "text-emerald-600" : "text-amber-600"
+                    }`}
+                  >
+                    {selectedPhotoRecord.status}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold block">VALIDASI GPS</span>
+                  <span className="font-bold text-emerald-600 flex items-center gap-1">
+                    <CheckCircle2 size={13} />
+                    {selectedPhotoRecord.distance_km !== undefined ? `${selectedPhotoRecord.distance_km} km (Valid)` : "Radius Valid"}
+                  </span>
+                </div>
+              </div>
+
+              {selectedPhotoRecord.notes && (
+                <p className="text-xs text-slate-600 italic bg-white p-2.5 rounded-xl border border-slate-200">
+                  <b>Catatan:</b> {selectedPhotoRecord.notes}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoRecord(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer"
+              >
+                Tutup Pratinjau
+              </button>
+            </div>
           </div>
         </div>
       )}

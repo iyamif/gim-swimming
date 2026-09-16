@@ -1221,7 +1221,7 @@ export default function DaftarHadirTab({
                 Apakah anda yakin menghapus <span className="font-bold text-slate-900">&quot;{studentToDelete.name}&quot;</span>?
               </p>
               <p className="text-[11px] text-slate-400">
-                Data siswa dan riwayat absensi terkait akan dihapus secara permanen.
+                Akun siswa, riwayat absensi, tagihan SPP, dan seluruh jadwal latihan terkait akan otomatis terhapus secara permanen.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 pt-2">

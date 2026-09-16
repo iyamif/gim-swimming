@@ -51,6 +51,7 @@ interface CoachCameraPresensiProps {
     latitude: number;
     longitude: number;
     notes?: string;
+    photo?: string;
   }) => Promise<boolean | void>;
   onClose?: () => void;
   onSwitchToStudentChecklist?: (scheduleId: string) => void;
@@ -141,28 +142,59 @@ export default function CoachCameraPresensi({
     return () => clearInterval(timer);
   }, []);
 
-  // Determine nearest schedule automatically
-  const autoNearestSchedule = useMemo(() => {
-    return findNearestCoachSchedule(schedules, sessionUser, currentDate);
-  }, [schedules, sessionUser, currentDate]);
+  const todayISO = useMemo(() => {
+    const y = currentDate.getFullYear();
+    const m = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const d = String(currentDate.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, [currentDate]);
+
+  // Relevant schedules for this coach
+  const coachSchedules = useMemo(() => {
+    if (!sessionUser || sessionRole === "admin") return schedules;
+    const coachLower = sessionUser.toLowerCase().trim();
+    const matched = schedules.filter(
+      (s) =>
+        (s.coachName || "").toLowerCase().includes(coachLower) ||
+        (s.title || "").toLowerCase().includes(coachLower)
+    );
+    return matched.length > 0 ? matched : schedules;
+  }, [schedules, sessionUser, sessionRole]);
+
+  // TODAY-ONLY schedules for this coach
+  const todayCoachSchedules = useMemo(() => {
+    return coachSchedules
+      .filter((s) => !s.date || s.date === todayISO)
+      .sort((a, b) => (a.timeStart || "").localeCompare(b.timeStart || ""));
+  }, [coachSchedules, todayISO]);
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
   const [showScheduleSelector, setShowScheduleSelector] = useState(false);
 
+  // Auto-select schedule for today
   useEffect(() => {
-    if (!selectedScheduleId && autoNearestSchedule) {
-      setSelectedScheduleId(autoNearestSchedule.id);
+    if (todayCoachSchedules.length === 1) {
+      setSelectedScheduleId(todayCoachSchedules[0].id);
+    } else if (todayCoachSchedules.length > 1) {
+      const nearest = findNearestCoachSchedule(todayCoachSchedules, sessionUser, currentDate);
+      if (nearest) {
+        setSelectedScheduleId(nearest.id);
+      } else {
+        setSelectedScheduleId(todayCoachSchedules[0].id);
+      }
+    } else {
+      setSelectedScheduleId("");
     }
-  }, [autoNearestSchedule, selectedScheduleId]);
+  }, [todayCoachSchedules, sessionUser, currentDate]);
 
   const activeSchedule = useMemo(() => {
+    if (todayCoachSchedules.length === 0) return null;
     return (
-      schedules.find((s) => s.id === selectedScheduleId) ||
-      autoNearestSchedule ||
-      schedules[0] ||
+      todayCoachSchedules.find((s) => s.id === selectedScheduleId) ||
+      todayCoachSchedules[0] ||
       null
     );
-  }, [schedules, selectedScheduleId, autoNearestSchedule]);
+  }, [todayCoachSchedules, selectedScheduleId]);
 
   // Check if coach already checked in
   const isAlreadyCheckedIn = useMemo(() => {
@@ -516,14 +548,15 @@ export default function CoachCameraPresensi({
         setShowLateReasonModal(true);
         return;
       }
-      submitPresensiMasuk();
+      submitPresensiMasuk(undefined, snapshot || undefined);
     }
   };
 
-  const submitPresensiMasuk = async (reasonOverride?: string) => {
+  const submitPresensiMasuk = async (reasonOverride?: string, snapshotOverride?: string) => {
     if (!activeSchedule) return;
     setIsSubmitting(true);
     try {
+      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
@@ -535,6 +568,7 @@ export default function CoachCameraPresensi({
           latitude: currentLat || targetPoolInfo.latitude,
           longitude: currentLon || targetPoolInfo.longitude,
           notes: `Presensi Masuk Kamera (${distanceMeters}m dari ${targetPoolInfo.name})`,
+          photo: photoToSend,
         });
       }
       setShowLateReasonModal(false);
@@ -548,10 +582,11 @@ export default function CoachCameraPresensi({
     }
   };
 
-  const submitPresensiKeluar = async () => {
+  const submitPresensiKeluar = async (snapshotOverride?: string) => {
     if (!activeSchedule) return;
     setIsSubmitting(true);
     try {
+      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
@@ -564,6 +599,7 @@ export default function CoachCameraPresensi({
           notes: checkoutNotes.trim()
             ? `Presensi Keluar: ${checkoutNotes.trim()}`
             : `Presensi Keluar (${distanceMeters}m dari ${targetPoolInfo.name})`,
+          photo: photoToSend,
         });
       }
       setShowCheckoutNotesModal(false);
@@ -763,6 +799,14 @@ export default function CoachCameraPresensi({
             <span>{distanceMeters >= 1000 ? `${distanceKm}km` : `${distanceMeters}m`}</span>
           </div>
         </div>
+
+        {/* NO SESSION TODAY WARNING BANNER */}
+        {todayCoachSchedules.length === 0 && (
+          <div className="p-3 rounded-2xl bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-200 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-lg animate-fadeIn">
+            <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+            <span>Tidak ada jadwal sesi latihan hari ini ({currentDate.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}). Presensi dinonaktifkan.</span>
+          </div>
+        )}
 
         {/* IN-SESSION SHORTCUT BANNER (If already checked in and in "keluar" mode) */}
         {isAlreadyCheckedIn && !isAlreadyCheckedOut && (
@@ -1072,7 +1116,7 @@ export default function CoachCameraPresensi({
               </button>
               <button
                 type="button"
-                onClick={submitPresensiKeluar}
+                onClick={() => submitPresensiKeluar()}
                 disabled={isSubmitting}
                 className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white text-xs font-bold transition cursor-pointer shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
@@ -1173,15 +1217,17 @@ export default function CoachCameraPresensi({
       )}
 
       {/* =========================================================================
-          MODAL: SCHEDULE SELECTOR
+          MODAL: SCHEDULE SELECTOR (TODAY ONLY)
           ========================================================================= */}
       {showScheduleSelector && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-md rounded-3xl bg-white border border-slate-100 p-5 space-y-4 shadow-2xl text-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Pilih Sesi Jadwal Latihan</h3>
-                <p className="text-[11px] text-slate-400">Pilih sesi untuk presensi kehadiran</p>
+                <h3 className="text-sm font-black text-slate-900">Pilih Sesi Jadwal Hari Ini</h3>
+                <p className="text-[11px] text-slate-400">
+                  {todayCoachSchedules.length} sesi dijadwalkan untuk hari ini ({currentDate.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })})
+                </p>
               </div>
               <button
                 onClick={() => setShowScheduleSelector(false)}
@@ -1192,34 +1238,44 @@ export default function CoachCameraPresensi({
             </div>
 
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {schedules.map((s) => {
-                const isSelected = s.id === activeSchedule?.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      setSelectedScheduleId(s.id);
-                      setShowScheduleSelector(false);
-                    }}
-                    className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
-                      isSelected
-                        ? "bg-blue-50 border-blue-300 text-slate-900 font-bold shadow-2xs"
-                        : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
-                    }`}
-                  >
-                    <div>
-                      <p className="text-xs font-black text-slate-900">{s.title || s.class}</p>
-                      <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1 mt-0.5">
-                        <Clock size={10} /> {s.timeStart} - {s.timeEnd} WIB • <MapPin size={10} /> {s.poolArea}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {s.date || "Setiap Hari"} • Pelatih: {s.coachName || "Coach"}
-                      </p>
-                    </div>
-                    {isSelected && <Check size={16} className="text-blue-600 shrink-0" />}
-                  </button>
-                );
-              })}
+              {todayCoachSchedules.length === 0 ? (
+                <div className="py-8 text-center space-y-2">
+                  <Calendar size={32} className="text-slate-300 mx-auto" />
+                  <p className="text-xs font-bold text-slate-700">Tidak ada jadwal sesi hari ini</p>
+                  <p className="text-[11px] text-slate-400">
+                    Presensi hanya dapat diambil saat ada jadwal sesi latihan hari ini.
+                  </p>
+                </div>
+              ) : (
+                todayCoachSchedules.map((s) => {
+                  const isSelected = s.id === activeSchedule?.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setSelectedScheduleId(s.id);
+                        setShowScheduleSelector(false);
+                      }}
+                      className={`w-full text-left p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
+                        isSelected
+                          ? "bg-blue-50 border-blue-300 text-slate-900 font-bold shadow-2xs"
+                          : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-xs font-black text-slate-900">{s.title || s.class}</p>
+                        <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1 mt-0.5">
+                          <Clock size={10} /> {s.timeStart} - {s.timeEnd} WIB • <MapPin size={10} /> {s.poolArea}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {s.studentNames && s.studentNames.length > 0 ? `Siswa: ${s.studentNames.join(", ")}` : "Siswa: Belum ditentukan"}
+                        </p>
+                      </div>
+                      {isSelected && <Check size={16} className="text-blue-600 shrink-0" />}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

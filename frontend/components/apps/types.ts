@@ -94,6 +94,7 @@ export interface AttendanceRecord {
   distance_km: number;
   is_valid_location: boolean;
   notes?: string;
+  photo?: string;
   created_at: string;
 }
 
@@ -108,6 +109,7 @@ export interface CheckInInput {
   latitude: number;
   longitude: number;
   notes?: string;
+  photo?: string;
 }
 
 export interface AdminNotification {

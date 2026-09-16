@@ -1028,7 +1028,7 @@ export default function PelatihTab({
                 Apakah anda yakin menghapus <span className="font-bold text-slate-900">&quot;{coachToDelete.name}&quot;</span>?
               </p>
               <p className="text-[11px] text-slate-400">
-                Data pelatih akan dihapus secara permanen dari sistem.
+                Akun pelatih, riwayat absensi, data payroll, dan seluruh jadwal latihan yang dibimbing akan otomatis terhapus secara permanen.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 pt-2">
