@@ -21,6 +21,7 @@ import {
   Calendar,
   TrendingUp,
   User,
+  Award,
   Camera,
   Bell,
   AlertTriangle,
@@ -845,36 +846,92 @@ export default function ParentBody({
     );
   }, [parentStudentHistory]);
 
-  // Catatan evaluasi dari pelatih (dari presensi checkout pelatih atau student.notes)
+  // Catatan evaluasi / laporan perkembangan dari pelatih (dari checkout pelatih saat selesai absen, jadwal, dan absensi)
   const coachEvaluationsList = useMemo(() => {
-    const list: { date: string; title: string; coachName: string; notes: string; status: string }[] = [];
+    const list: {
+      id: string;
+      date: string;
+      title: string;
+      coachName: string;
+      notes: string;
+      status: string;
+      rawDate: string;
+    }[] = [];
 
-    // Dari catatan attendance siswa yang diinput pelatih
-    studentAttendances.forEach((att) => {
+    const seenNotes = new Set<string>();
+
+    // 1. Dari data checkout / presensi pelatih & siswa untuk jadwal yang diikuti siswa ini
+    attendances.forEach((att) => {
       if (att.notes && att.notes.trim() !== "") {
-        list.push({
-          date: att.date || (att.created_at ? att.created_at.split("T")[0] : todayISO),
-          title: att.schedule_title || att.class || `${student.class} Class`,
-          coachName: coach.name,
-          notes: att.notes.trim(),
-          status: att.status || "Hadir",
-        });
+        // Cek apakah presensi ini terkait dengan jadwal siswa atau nama siswa
+        const isStudentSchedule = studentSchedules.some((s) => String(s.id) === String(att.schedule_id));
+        const isStudentDirect =
+          att.person_type === "student" &&
+          (String(att.person_id) === String(student.id) ||
+            att.person_name?.toLowerCase().includes(student.name.toLowerCase().trim()) ||
+            student.name.toLowerCase().includes(att.person_name?.toLowerCase().trim() || ""));
+
+        if (isStudentSchedule || isStudentDirect) {
+          // Bersihkan prefix "Presensi Keluar: " jika ada agar teks laporan rapi
+          const cleanNotes = att.notes.replace(/^Presensi Keluar:\s*/i, "").trim();
+          const key = `${att.date || ""}-${cleanNotes}`;
+          if (cleanNotes && !seenNotes.has(key)) {
+            seenNotes.add(key);
+            list.push({
+              id: `att-${att.id}`,
+              date: att.date || (att.created_at ? att.created_at.split("T")[0] : todayISO),
+              title: att.schedule_title || att.class || `${student.class} Class`,
+              coachName: att.person_type === "coach" ? att.person_name : coach.name,
+              notes: cleanNotes,
+              status: att.status || "Selesai",
+              rawDate: att.created_at || att.date || todayISO,
+            });
+          }
+        }
       }
     });
 
-    // Dari catatan student.notes jika ada
-    if (student.notes && student.notes.trim() !== "" && list.length === 0) {
-      list.push({
-        date: todayISO,
-        title: `${student.class} Class`,
-        coachName: coach.name,
-        notes: student.notes.trim(),
-        status: "Selesai",
-      });
+    // 2. Dari catatan pada jadwal sesi (schedule.notes) yang diikuti siswa
+    studentSchedules.forEach((sch) => {
+      if (sch.notes && sch.notes.trim() !== "") {
+        const cleanNotes = sch.notes.replace(/^Presensi Keluar:\s*/i, "").trim();
+        const key = `${sch.date || ""}-${cleanNotes}`;
+        if (cleanNotes && !seenNotes.has(key)) {
+          seenNotes.add(key);
+          list.push({
+            id: `sch-${sch.id}`,
+            date: sch.date || todayISO,
+            title: sch.title || `${sch.class} Class`,
+            coachName: sch.coachName || coach.name,
+            notes: cleanNotes,
+            status: "Selesai",
+            rawDate: sch.date || todayISO,
+          });
+        }
+      }
+    });
+
+    // 3. Dari catatan student.notes jika ada
+    if (student.notes && student.notes.trim() !== "") {
+      const cleanNotes = student.notes.trim();
+      const key = `student-note-${cleanNotes}`;
+      if (!seenNotes.has(key)) {
+        seenNotes.add(key);
+        list.push({
+          id: `student-note`,
+          date: todayISO,
+          title: `${student.class} Class`,
+          coachName: coach.name,
+          notes: cleanNotes,
+          status: "Selesai",
+          rawDate: todayISO,
+        });
+      }
     }
 
-    return list;
-  }, [studentAttendances, student.notes, student.class, coach.name, todayISO]);
+    // Urutkan dari laporan terbaru ke terlama
+    return list.sort((a, b) => (b.rawDate || b.date).localeCompare(a.rawDate || a.date));
+  }, [attendances, studentSchedules, student.id, student.name, student.notes, student.class, coach.name, todayISO]);
 
   const latestCoachEvaluation = coachEvaluationsList[0] || null;
   const hasEverAttendedSession = attendedSessions.length > 0 || coachEvaluationsList.length > 0;
@@ -1657,119 +1714,6 @@ export default function ParentBody({
               </div>
             )}
 
-            {/* ==========================================
-                PEMBERITAHUAN & JADWAL BARU SISWA CONTAINER
-                ========================================== */}
-            {studentNotifications.length > 0 && (
-              <div className="rounded-3xl bg-white p-4 sm:p-5 shadow-sm border border-slate-100 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <Megaphone size={16} className="text-cyan-600 shrink-0" />
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                        <span>Pemberitahuan Pelatihan Siswa</span>
-                        {unreadNotifsCount > 0 && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white shadow-xs animate-pulse">
-                            {unreadNotifsCount} Baru
-                          </span>
-                        )}
-                      </h3>
-                      <p className="text-[10px] text-slate-400 font-medium">
-                        Info jadwal latihan terbaru dan update kehadiran {student.name}
-                      </p>
-                    </div>
-                  </div>
-
-                  {onClearAllNotifications && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await onClearAllNotifications();
-                      }}
-                      className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition cursor-pointer border border-slate-200/80"
-                    >
-                      Bersihkan Semua
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2.5">
-                  {studentNotifications.slice(0, 3).map((notif) => {
-                    const isSchedule = notif.type?.includes("schedule") || notif.title?.toLowerCase().includes("jadwal");
-                    const isLate = notif.title?.includes("Terlambat");
-                    const notifCardIcon = isSchedule ? (
-                      <CalendarDays size={14} className="text-emerald-600 shrink-0" />
-                    ) : isLate ? (
-                      <AlertTriangle size={14} className="text-amber-600 shrink-0" />
-                    ) : notif.type?.includes("attendance") ? (
-                      <Clock size={14} className="text-cyan-600 shrink-0" />
-                    ) : (
-                      <Bell size={14} className="text-blue-600 shrink-0" />
-                    );
-
-                    return (
-                      <div
-                        key={notif.id}
-                        className={`p-3.5 rounded-2xl border transition text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${!notif.is_read
-                          ? isSchedule
-                            ? "bg-emerald-50/80 border-emerald-200/90 shadow-2xs"
-                            : isLate
-                              ? "bg-amber-50/80 border-amber-200/90 shadow-2xs"
-                              : "bg-blue-50/80 border-blue-200/90 shadow-2xs"
-                          : "bg-slate-50/70 border-slate-200/60 opacity-80"
-                          }`}
-                      >
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {notifCardIcon}
-                            <span className="text-xs font-black text-slate-900">{notif.title}</span>
-                            {!notif.is_read && (
-                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-500 text-white">
-                                BARU
-                              </span>
-                            )}
-                            <span className="text-[10px] text-slate-400 font-medium ml-auto sm:ml-0">
-                              {notif.created_at ? new Date(notif.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Baru saja"} WIB
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 leading-relaxed pl-6">
-                            {notif.message}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 pl-6 sm:pl-0 shrink-0">
-                          {isSchedule && (
-                            <button
-                              onClick={() => {
-                                if (onMarkNotificationRead && !notif.is_read) {
-                                  onMarkNotificationRead(notif.id);
-                                }
-                                setParentActiveTab("jadwal");
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer shadow-xs active:scale-95 flex items-center gap-1"
-                            >
-                              <span>Lihat Jadwal</span>
-                              <ChevronRight size={12} />
-                            </button>
-                          )}
-                          {!notif.is_read && onMarkNotificationRead && (
-                            <button
-                              onClick={() => onMarkNotificationRead(notif.id)}
-                              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold transition cursor-pointer active:scale-95 flex items-center gap-1"
-                              title="Tandai Sudah Dibaca"
-                            >
-                              <Check size={12} />
-                              <span>Dibaca</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Sesi Hari Ini & Presensi Siswa if active */}
             {todayStudentSchedules.length > 0 && (
               <div className="rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-4 relative overflow-hidden animate-fadeIn">
@@ -1993,12 +1937,20 @@ export default function ParentBody({
 
             {/* Quick Progress Report Snippet */}
             <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-                  <TrendingUp size={16} className="text-cyan-600" />
-                  <span>Progres Evaluasi Kemampuan</span>
-                </h4>
-                {hasEverAttendedSession ? (
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={16} className="text-cyan-600 shrink-0" />
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                      Progres Evaluasi Kemampuan
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-semibold">
+                      Diambil dari data report evaluasi pelatih pasca absensi
+                    </p>
+                  </div>
+                </div>
+
+                {latestCoachEvaluation ? (
                   <button
                     onClick={() => setParentActiveTab("progres")}
                     className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 cursor-pointer flex items-center gap-1"
@@ -2008,148 +1960,174 @@ export default function ParentBody({
                   </button>
                 ) : (
                   <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-100">
-                    Belum Ada Data
+                    Menunggu Laporan
                   </span>
                 )}
               </div>
 
-              {!hasEverAttendedSession ? (
-                <div className="py-5 text-center space-y-2">
-                  <div className="h-10 w-10 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto border border-slate-100">
-                    <TrendingUp size={20} className="text-slate-300" />
+              {!latestCoachEvaluation ? (
+                <div className="py-6 text-center space-y-2 bg-slate-50/50 rounded-2xl border border-slate-100/80">
+                  <div className="h-10 w-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto border border-slate-200/60 shadow-2xs">
+                    <TrendingUp size={20} className="text-slate-400" />
                   </div>
-                  <p className="text-xs font-bold text-slate-700">Belum Ada Catatan Evaluasi</p>
+                  <p className="text-xs font-bold text-slate-700">Belum Ada Catatan Evaluasi Pelatih</p>
                   <p className="text-[11px] text-slate-400 max-w-xs mx-auto leading-relaxed">
-                    Evaluasi kemampuan akan diisi dan diperbarui oleh pelatih setelah siswa mengikuti dan menyelesaikan sesi latihan.
+                    Evaluasi kemampuan akan otomatis terisi dari data report yang diisi oleh pelatih ketika selesai melakukan absensi.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {latestCoachEvaluation ? (
-                    <div className="p-3 rounded-2xl bg-cyan-50/50 border border-cyan-100/60 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-cyan-700 uppercase tracking-wider">
-                          Catatan Evaluasi • Coach {latestCoachEvaluation.coachName}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {latestCoachEvaluation.date}
-                        </span>
+                <div className="space-y-3.5">
+                  {/* Coach Evaluation Report Card */}
+                  <div className="p-3.5 rounded-2xl bg-cyan-50/60 border border-cyan-100 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <span className="text-[10px] font-black text-cyan-800 uppercase tracking-wider flex items-center gap-1">
+                        <Award size={12} className="text-cyan-600" />
+                        <span>Laporan Pelatih • Coach {latestCoachEvaluation.coachName}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {latestCoachEvaluation.date}
+                      </span>
+                    </div>
+
+                    {latestCoachEvaluation.notes.includes("\n") || latestCoachEvaluation.notes.includes("•") ? (
+                      <div className="space-y-1 pt-0.5">
+                        {latestCoachEvaluation.notes
+                          .split("\n")
+                          .map((line) => line.trim())
+                          .filter(Boolean)
+                          .map((line, idx) => (
+                            <p
+                              key={idx}
+                              className="text-xs text-slate-700 font-medium leading-relaxed flex items-start gap-1.5"
+                            >
+                              <span className="text-cyan-600 font-bold shrink-0">•</span>
+                              <span>{line.replace(/^•\s*/, "")}</span>
+                            </p>
+                          ))}
                       </div>
+                    ) : (
                       <p className="text-xs text-slate-700 italic font-medium leading-relaxed">
                         &ldquo;{latestCoachEvaluation.notes}&rdquo;
                       </p>
-                    </div>
-                  ) : null}
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                      <span>Meluncur &amp; Pernapasan</span>
-                      <span className="text-cyan-600">{Math.min(100, 60 + attendedSessions.length * 10)}%</span>
-                    </div>
-                    <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, 60 + attendedSessions.length * 10)}%` }}
-                      />
-                    </div>
+                    )}
                   </div>
-                  <div>
-                    <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                      <span>Renang Gaya Dada</span>
-                      <span className="text-cyan-600">{Math.min(100, 50 + attendedSessions.length * 10)}%</span>
-                    </div>
-                    <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, 50 + attendedSessions.length * 10)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            {/* Catatan Riwayat Pertemuan Siswa (Basis SPP & Kehadiran) */}
-            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-blue-600" />
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                      Catatan Pertemuan Siswa
-                    </h4>
-                    <p className="text-[10px] text-slate-400 font-semibold">
-                      Riwayat Presensi &amp; Sesi Latihan Tervalidasi
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black">
-                  {parentStudentHistory.length} Sesi Tercatat
-                </span>
-              </div>
-
-              {parentStudentHistory.length === 0 ? (
-                <div className="py-6 text-center text-slate-400 text-xs italic">
-                  Belum ada catatan presensi pertemuan dari jadwal yang terekam.
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {parentStudentHistory.map((sess, idx) => (
-                    <div
-                      key={sess.id || idx}
-                      className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 text-xs font-black shrink-0">
-                          S{parentStudentHistory.length - idx}
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-slate-900">
-                            Pertemuan ke-{parentStudentHistory.length - idx} • {sess.date}
-                          </p>
-                          <p className="text-[10px] text-slate-500 font-medium">
-                            {sess.title} • {sess.time} • {sess.coachName} • {sess.poolArea}
-                            {sess.distance_km !== undefined ? ` • Radius: ${sess.distance_km.toFixed(2)} km` : ""}
-                          </p>
-                          {sess.lateReason && (
-                            <p className="text-[10px] text-amber-700 font-medium italic mt-0.5 flex items-center gap-1">
-                              <AlertTriangle size={11} className="shrink-0" />
-                              <span>Keterlambatan: &quot;{sess.lateReason}&quot;</span>
-                            </p>
+                  {/* Skills Progress Bars derived from coach report data */}
+                  <div className="space-y-2.5 pt-0.5">
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                        <span>Meluncur &amp; Streamline</span>
+                        <span className="text-cyan-600">
+                          {Math.min(
+                            100,
+                            Math.max(
+                              60,
+                              55 +
+                                attendedSessions.length * 8 +
+                                (latestCoachEvaluation.notes.toLowerCase().includes("meluncur") ? 15 : 0)
+                            )
                           )}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 ml-auto sm:ml-0">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${sess.status === "Terlambat"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : sess.status === "Terjadwal"
-                              ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                              : sess.status === "Sakit"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : sess.status === "Izin"
-                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            }`}
-                        >
-                          {sess.status === "Terlambat" ? (
-                            <>
-                              <AlertTriangle size={11} />
-                              <span>Terlambat</span>
-                            </>
-                          ) : sess.status === "Terjadwal" ? (
-                            <span>Terjadwal</span>
-                          ) : (
-                            <>
-                              <Check size={11} />
-                              <span>{sess.status || "Hadir"}</span>
-                            </>
-                          )}
+                          %
                         </span>
                       </div>
+                      <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                60,
+                                55 +
+                                  attendedSessions.length * 8 +
+                                  (latestCoachEvaluation.notes.toLowerCase().includes("meluncur") ? 15 : 0)
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                  ))}
+
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                        <span>Kayuhan Kaki &amp; Gaya Dada</span>
+                        <span className="text-cyan-600">
+                          {Math.min(
+                            100,
+                            Math.max(
+                              50,
+                              45 +
+                                attendedSessions.length * 8 +
+                                (latestCoachEvaluation.notes.toLowerCase().includes("gaya dada") ||
+                                latestCoachEvaluation.notes.toLowerCase().includes("kaki")
+                                  ? 15
+                                  : 0)
+                            )
+                          )}
+                          %
+                        </span>
+                      </div>
+                      <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                50,
+                                45 +
+                                  attendedSessions.length * 8 +
+                                  (latestCoachEvaluation.notes.toLowerCase().includes("gaya dada") ||
+                                  latestCoachEvaluation.notes.toLowerCase().includes("kaki")
+                                    ? 15
+                                    : 0)
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                        <span>Pernapasan Ritmik &amp; Stamina</span>
+                        <span className="text-cyan-600">
+                          {Math.min(
+                            100,
+                            Math.max(
+                              50,
+                              40 +
+                                attendedSessions.length * 8 +
+                                (latestCoachEvaluation.notes.toLowerCase().includes("pernapasan") ||
+                                latestCoachEvaluation.notes.toLowerCase().includes("stamina")
+                                  ? 20
+                                  : 0)
+                            )
+                          )}
+                          %
+                        </span>
+                      </div>
+                      <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                50,
+                                40 +
+                                  attendedSessions.length * 8 +
+                                  (latestCoachEvaluation.notes.toLowerCase().includes("pernapasan") ||
+                                  latestCoachEvaluation.notes.toLowerCase().includes("stamina")
+                                    ? 20
+                                    : 0)
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -2718,10 +2696,34 @@ export default function ParentBody({
                   {/* Skills List with Star Ratings */}
                   <div className="space-y-3">
                     {[
-                      { name: "Meluncur (Floating)", rating: Math.min(5, Math.max(3, attendedSessions.length >= 3 ? 5 : 4)) },
-                      { name: "Kayuhan Kaki (Kicking)", rating: Math.min(5, Math.max(3, attendedSessions.length >= 2 ? 5 : 4)) },
-                      { name: "Gerakan Lengan (Arms)", rating: Math.min(5, Math.max(3, attendedSessions.length >= 4 ? 5 : 4)) },
-                      { name: "Pernapasan Ritmik (Breathing)", rating: Math.min(5, Math.max(2, attendedSessions.length >= 5 ? 5 : 4)) },
+                      {
+                        name: "Meluncur (Floating & Streamline)",
+                        rating: latestCoachEvaluation?.notes.toLowerCase().includes("meluncur")
+                          ? 5
+                          : Math.min(5, Math.max(3, attendedSessions.length >= 3 ? 5 : 4)),
+                      },
+                      {
+                        name: "Kayuhan Kaki (Kicking & Gaya Dada)",
+                        rating:
+                          latestCoachEvaluation?.notes.toLowerCase().includes("kaki") ||
+                          latestCoachEvaluation?.notes.toLowerCase().includes("gaya dada")
+                            ? 5
+                            : Math.min(5, Math.max(3, attendedSessions.length >= 2 ? 5 : 4)),
+                      },
+                      {
+                        name: "Gerakan Lengan (Arms Stroke)",
+                        rating: latestCoachEvaluation?.notes.toLowerCase().includes("lengan")
+                          ? 5
+                          : Math.min(5, Math.max(3, attendedSessions.length >= 4 ? 5 : 4)),
+                      },
+                      {
+                        name: "Pernapasan Ritmik & Stamina",
+                        rating:
+                          latestCoachEvaluation?.notes.toLowerCase().includes("pernapasan") ||
+                          latestCoachEvaluation?.notes.toLowerCase().includes("stamina")
+                            ? 5
+                            : Math.min(5, Math.max(2, attendedSessions.length >= 5 ? 5 : 4)),
+                      },
                     ].map((skill, idx) => (
                       <div key={idx} className="flex items-center justify-between">
                         <span className="text-xs sm:text-sm font-bold text-slate-800">
@@ -2748,10 +2750,10 @@ export default function ParentBody({
                   {/* Catatan Pelatih */}
                   <div className="border-t border-slate-100 pt-3 space-y-1.5">
                     <h5 className="text-xs font-black text-slate-900">
-                      Catatan Pelatih
+                      Catatan Evaluasi Pelatih
                     </h5>
                     <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-2xl border border-slate-100/80">
-                      Coach {coach.name}: &ldquo;{latestCoachEvaluation ? latestCoachEvaluation.notes : "Perkembangan teknik meluncur, posisi tubuh dalam air, dan kayuhan kaki anak sangat memuaskan. Tingkatkan konsistensi pernapasan ritmik dan stamina saat jarak jauh."}&rdquo;
+                      Coach {latestCoachEvaluation ? latestCoachEvaluation.coachName : coach.name}: &ldquo;{latestCoachEvaluation ? latestCoachEvaluation.notes : "Perkembangan teknik meluncur, posisi tubuh dalam air, dan kayuhan kaki anak sangat memuaskan. Tingkatkan konsistensi pernapasan ritmik dan stamina saat jarak jauh."}&rdquo;
                     </p>
                   </div>
                 </>
