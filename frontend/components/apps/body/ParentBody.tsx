@@ -934,7 +934,7 @@ export default function ParentBody({
   }, [attendances, studentSchedules, student.id, student.name, student.notes, student.class, coach.name, todayISO]);
 
   const latestCoachEvaluation = coachEvaluationsList[0] || null;
-  const hasEverAttendedSession = attendedSessions.length > 0 || coachEvaluationsList.length > 0;
+  const hasEverAttendedSession = coachEvaluationsList.length > 0;
 
   // Today's scheduled session created by admin for this student
   const todayScheduleObj = studentSchedules.find((s) => s.date === todayISO) || null;
@@ -1671,9 +1671,9 @@ export default function ParentBody({
             </div>
 
             {/* ==========================================
-                JADWAL LATIHAN HARI INI (HANYA MUNCUL JIKA ADA JADWAL HARI INI DIBUAT ADMIN)
+                JADWAL LATIHAN (HARI INI / SESI MENDATANG)
                 ========================================== */}
-            {todaySession && (
+            {(todaySession || upcomingSession) && (
               <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap animate-fadeIn">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/60 shadow-2xs">
@@ -1682,194 +1682,52 @@ export default function ParentBody({
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-cyan-50 text-cyan-700 border border-cyan-100/80">
-                        {todaySession.class || student.class}
+                        {(todaySession || upcomingSession)?.class || student.class}
                       </span>
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        Hari Ini
-                      </span>
+                      {todaySession ? (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          Hari Ini
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                          Sesi Mendatang
+                        </span>
+                      )}
                       <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
-                        {todaySession.time || "Sesi Latihan Hari Ini"}
+                        {(todaySession || upcomingSession)?.time || "Sesi Latihan"}
                       </h4>
                     </div>
                     <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5 flex items-center gap-1">
                       <MapPin size={11} className="text-slate-400 shrink-0" />
-                      <span>{todaySession.poolArea || "Kolam Renang"}</span>
+                      <span>{(todaySession || upcomingSession)?.poolArea || "Kolam Renang"}</span>
                       <span className="text-slate-300">•</span>
                       <User size={11} className="text-slate-400 shrink-0" />
-                      <span>{todaySession.coach?.name || coach.name}</span>
+                      <span>{(todaySession || upcomingSession)?.coach?.name || coach.name}</span>
                     </p>
                   </div>
                 </div>
 
-                <a
-                  href={`https://wa.me/${todaySession.coach?.phone || coach.phone}?text=Halo%20${todaySession.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 shrink-0 cursor-pointer shadow-2xs"
-                  title="Hubungi Pelatih via WhatsApp"
-                >
-                  <MessageCircle size={14} className="text-emerald-600" />
-                  <span>Hubungi Pelatih</span>
-                </a>
-              </div>
-            )}
-
-            {/* Sesi Hari Ini & Presensi Siswa if active */}
-            {todayStudentSchedules.length > 0 && (
-              <div className="rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-4 relative overflow-hidden animate-fadeIn">
-                <div className="flex items-center justify-between flex-wrap gap-2 relative z-10 border-b border-white/15 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white text-base shadow-xs border border-white/30">
-                      <CalendarDays size={18} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
-                          Jadwal Latihan &amp; Presensi Hari Ini
-                        </h3>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs animate-pulse">
-                          AKTIF
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-cyan-100 font-medium">
-                        {todayFormatted}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Simulated GPS toggle for testing */}
+                <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
                   <button
-                    onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition cursor-pointer flex items-center gap-1 ${useSimulatedPoolLocation
-                      ? "bg-emerald-400 text-slate-950 border-emerald-300 font-black shadow-xs"
-                      : "bg-white/15 hover:bg-white/25 text-cyan-100 border-white/20"
-                      }`}
-                    title="Simulasikan perangkat berada di titik kolam renang"
+                    type="button"
+                    onClick={() => setParentActiveTab("presensi")}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs hover:shadow-md cursor-pointer active:scale-95"
+                    title="Masuk ke menu presensi"
                   >
-                    {useSimulatedPoolLocation ? (
-                      <>
-                        <Check size={11} />
-                        <span>GPS: Di Kolam (Simulasi)</span>
-                      </>
-                    ) : (
-                      <>
-                        <MapPin size={11} />
-                        <span>Tes GPS Kolam</span>
-                      </>
-                    )}
+                    <Clock size={13} />
+                    <span>Presensi</span>
                   </button>
-                </div>
 
-                <div className="space-y-3 relative z-10">
-                  {todayStudentSchedules.map((schedule, idx) => {
-                    const existingAtt = getScheduleAttendance(schedule.id, schedule.date);
-                    const isCheckedIn = !!existingAtt;
-                    const timeStat = checkAttendanceTimeStatus(schedule.date || todayISO, schedule.timeStart);
-                    const dist = calculateScheduleDistance(schedule);
-                    const isWithinRadius = dist !== null && dist <= 2.0;
-
-                    return (
-                      <div
-                        key={schedule.id || idx}
-                        className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-sm space-y-3"
-                      >
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div>
-                            <span className="text-xs sm:text-sm font-black text-white block">
-                              {schedule.title} ({schedule.class})
-                            </span>
-                            <span className="text-[11px] text-cyan-100 font-medium flex items-center gap-1">
-                              <MapPin size={11} className="text-cyan-200 shrink-0" />
-                              <span>{schedule.poolArea || "Hotel Nalendra Plaza Subang"}</span>
-                              <span className="text-cyan-300">•</span>
-                              <User size={11} className="text-cyan-200 shrink-0" />
-                              <span>Coach {schedule.coachName || coach.name}</span>
-                            </span>
-                          </div>
-                          <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white text-[11px] font-bold flex items-center gap-1">
-                            <Clock size={11} className="text-cyan-200" />
-                            <span>{schedule.timeStart} - {schedule.timeEnd} WIB</span>
-                          </span>
-                        </div>
-
-                        {/* Attendance State & Action */}
-                        {isCheckedIn ? (
-                          <div className="p-3 rounded-xl bg-emerald-500/25 border border-emerald-300/40 flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 size={20} className="text-emerald-300 shrink-0" />
-                              <div>
-                                <p className="text-xs font-black text-white">
-                                  {existingAtt?.status === "Terlambat" ? "Presensi Masuk (Terlambat)" : "Presensi Masuk (Hadir)"}
-                                </p>
-                                <p className="text-[10px] text-emerald-100">
-                                  Waktu: {existingAtt?.time_recorded || (existingAtt?.created_at ? `${new Date(existingAtt.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB` : "Tercatat")} • Radius: {existingAtt?.distance_km !== undefined ? `${existingAtt.distance_km.toFixed(2)} km` : "≤ 2.0 km"}
-                                </p>
-                                {existingAtt?.late_reason && (
-                                  <p className="text-[10px] text-amber-200 italic mt-0.5">
-                                    Alasan: &quot;{existingAtt.late_reason}&quot;
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-[10px] font-black">
-                              TERVERIFIKASI
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 pt-1 border-t border-white/15">
-                            {/* GPS Radar distance status */}
-                            <div className="flex items-center justify-between text-[11px] font-medium text-cyan-100 flex-wrap gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`h-2 w-2 rounded-full ${isWithinRadius ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
-                                <span>
-                                  {dist !== null
-                                    ? `Jarak ke kolam: ${dist.toFixed(2)} km ${isWithinRadius ? "(Radius ≤ 2.0 km)" : "(Di luar radius 2.0 km)"}`
-                                    : isLocating
-                                      ? "Mendeteksi GPS..."
-                                      : "GPS belum aktif"}
-                                </span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${!timeStat.isOpen
-                                ? "bg-slate-800/60 text-slate-300"
-                                : timeStat.isLate
-                                  ? "bg-amber-400 text-slate-950 font-black"
-                                  : "bg-emerald-400 text-slate-950 font-black"
-                                }`}>
-                                {!timeStat.isOpen ? "Belum Dibuka" : timeStat.isLate ? "Terlambat (> 15m)" : "Bisa Presensi"}
-                              </span>
-                            </div>
-
-                            {/* Check-in Button */}
-                            <button
-                              onClick={() => handlePerformCheckIn(schedule)}
-                              disabled={isCheckingIn || !timeStat.isOpen || !isWithinRadius}
-                              className={`w-full py-2.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md ${!timeStat.isOpen
-                                ? "bg-white/20 text-white/60 cursor-not-allowed"
-                                : !isWithinRadius
-                                  ? "bg-rose-500/80 hover:bg-rose-600 text-white"
-                                  : timeStat.isLate
-                                    ? "bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-slate-950"
-                                    : "bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 text-slate-950"
-                                }`}
-                            >
-                              <Clock size={14} />
-                              <span>
-                                {isCheckingIn
-                                  ? "Memproses Presensi..."
-                                  : !timeStat.isOpen
-                                    ? `Buka Presensi: ${timeStat.openTimeString} WIB`
-                                    : !isWithinRadius
-                                      ? "Mendekat ke Kolam Renang (< 2 km)"
-                                      : timeStat.isLate
-                                        ? "Presensi Terlambat (Isi Alasan)"
-                                        : "Presensi Siswa Hadir Sekarang"}
-                              </span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <a
+                    href={`https://wa.me/${(todaySession || upcomingSession)?.coach?.phone || coach.phone}?text=Halo%20${(todaySession || upcomingSession)?.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 shrink-0 cursor-pointer shadow-2xs"
+                    title="Hubungi Pelatih via WhatsApp"
+                  >
+                    <MessageCircle size={14} className="text-emerald-600" />
+                    <span>Hubungi Pelatih</span>
+                  </a>
                 </div>
               </div>
             )}

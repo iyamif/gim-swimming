@@ -47,7 +47,7 @@ const programs = [
       "Bebas Pilih Jadwal Latihan",
       //  "Apabila Pelatih sudah dikolam, siswa tidak hadir maka di pertemuan hangus"
     ],
-    pendaftaranParam: "Private Class (1-on-1)",
+    pendaftaranParam: "Private",
     popular: true
   }
 ];

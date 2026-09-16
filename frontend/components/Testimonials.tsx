@@ -17,7 +17,7 @@ export default function Testimonials() {
       name: "Siti Rahma",
       role: "Mahasiswi",
       program: "Private Class",
-      text: "Kelas Private 1-on-1 sangat membantu saya menguasai teknik gaya dada hanya dalam 4 sesi latihan. Jadwal dan lokasinya sangat fleksibel sesuai kebutuhan.",
+      text: "Kelas Private sangat membantu saya menguasai teknik gaya dada hanya dalam 4 sesi latihan. Jadwal dan lokasinya sangat fleksibel sesuai kebutuhan.",
       rating: 5,
       initials: "SR",
       gradient: "from-emerald-400 to-teal-500",

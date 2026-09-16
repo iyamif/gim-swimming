@@ -19,7 +19,7 @@ export default function Pendaftaran() {
 
   const programsList = [
     "Kids Swimming (Usia 2–3 tahun)",
-    "Private Class (1-on-1)",
+    "Private",
     "Latihan Prestasi"
   ];
 

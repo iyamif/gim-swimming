@@ -9,7 +9,7 @@ const activities = [
     title: "Pendampingan Instruktur Privat",
     description: "Instruktur berlisensi fokus penuh mendampingi latihan teknik secara intensif.",
     image: "/kegiatan/privat.jpeg",
-    tag: "1-on-1 Lesson",
+    tag: "Private Lesson",
   },
   {
     id: 2,

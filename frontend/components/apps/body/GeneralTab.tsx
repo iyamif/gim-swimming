@@ -675,7 +675,7 @@ export default function GeneralTab({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Prestasi / Reguler / Private 1-on-1"
+                  placeholder="e.g. Prestasi / Reguler / Private"
                   value={progName}
                   onChange={(e) => setProgName(e.target.value)}
                   required

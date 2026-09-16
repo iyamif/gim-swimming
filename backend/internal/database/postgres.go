@@ -268,7 +268,7 @@ func runMigrations() error {
 	WHERE NOT EXISTS (SELECT 1 FROM class_programs WHERE name ILIKE 'Reguler');
 
 	INSERT INTO class_programs (name, description, monthly_fee, sessions_per_week)
-	SELECT 'Private 1 on 1', 'Pelatihan privat intensif 1 pelatih untuk 1 siswa dengan jadwal fleksibel', 750000, 2
+	SELECT 'Private', 'Pelatihan privat intensif 1 pelatih untuk 1 siswa dengan jadwal fleksibel', 750000, 2
 	WHERE NOT EXISTS (SELECT 1 FROM class_programs WHERE name ILIKE '%Private%');
 
 	INSERT INTO class_programs (name, description, monthly_fee, sessions_per_week)
