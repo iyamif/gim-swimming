@@ -256,6 +256,7 @@ export default function AppsBody({
           coaches={coaches}
           invoices={invoices}
           attendances={attendances}
+          schedules={schedules}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
           onRefresh={onRefresh}

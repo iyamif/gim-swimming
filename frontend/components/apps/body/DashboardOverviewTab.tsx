@@ -344,25 +344,11 @@ export default function DashboardOverviewTab({
       action: () => setActiveTab && setActiveTab("gaji_spp"),
     },
     {
-      id: "kalender",
-      label: "Jadwal Les",
-      icon: <CalendarDays size={22} />,
-      bgCircle: "bg-blue-50 border-blue-100 text-blue-500",
-      action: () => setActiveTab && setActiveTab("jadwal"),
-    },
-    {
       id: "pengumuman",
       label: "Pengumuman",
       icon: <Megaphone size={22} />,
       bgCircle: "bg-indigo-50 border-indigo-100 text-indigo-500",
       action: () => setActiveTab && setActiveTab("pengumuman"),
-    },
-    {
-      id: "tim",
-      label: `Pelatih (${coaches.length})`,
-      icon: <Users size={22} />,
-      bgCircle: "bg-teal-50 border-teal-100 text-teal-500",
-      action: () => setActiveTab && setActiveTab("pelatih"),
     },
     ...(!isCoachRole
       ? [
@@ -1021,19 +1007,21 @@ export default function DashboardOverviewTab({
             ))}
           </div>
 
-          {/* Pagination Indicator Pill */}
-          <div className="flex items-center justify-center gap-1.5 pt-2">
-            <button
-              onClick={() => setActivePageIndex(0)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${activePageIndex === 0 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
-                }`}
-            />
-            <button
-              onClick={() => setActivePageIndex(1)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${activePageIndex === 1 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
-                }`}
-            />
-          </div>
+          {/* Pagination Indicator Pill (Only if more than 4 items) */}
+          {menuItems.length > 4 && (
+            <div className="flex items-center justify-center gap-1.5 pt-2">
+              <button
+                onClick={() => setActivePageIndex(0)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${activePageIndex === 0 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
+                  }`}
+              />
+              <button
+                onClick={() => setActivePageIndex(1)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${activePageIndex === 1 ? "w-6 bg-cyan-500" : "w-1.5 bg-slate-200"
+                  }`}
+              />
+            </div>
+          )}
         </div>
 
         {/* ==========================================
@@ -1108,32 +1096,62 @@ export default function DashboardOverviewTab({
               </p>
             </div>
 
-            {/* Post 2: Finance Activity */}
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white">
-                    <CreditCard size={16} />
+            {/* Post 2: Finance / Honor Activity */}
+            {isCoachRole ? (
+              <div
+                onClick={() => setActiveTab && setActiveTab("gaji_spp")}
+                className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100/80 space-y-2 cursor-pointer hover:bg-emerald-100/50 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                      <CreditCard size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 leading-tight">
+                        Update Honor Pelatih Renang
+                      </h4>
+                      <p className="text-[10px] text-slate-400">Sistem Honor • Bulan Ini</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 leading-tight">
-                      Update Administrasi SPP
-                    </h4>
-                    <p className="text-[10px] text-slate-400">Sistem Keuangan • Hari ini</p>
-                  </div>
+                  <span className="text-[9px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                    Otomatis
+                  </span>
                 </div>
-                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                  {pendingInvoices.length} Pending
-                </span>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  Honor mengajar Anda dihitung secara otomatis berdasarkan kehadiran mengajar dalam setiap sesi latihan. Klik di sini untuk membuka <strong className="text-emerald-700">Slip Gaji &amp; Riwayat Honor</strong>.
+                </p>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                Tercatat total penerimaan SPP terverifikasi sebesar{" "}
-                <strong className="text-emerald-600">
-                  Rp {paidInvoicesTotal.toLocaleString("id-ID")}
-                </strong>
-                . {pendingInvoices.length} pembayaran baru menunggu konfirmasi admin.
-              </p>
-            </div>
+            ) : (
+              <div
+                onClick={() => setActiveTab && setActiveTab("gaji_spp")}
+                className="p-4 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2 cursor-pointer hover:bg-slate-100/60 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                      <CreditCard size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 leading-tight">
+                        Update Administrasi SPP
+                      </h4>
+                      <p className="text-[10px] text-slate-400">Sistem Keuangan • Hari ini</p>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                    {pendingInvoices.length} Pending
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  Tercatat total penerimaan SPP terverifikasi sebesar{" "}
+                  <strong className="text-emerald-600">
+                    Rp {paidInvoicesTotal.toLocaleString("id-ID")}
+                  </strong>
+                  . {pendingInvoices.length} pembayaran baru menunggu konfirmasi admin.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -646,7 +646,7 @@ export default function AppsPage() {
     const accessMatrix: Record<string, string[]> = {
       dashboard: ["admin", "pelatih"],
       jadwal: ["admin", "pelatih"],
-      gaji_spp: ["admin"],
+      gaji_spp: ["admin", "pelatih"],
       keuangan: ["admin"],
       daftar_hadir: ["admin", "pelatih"],
       pelatih: ["admin", "pelatih"],
@@ -662,10 +662,16 @@ export default function AppsPage() {
   };
 
   // Dynamic Navigation Items with mobile-friendly short labels (Admin & Pelatih)
+  const isCoach = (sessionRole || "").toLowerCase().trim() === "pelatih";
   const navItems: NavItem[] = [
     { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview", icon: "📊" },
     { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
-    { id: "gaji_spp", label: "Gaji & SPP", fullLabel: "Manajemen Gaji & SPP", icon: "💳" },
+    {
+      id: "gaji_spp",
+      label: isCoach ? "Honor" : "Gaji & SPP",
+      fullLabel: isCoach ? "Honor & Slip Gaji" : "Manajemen Gaji & SPP",
+      icon: "💳",
+    },
     { id: "keuangan", label: "Keuangan", fullLabel: "Laporan Keuangan", icon: "💰" },
     { id: "general", label: "General", fullLabel: "Pengaturan & Master Data", icon: "⚙️" },
     { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
