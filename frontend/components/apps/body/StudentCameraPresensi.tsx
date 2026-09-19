@@ -26,6 +26,11 @@ import {
   ArrowLeft,
   Sliders,
   Waves,
+  Calendar,
+  CalendarDays,
+  ChevronRight,
+  Info,
+  Navigation,
 } from "lucide-react";
 
 interface StudentCameraPresensiProps {
@@ -47,7 +52,10 @@ interface StudentCameraPresensiProps {
   }) => Promise<boolean | void>;
   onRefresh?: () => void | Promise<void>;
   onClose?: () => void;
+  onViewSchedule?: () => void;
 }
+
+type RadiusPreset = "device" | "at_pool" | "near_pool" | "radius_limit" | "out_of_radius";
 
 export default function StudentCameraPresensi({
   student,
@@ -57,6 +65,7 @@ export default function StudentCameraPresensi({
   onCheckInAttendance,
   onRefresh,
   onClose,
+  onViewSchedule,
 }: StudentCameraPresensiProps) {
   // 1. Current Date & Time ISO
   const now = new Date();
@@ -65,7 +74,14 @@ export default function StudentCameraPresensi({
   const d = String(now.getDate()).padStart(2, "0");
   const todayISO = `${y}-${m}-${d}`;
 
-  // 2. Find student's active schedule today or closest upcoming
+  const dayNamesFull = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const monthNames = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+  const todayFormatted = `${dayNamesFull[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+  // 2. Filter schedules for this student
   const studentSchedules = useMemo(() => {
     const sName = (student.name || "").toLowerCase().trim();
     const sId = String(student.id || "");
@@ -82,6 +98,17 @@ export default function StudentCameraPresensi({
     return studentSchedules.filter((s) => s.date === todayISO);
   }, [studentSchedules, todayISO]);
 
+  const hasScheduleToday = todayStudentSchedules.length > 0;
+
+  // Upcoming schedules (future dates)
+  const upcomingSchedules = useMemo(() => {
+    return studentSchedules
+      .filter((s) => s.date > todayISO)
+      .sort((a, b) => (a.date + a.timeStart).localeCompare(b.date + b.timeStart));
+  }, [studentSchedules, todayISO]);
+
+  const nextUpcomingSchedule = upcomingSchedules[0] || null;
+
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
 
   const activeSchedule: ScheduleSession | null = useMemo(() => {
@@ -92,64 +119,26 @@ export default function StudentCameraPresensi({
     if (todayStudentSchedules.length > 0) {
       return todayStudentSchedules[0];
     }
-    const upcoming = studentSchedules
-      .filter((s) => s.date >= todayISO)
-      .sort((a, b) => (a.date + a.timeStart).localeCompare(b.date + b.timeStart));
-    return upcoming[0] || studentSchedules[0] || null;
-  }, [selectedScheduleId, todayStudentSchedules, studentSchedules, todayISO]);
+    return nextUpcomingSchedule || studentSchedules[0] || null;
+  }, [selectedScheduleId, todayStudentSchedules, nextUpcomingSchedule, studentSchedules]);
 
-  // 3. Pool Geofence & Location
+  // 3. Pool Geofence & Location Coordinates
   const targetPoolInfo = useMemo(() => {
     const poolName = activeSchedule?.poolArea || "Nalendra";
     return getPoolCoordinates(poolName);
   }, [activeSchedule]);
 
+  // Radius Simulation Presets (Default to "at_pool" 15m so users can test attendance easily)
+  const [radiusPreset, setRadiusPreset] = useState<RadiusPreset>("at_pool");
   const [currentLat, setCurrentLat] = useState<number | null>(null);
   const [currentLon, setCurrentLon] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
-  const [useSimulatedPoolLocation, setUseSimulatedPoolLocation] = useState(false);
   const [showGpsDrawer, setShowGpsDrawer] = useState(false);
   const [showScheduleSelector, setShowScheduleSelector] = useState(false);
 
-  // 4. Camera Stream & Snapshot
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
-  const [cameraError, setCameraError] = useState("");
-  const [isFlashActive, setIsFlashActive] = useState(false);
-  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
-  const [flashScreenEffect, setFlashScreenEffect] = useState(false);
-
-  // 5. Submission & Late Reason Dialog
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showLateReasonModal, setShowLateReasonModal] = useState(false);
-  const [lateReason, setLateReason] = useState("");
-  const [successCelebration, setSuccessCelebration] = useState(false);
-
-  // 6. Live Clock formatted
-  const [currentTimeFormatted, setCurrentTimeFormatted] = useState("");
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTimeFormatted(
-        now.toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }) + " WIB"
-      );
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // 7. Request Device GPS
+  // 4. Request Real Device GPS
   const requestDeviceLocation = useCallback(() => {
-    if (useSimulatedPoolLocation) return;
     setIsLocating(true);
     setLocationError("");
 
@@ -167,25 +156,44 @@ export default function StudentCameraPresensi({
       },
       (err) => {
         console.warn("GPS Location error:", err);
-        setLocationError("Gagal mengambil GPS. Menggunakan estimasi area kolam.");
+        setLocationError("Gagal mengambil GPS asli. Menggunakan estimasi kolam.");
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
     );
-  }, [useSimulatedPoolLocation]);
+  }, []);
 
-  useEffect(() => {
-    if (useSimulatedPoolLocation) {
+  // Apply Radius Preset
+  const applyRadiusPreset = useCallback((preset: RadiusPreset) => {
+    setRadiusPreset(preset);
+    if (preset === "device") {
+      requestDeviceLocation();
+    } else if (preset === "at_pool") {
+      // 15 meters from pool
       setCurrentLat(targetPoolInfo.latitude + 0.0001);
       setCurrentLon(targetPoolInfo.longitude + 0.0001);
-    } else {
-      requestDeviceLocation();
+    } else if (preset === "near_pool") {
+      // 150 meters from pool
+      setCurrentLat(targetPoolInfo.latitude + 0.0013);
+      setCurrentLon(targetPoolInfo.longitude + 0.0013);
+    } else if (preset === "radius_limit") {
+      // 1.8 km from pool
+      setCurrentLat(targetPoolInfo.latitude + 0.015);
+      setCurrentLon(targetPoolInfo.longitude + 0.015);
+    } else if (preset === "out_of_radius") {
+      // 3.5 km from pool (out of radius)
+      setCurrentLat(targetPoolInfo.latitude + 0.035);
+      setCurrentLon(targetPoolInfo.longitude + 0.035);
     }
-  }, [useSimulatedPoolLocation, targetPoolInfo, requestDeviceLocation]);
+  }, [targetPoolInfo, requestDeviceLocation]);
 
-  // 8. Distance & Radius Calculation
+  useEffect(() => {
+    applyRadiusPreset(radiusPreset);
+  }, [radiusPreset, targetPoolInfo, applyRadiusPreset]);
+
+  // 5. Calculate Distance to Pool
   const distanceKm = useMemo(() => {
-    if (currentLat === null || currentLon === null) return null;
+    if (currentLat === null || currentLon === null) return 0.015;
     return calculateDistanceKm(
       currentLat,
       currentLon,
@@ -194,8 +202,43 @@ export default function StudentCameraPresensi({
     );
   }, [currentLat, currentLon, targetPoolInfo]);
 
-  const distanceMeters = distanceKm !== null ? Math.round(distanceKm * 1000) : 0;
-  const isLocationValid = useSimulatedPoolLocation || (distanceKm !== null && distanceKm <= 2.0);
+  const distanceMeters = Math.round(distanceKm * 1000);
+  const isLocationValid = distanceKm <= 2.0;
+
+  // 6. Camera Stream & Snapshot
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
+  const [cameraError, setCameraError] = useState("");
+  const [isFlashActive, setIsFlashActive] = useState(false);
+  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
+  const [flashScreenEffect, setFlashScreenEffect] = useState(false);
+
+  // 7. Submission & Late Reason Dialog
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLateReasonModal, setShowLateReasonModal] = useState(false);
+  const [lateReason, setLateReason] = useState("");
+  const [successCelebration, setSuccessCelebration] = useState(false);
+
+  // 8. Live Clock formatted
+  const [currentTimeFormatted, setCurrentTimeFormatted] = useState("");
+  useEffect(() => {
+    const updateTime = () => {
+      const n = new Date();
+      setCurrentTimeFormatted(
+        n.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }) + " WIB"
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 9. Time Status (Schedule open / late)
   const timeStatus = useMemo(() => {
@@ -307,16 +350,18 @@ export default function StudentCameraPresensi({
 
   // Handle Shutter Press
   const handleShutterPress = () => {
-    if (!activeSchedule) {
-      alert("Tidak ada jadwal aktif untuk presensi.");
+    if (!hasScheduleToday || !activeSchedule) {
+      alert(
+        `⚠️ TIDAK ADA JADWAL HARI INI!\n\nTidak ada sesi latihan renang yang terjadwal untuk ${student.name} pada hari ini (${todayFormatted}).\n\nPresensi hanya dapat dilakukan ketika siswa memiliki jadwal aktif hari ini.`
+      );
       return;
     }
 
     if (!isLocationValid) {
       alert(
-        `⚠️ PRESENSI DITOLAK (DI LUAR RADIUS KOLAM)!\n\nJarak Anda saat ini: ${
-          distanceMeters >= 1000 ? `${distanceKm?.toFixed(2)} km` : `${distanceMeters} meter`
-        } dari ${targetPoolInfo.name}.\n\nPresensi wajib berada dalam radius maksimal 2.0 km dari kolam renang.`
+        `⚠️ PRESENSI DITOLAK (DI LUAR RADIUS KOLAM)!\n\nJarak saat ini: ${
+          distanceMeters >= 1000 ? `${distanceKm.toFixed(2)} km` : `${distanceMeters} meter`
+        } dari ${targetPoolInfo.name}.\n\nPresensi wajib berada dalam radius maksimal 2.0 km dari kolam renang.\n\nGunakan opsi "Simulasi Radius" di bawah untuk mencoba absensi.`
       );
       return;
     }
@@ -345,6 +390,7 @@ export default function StudentCameraPresensi({
   // Submit Check In Attendance
   const submitPresensiMasuk = async (reasonOverride?: string, snapshotOverride?: string) => {
     if (!activeSchedule) return;
+
     setIsSubmitting(true);
     try {
       const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
@@ -358,7 +404,7 @@ export default function StudentCameraPresensi({
           late_reason: reasonOverride || lateReason || (timeStatus.isLate ? "Hadir sesi latihan" : undefined),
           latitude: currentLat || targetPoolInfo.latitude,
           longitude: currentLon || targetPoolInfo.longitude,
-          notes: `Presensi Masuk Kamera Siswa (${distanceMeters}m dari ${targetPoolInfo.name})`,
+          notes: `Presensi Siswa (${distanceMeters}m dari ${targetPoolInfo.name} • ${radiusPreset})`,
           photo: photoToSend,
         });
       }
@@ -458,14 +504,14 @@ export default function StudentCameraPresensi({
       {/* =========================================================================
           TOP FLOATING APP BAR
           ========================================================================= */}
-      <div className="relative z-20 w-full max-w-md mx-auto pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] px-4 space-y-2">
+      <div className="relative z-20 w-full max-w-md mx-auto pt-[max(0.75rem,env(safe-area-inset-top))] px-4 space-y-2">
         {/* Top Header Row */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white transition active:scale-90 cursor-pointer shadow-lg"
               title="Kembali ke Dashboard Siswa"
             >
               <ArrowLeft size={18} />
@@ -476,8 +522,16 @@ export default function StudentCameraPresensi({
                 <span className="text-sm font-black text-white drop-shadow-md">
                   Presensi Siswa
                 </span>
-                <span className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider bg-cyan-500/40 text-cyan-200 border border-cyan-400/40">
-                  Live GPS
+                <span
+                  className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider border ${
+                    !hasScheduleToday
+                      ? "bg-slate-700/60 text-slate-300 border-slate-600"
+                      : isLocationValid
+                      ? "bg-emerald-500/40 text-emerald-200 border-emerald-400/50"
+                      : "bg-rose-500/40 text-rose-200 border-rose-400/50"
+                  }`}
+                >
+                  {!hasScheduleToday ? "Tidak Ada Sesi" : isLocationValid ? "Radius Valid" : "Di Luar Radius"}
                 </span>
               </div>
               <p className="text-[10px] text-cyan-200 font-semibold drop-shadow-sm flex items-center gap-1 mt-0.5 font-mono">
@@ -486,60 +540,69 @@ export default function StudentCameraPresensi({
             </div>
           </div>
 
-          {/* Quick Controls: GPS Drawer & Flip */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setShowGpsDrawer((prev) => !prev)}
-              className={`h-9 w-9 rounded-2xl backdrop-blur-md border text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-lg ${
-                useSimulatedPoolLocation
-                  ? "bg-emerald-600/80 border-emerald-400/50"
-                  : "bg-black/40 hover:bg-black/60 border-white/20"
-              }`}
-              title="Pengaturan Radius GPS"
-            >
-              <Sliders size={15} />
-            </button>
-
-            <button
-              type="button"
-              onClick={flipCamera}
-              className="h-9 w-9 rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-lg"
-              title="Putar Kamera Depan/Belakang"
-            >
-              <RefreshCw size={15} />
-            </button>
-          </div>
+          {/* Quick Flip Camera Button */}
+          <button
+            type="button"
+            onClick={flipCamera}
+            className="h-9 w-9 rounded-2xl bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-lg"
+            title="Putar Kamera Depan/Belakang"
+          >
+            <RefreshCw size={15} />
+          </button>
         </div>
 
         {/* Floating Active Schedule Capsule */}
-        <div className="rounded-2xl bg-slate-900/85 backdrop-blur-md border border-white/10 p-2.5 shadow-xl flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setShowScheduleSelector(true)}
-            className="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition cursor-pointer"
-          >
-            <div className="h-8 w-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0">
-              <Waves size={16} />
+        <div className="rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 p-2.5 shadow-xl flex items-center justify-between gap-2">
+          {hasScheduleToday && activeSchedule ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (todayStudentSchedules.length > 1) setShowScheduleSelector(true);
+              }}
+              className="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-90 transition cursor-pointer"
+            >
+              <div className="h-8 w-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0">
+                <Waves size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black text-white truncate leading-tight flex items-center gap-1.5">
+                  <span>{activeSchedule.title || `${activeSchedule.class} Class`}</span>
+                  {todayStudentSchedules.length > 1 && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/30 text-blue-200 border border-blue-400/30">
+                      Ganti Sesi ▾
+                    </span>
+                  )}
+                </p>
+                <p className="text-[10px] text-cyan-200 truncate mt-0.5">
+                  {activeSchedule.timeStart} - {activeSchedule.timeEnd} WIB • {activeSchedule.poolArea || targetPoolInfo.name} • Pelatih: {activeSchedule.coachName || coach.name}
+                </p>
+              </div>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0 flex-1 text-left">
+              <div className="h-8 w-8 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 flex items-center justify-center shrink-0">
+                <Waves size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black text-amber-300 truncate leading-tight">
+                  Saat ini tidak ada sesi latihan
+                </p>
+                <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                  {nextUpcomingSchedule
+                    ? `Sesi Berikutnya: ${nextUpcomingSchedule.date} (${nextUpcomingSchedule.timeStart} WIB)`
+                    : "Tidak ada jadwal kelas renang terdaftar hari ini"}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-black text-white truncate leading-tight flex items-center gap-1.5">
-                <span>{activeSchedule ? activeSchedule.title || `${activeSchedule.class} Class` : "Jadwal Sesi Siswa"}</span>
-                {studentSchedules.length > 1 && (
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/30 text-blue-200 border border-blue-400/30">
-                    Ganti Sesi ▾
-                  </span>
-                )}
-              </p>
-              <p className="text-[10px] text-cyan-200 truncate mt-0.5">
-                {activeSchedule?.timeStart || "--:--"} - {activeSchedule?.timeEnd || "--:--"} WIB • {activeSchedule?.poolArea || "Kolam Renang"} • Pelatih: {activeSchedule?.coachName || coach.name}
-              </p>
-            </div>
-          </button>
+          )}
 
           {isAlreadyCheckedIn ? (
             <span className="px-2.5 py-1 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-[10px] font-black shrink-0">
               ✓ Hadir
+            </span>
+          ) : !hasScheduleToday ? (
+            <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-black shrink-0">
+              Jadwal Kosong
             </span>
           ) : (
             <span
@@ -555,42 +618,6 @@ export default function StudentCameraPresensi({
             </span>
           )}
         </div>
-
-        {/* GPS Drawer Expandable */}
-        {showGpsDrawer && (
-          <div className="p-3 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 shadow-2xl space-y-2 animate-fadeIn text-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold">
-              <span className="text-slate-300">Status Koordinat GPS:</span>
-              <span className={isLocationValid ? "text-emerald-400" : "text-rose-400"}>
-                {distanceKm !== null ? `${distanceKm.toFixed(2)} km (${distanceMeters} m)` : "Mencari GPS..."}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
-              <button
-                type="button"
-                onClick={requestDeviceLocation}
-                disabled={isLocating}
-                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
-              >
-                <RotateCw size={11} className={isLocating ? "animate-spin" : ""} />
-                <span>{isLocating ? "Mencari..." : "Refresh GPS Perangkat"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
-                className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition border cursor-pointer ${
-                  useSimulatedPoolLocation
-                    ? "bg-emerald-500 text-white border-emerald-400"
-                    : "bg-white/10 text-slate-300 border-white/15"
-                }`}
-              >
-                {useSimulatedPoolLocation ? "✓ Simulasi Aktif (< 2.0 km)" : "Mode Simulasi Kolam"}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* =========================================================================
@@ -598,29 +625,31 @@ export default function StudentCameraPresensi({
           ========================================================================= */}
       <div className="relative z-20 w-full max-w-md mx-auto px-4 pb-2">
         <div className="flex items-end justify-between gap-2 text-[10px] font-mono drop-shadow-md">
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 bg-black/40 backdrop-blur-xs p-2 rounded-2xl border border-white/10">
             <p className="font-bold text-white text-xs tracking-tight">{student.name}</p>
-            <p className="text-cyan-300 font-semibold">{activeSchedule?.poolArea || "Kolam Renang"} • {activeSchedule?.class || student.class} Class</p>
+            <p className="text-cyan-300 font-semibold">{activeSchedule?.poolArea || targetPoolInfo.name} • {activeSchedule?.class || student.class} Class</p>
             <p className="text-slate-300">{currentTimeFormatted}</p>
           </div>
 
           <span
             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-tight shadow-md border ${
-              isLocationValid
+              !hasScheduleToday
+                ? "bg-slate-800/80 text-slate-300 border-slate-700"
+                : isLocationValid
                 ? "bg-emerald-500/80 text-white border-emerald-400/50"
                 : "bg-rose-500/80 text-white border-rose-400/50"
             }`}
           >
             <MapPin size={10} />
-            <span>{isLocationValid ? "Dalam Radius Kolam" : "Di Luar Radius"}</span>
+            <span>{!hasScheduleToday ? "Jadwal Tidak Aktif" : isLocationValid ? `Dalam Radius (${distanceMeters}m)` : `Di Luar Radius (${distanceMeters}m)`}</span>
           </span>
         </div>
       </div>
 
       {/* =========================================================================
-          BOTTOM CONTROL BAR: SHUTTER / CONFIRMATION
+          BOTTOM CONTROL BAR: SHUTTER / CONFIRMATION & SMALL TESTING RADIUS TEXT
           ========================================================================= */}
-      <div className="relative z-20 w-full max-w-md mx-auto pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] px-4 space-y-3">
+      <div className="relative z-20 w-full max-w-md mx-auto pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 space-y-2.5">
         {isAlreadyCheckedIn ? (
           <div className="p-4 rounded-3xl bg-slate-900/90 backdrop-blur-md border border-emerald-400/30 text-center space-y-2 shadow-2xl animate-fadeIn">
             <div className="flex items-center justify-center gap-2 text-emerald-400 font-black text-sm">
@@ -648,43 +677,57 @@ export default function StudentCameraPresensi({
             </button>
           </div>
         ) : capturedPhotoUrl ? (
-          <div className="flex items-center gap-3 animate-fadeIn">
-            <button
-              type="button"
-              onClick={() => setCapturedPhotoUrl(null)}
-              className="flex-1 py-3.5 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <RotateCw size={14} />
-              <span>Foto Ulang</span>
-            </button>
+          <div className="space-y-2 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCapturedPhotoUrl(null)}
+                className="flex-1 py-3.5 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <RotateCw size={14} />
+                <span>Foto Ulang</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => submitPresensiMasuk()}
-              disabled={isSubmitting}
-              className="flex-2 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-black shadow-lg shadow-blue-500/40 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-            >
-              {isSubmitting ? (
-                <>
-                  <RotateCw size={15} className="animate-spin" />
-                  <span>Menyimpan Presensi...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={16} />
-                  <span>Kirim Presensi Sekarang</span>
-                </>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => submitPresensiMasuk()}
+                disabled={isSubmitting}
+                className="flex-2 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-black shadow-lg shadow-blue-500/40 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RotateCw size={15} className="animate-spin" />
+                    <span>Menyimpan Presensi...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>Kirim Presensi Sekarang</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Small text for simulation radius testing */}
+            <div className="text-center pt-0.5">
+              <button
+                type="button"
+                onClick={() => setShowGpsDrawer(true)}
+                className="text-[10px] text-slate-400 hover:text-cyan-300 underline underline-offset-2 inline-flex items-center gap-1 cursor-pointer transition opacity-75 hover:opacity-100"
+              >
+                <span>⚙️ Simulasi: {radiusPreset === "at_pool" ? "Di Kolam (15m)" : radiusPreset === "near_pool" ? "Dekat (150m)" : radiusPreset === "radius_limit" ? "Batas (1.8km)" : radiusPreset === "out_of_radius" ? "Di Luar (3.5km)" : "GPS Asli"} (Ubah)</span>
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center space-y-3">
+          <div className="flex flex-col items-center space-y-2">
             {/* Big Circular Camera Shutter Button */}
             <div className="flex items-center justify-around w-full px-4">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="h-12 w-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition cursor-pointer active:scale-90 shadow-lg"
+                disabled={!hasScheduleToday}
+                className="h-12 w-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition cursor-pointer active:scale-90 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Upload Foto Galeri"
               >
                 <UploadCloud size={20} />
@@ -693,15 +736,19 @@ export default function StudentCameraPresensi({
               <button
                 type="button"
                 onClick={handleShutterPress}
-                disabled={isSubmitting || !timeStatus.isOpen}
+                disabled={!hasScheduleToday || isSubmitting || !timeStatus.isOpen}
                 className={`relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-white shadow-2xl transition-transform duration-150 active:scale-90 cursor-pointer ${
-                  !timeStatus.isOpen
+                  !hasScheduleToday
+                    ? "bg-slate-700/80 opacity-60 cursor-not-allowed border-slate-500"
+                    : !timeStatus.isOpen
                     ? "bg-slate-700 opacity-60 cursor-not-allowed"
+                    : !isLocationValid
+                    ? "bg-rose-600 shadow-rose-500/50"
                     : timeStatus.isLate
                     ? "bg-gradient-to-tr from-amber-500 to-orange-500 shadow-amber-500/50"
                     : "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-400 shadow-cyan-500/50"
                 }`}
-                title="Tekan untuk Ambil Foto & Presensi"
+                title={!hasScheduleToday ? "Tidak ada jadwal latihan hari ini" : "Tekan untuk Ambil Foto & Presensi"}
               >
                 <Camera size={32} className="text-white" />
               </button>
@@ -721,16 +768,146 @@ export default function StudentCameraPresensi({
             </div>
 
             <p className="text-[11px] text-slate-300 font-medium text-center drop-shadow-md">
-              {timeStatus.isLate
-                ? "⚠️ Waktu Latihan Telah Dimulai (Presensi Terlambat)"
-                : "Ketuk tombol kamera di atas untuk ambil foto selfie & verifikasi kehadiran"}
+              {!hasScheduleToday ? (
+                <span className="text-amber-300 font-bold">⚠️ Saat ini tidak ada sesi latihan renang yang terjadwal untuk hari ini.</span>
+              ) : !isLocationValid ? (
+                <span className="text-rose-300 font-bold">⚠️ Di luar radius kolam ({distanceMeters}m).</span>
+              ) : timeStatus.isLate ? (
+                "⚠️ Waktu Latihan Telah Dimulai (Presensi Terlambat)"
+              ) : (
+                "Ketuk tombol kamera di atas untuk ambil foto & verifikasi kehadiran"
+              )}
             </p>
+
+            {/* Small text for simulation radius testing (Unobtrusive & Easy to remove later) */}
+            <div className="text-center pt-0.5">
+              <button
+                type="button"
+                onClick={() => setShowGpsDrawer(true)}
+                className="text-[10px] text-slate-400/90 hover:text-cyan-300 underline underline-offset-2 inline-flex items-center gap-1 cursor-pointer transition opacity-75 hover:opacity-100"
+              >
+                <span>⚙️ Simulasi: {radiusPreset === "at_pool" ? "Di Kolam (15m)" : radiusPreset === "near_pool" ? "Dekat (150m)" : radiusPreset === "radius_limit" ? "Batas (1.8km)" : radiusPreset === "out_of_radius" ? "Di Luar (3.5km)" : "GPS Asli"} (Klik untuk ubah)</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* =========================================================================
-          MODAL: SCHEDULE SELECTOR (IF MULTIPLE TODAY)
+          MODAL: COMPACT RADIUS SIMULATION PRESETS
+          ========================================================================= */}
+      {showGpsDrawer && (
+        <div className="fixed inset-0 z-[1150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm bg-slate-900 border border-cyan-400/30 rounded-3xl p-5 space-y-3.5 text-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+              <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-xs">
+                <Sliders size={14} />
+                <span>Pengaturan Simulasi Radius GPS</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGpsDrawer(false)}
+                className="h-7 w-7 rounded-lg bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-300">
+              Pilih jarak koordinat simulasi untuk pengujian presensi kehadiran:
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  applyRadiusPreset("at_pool");
+                  setShowGpsDrawer(false);
+                }}
+                className={`p-2.5 rounded-2xl border text-left font-bold text-xs transition cursor-pointer flex items-center justify-between ${
+                  radiusPreset === "at_pool"
+                    ? "bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/30"
+                    : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                }`}
+              >
+                <span>🏊 Di Kolam (15m)</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-300">Valid</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  applyRadiusPreset("near_pool");
+                  setShowGpsDrawer(false);
+                }}
+                className={`p-2.5 rounded-2xl border text-left font-bold text-xs transition cursor-pointer flex items-center justify-between ${
+                  radiusPreset === "near_pool"
+                    ? "bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/30"
+                    : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                }`}
+              >
+                <span>🎯 Dekat (150m)</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-300">Valid</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  applyRadiusPreset("radius_limit");
+                  setShowGpsDrawer(false);
+                }}
+                className={`p-2.5 rounded-2xl border text-left font-bold text-xs transition cursor-pointer flex items-center justify-between ${
+                  radiusPreset === "radius_limit"
+                    ? "bg-amber-600 text-white border-amber-400 shadow-md shadow-amber-500/30"
+                    : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                }`}
+              >
+                <span>🚶 Batas (1.8km)</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300">Valid</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  applyRadiusPreset("out_of_radius");
+                  setShowGpsDrawer(false);
+                }}
+                className={`p-2.5 rounded-2xl border text-left font-bold text-xs transition cursor-pointer flex items-center justify-between ${
+                  radiusPreset === "out_of_radius"
+                    ? "bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-500/30"
+                    : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+                }`}
+              >
+                <span>🚫 Di Luar (3.5km)</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-300">Tolak</span>
+              </button>
+            </div>
+
+            {/* GPS Asli */}
+            <button
+              type="button"
+              onClick={() => {
+                applyRadiusPreset("device");
+                setShowGpsDrawer(false);
+              }}
+              className={`w-full py-2.5 px-3 rounded-2xl border text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                radiusPreset === "device"
+                  ? "bg-cyan-600 text-white border-cyan-400"
+                  : "bg-white/5 hover:bg-white/10 border-white/10 text-slate-300"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <RotateCw size={13} className={isLocating ? "animate-spin" : ""} />
+                <span>Gunakan GPS Asli Perangkat</span>
+              </span>
+              <span className="text-[10px] text-cyan-300">{isLocating ? "Mencari GPS..." : "Live"}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: SCHEDULE SELECTOR (IF MULTIPLE SESSIONS)
           ========================================================================= */}
       {showScheduleSelector && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn">
@@ -747,7 +924,7 @@ export default function StudentCameraPresensi({
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {studentSchedules.map((sch) => {
+              {todayStudentSchedules.map((sch) => {
                 const isSelected = activeSchedule?.id === sch.id;
                 return (
                   <button
@@ -875,7 +1052,7 @@ export default function StudentCameraPresensi({
               }}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black text-xs shadow-lg shadow-blue-500/30 active:scale-95 transition cursor-pointer"
             >
-              Selesai & Tutup
+              Selesai &amp; Tutup
             </button>
           </div>
         </div>

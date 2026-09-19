@@ -303,7 +303,21 @@ export function MobileBottomNav({
           )}
         </button>
 
-        {/* 2. PELATIH ONLY: Center Floating Action Button (Presensi) */}
+        {/* 2. Jadwal */}
+        <button
+          onClick={() => setActiveTab("jadwal")}
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <div className="mb-0.5"><CalendarDays size={19} /></div>
+          <span className="text-[10px] tracking-tight">Jadwal</span>
+          {unreadSchedule > 0 && (
+            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+          )}
+        </button>
+
+        {/* 3. PELATIH ONLY: Center Floating Action Button (Presensi) */}
         {isPelatih && (
           <div className="flex flex-col items-center justify-center -mt-7 flex-1">
             <button
@@ -323,21 +337,18 @@ export function MobileBottomNav({
           </div>
         )}
 
-        {/* 3. Jadwal (Admin & Pelatih) */}
+        {/* 4. Honor (Pelatih) / SPP & Gaji (Admin) */}
         <button
-          onClick={() => setActiveTab("jadwal")}
+          onClick={() => setActiveTab("gaji_spp")}
           className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+            activeTab === "gaji_spp" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
           }`}
         >
-          <div className="mb-0.5"><CalendarDays size={19} /></div>
-          <span className="text-[10px] tracking-tight">Jadwal</span>
-          {unreadSchedule > 0 && (
-            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
-          )}
+          <div className="mb-0.5"><Banknote size={19} /></div>
+          <span className="text-[10px] tracking-tight">{isPelatih ? "Honor" : "SPP & Gaji"}</span>
         </button>
 
-        {/* 6. User Profile Button */}
+        {/* 5. User Profile Button */}
         <button
           onClick={() => setActiveTab("profile")}
           className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${

@@ -2254,19 +2254,23 @@ export default function ParentBody({
         )}
 
         {/* ==========================================
-            TAB: PRESENSI KEHADIRAN SISWA
+            TAB: PRESENSI KEHADIRAN SISWA (PORTAL CAMERA)
             ========================================== */}
-        {parentActiveTab === "presensi" && (
-          <StudentCameraPresensi
-            student={student}
-            coach={coach}
-            schedules={schedules}
-            attendances={attendances}
-            onCheckInAttendance={onCheckInAttendance}
-            onRefresh={onRefresh}
-            onClose={() => setParentActiveTab("home")}
-          />
-        )}
+        {mounted &&
+          parentActiveTab === "presensi" &&
+          createPortal(
+            <StudentCameraPresensi
+              student={student}
+              coach={coach}
+              schedules={schedules}
+              attendances={attendances}
+              onCheckInAttendance={onCheckInAttendance}
+              onRefresh={onRefresh}
+              onClose={() => setParentActiveTab("home")}
+              onViewSchedule={() => setParentActiveTab("jadwal")}
+            />,
+            document.body
+          )}
 
         {/* ==========================================
             TAB 3: PROGRES REPORT (RAPOR RENANG)
@@ -3628,6 +3632,7 @@ export default function ParentBody({
           (Home, Jadwal, Presensi, Progres Report, Profile)
           ========================================== */}
       {mounted &&
+        parentActiveTab !== "presensi" &&
         createPortal(
           <nav
             className="fixed bottom-0 inset-x-0 z-[999] w-full bg-white/98 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.07)]"
@@ -3683,11 +3688,7 @@ export default function ParentBody({
                     </span>
                   )}
                 </button>
-                <span
-                  className={`text-[10px] mt-1 tracking-tight font-bold ${
-                    parentActiveTab === "presensi" ? "text-cyan-600 font-black" : "text-slate-500"
-                  }`}
-                >
+                <span className="text-[10px] mt-1 tracking-tight font-bold text-slate-500">
                   Presensi
                 </span>
               </div>

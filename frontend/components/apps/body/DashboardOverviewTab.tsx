@@ -340,13 +340,6 @@ export default function DashboardOverviewTab({
         action: () => setActiveTab && setActiveTab("izin"),
       },
       {
-        id: "gaji",
-        label: "Honor Pelatih",
-        icon: <CreditCard size={22} />,
-        bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-500",
-        action: () => setActiveTab && setActiveTab("gaji_spp"),
-      },
-      {
         id: "pengumuman",
         label: "Pengumuman",
         icon: <Megaphone size={22} />,
