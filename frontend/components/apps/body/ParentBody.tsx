@@ -60,6 +60,7 @@ import {
   ShieldAlert,
   ExternalLink,
   Mail,
+  Waves,
 } from "lucide-react";
 
 // Helper to compress and convert any uploaded image to an ultra-lightweight WebP/JPEG Base64 Data URL (~15-30KB)
@@ -1055,6 +1056,19 @@ export default function ParentBody({
     }
     : null);
 
+  // Check if student has checked in for today's session
+  const todayAttendanceRecord = useMemo(() => {
+    return studentAttendances.find((a) => {
+      const isDateMatch = a.date === todayISO;
+      const isScheduleMatch = todayScheduleObj
+        ? String(a.schedule_id) === String(todayScheduleObj.id) || isDateMatch
+        : isDateMatch;
+      return isScheduleMatch;
+    });
+  }, [studentAttendances, todayScheduleObj, todayISO]);
+
+  const isTodaySessionCheckedIn = !!todayAttendanceRecord;
+
   const getVenueCoords = (poolArea?: string) => {
     const p = poolArea?.toLowerCase() || "";
     if (p.includes("312") || p.includes("wera")) {
@@ -1760,17 +1774,47 @@ export default function ParentBody({
                 JADWAL LATIHAN (HARI INI / SESI MENDATANG)
                 ========================================== */}
             {(todaySession || upcomingSession) && (
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap animate-fadeIn">
+              <div
+                className={`p-3.5 sm:p-4 rounded-2xl border shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap animate-fadeIn transition-all duration-300 ${
+                  isTodaySessionCheckedIn
+                    ? "bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border-emerald-300 shadow-emerald-500/10"
+                    : "bg-white border-slate-100"
+                }`}
+              >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/60 shadow-2xs">
-                    <CalendarDays size={20} />
+                  <div
+                    className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl shrink-0 border shadow-2xs ${
+                      isTodaySessionCheckedIn
+                        ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                        : "bg-blue-50 text-blue-600 border-blue-100/60"
+                    }`}
+                  >
+                    {isTodaySessionCheckedIn ? (
+                      <Waves size={20} className="animate-pulse" />
+                    ) : (
+                      <CalendarDays size={20} />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-cyan-50 text-cyan-700 border border-cyan-100/80">
+                      <span
+                        className={`text-[10px] font-black uppercase px-1.5 py-0.2 rounded border ${
+                          isTodaySessionCheckedIn
+                            ? "bg-emerald-100/80 text-emerald-800 border-emerald-200"
+                            : "bg-cyan-50 text-cyan-700 border-cyan-100/80"
+                        }`}
+                      >
                         {(todaySession || upcomingSession)?.class || student.class}
                       </span>
-                      {todaySession ? (
+                      {isTodaySessionCheckedIn ? (
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white border border-emerald-400 flex items-center gap-1 shadow-xs animate-fadeIn">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                          </span>
+                          <span>Sesi Sedang Berlangsung</span>
+                        </span>
+                      ) : todaySession ? (
                         <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
                           Hari Ini
                         </span>
@@ -1789,20 +1833,38 @@ export default function ParentBody({
                       <span className="text-slate-300">•</span>
                       <User size={11} className="text-slate-400 shrink-0" />
                       <span>{(todaySession || upcomingSession)?.coach?.name || coach.name}</span>
+                      {isTodaySessionCheckedIn && todayAttendanceRecord?.time_recorded && (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-emerald-700 font-bold">
+                            Masuk: {todayAttendanceRecord.time_recorded}
+                          </span>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-                  <button
-                    type="button"
-                    onClick={() => setParentActiveTab("presensi")}
-                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs hover:shadow-md cursor-pointer active:scale-95"
-                    title="Masuk ke menu presensi"
-                  >
-                    <Clock size={13} />
-                    <span>Presensi</span>
-                  </button>
+                  {isTodaySessionCheckedIn ? (
+                    <div
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm border border-emerald-500"
+                      title="Presensi masuk telah berhasil dicatat untuk sesi ini"
+                    >
+                      <CheckCircle2 size={14} className="text-emerald-100" />
+                      <span>Presensi Masuk Selesai</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setParentActiveTab("presensi")}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs hover:shadow-md cursor-pointer active:scale-95"
+                      title="Masuk ke menu presensi"
+                    >
+                      <Clock size={13} />
+                      <span>Presensi</span>
+                    </button>
+                  )}
 
                   <a
                     href={`https://wa.me/${(todaySession || upcomingSession)?.coach?.phone || coach.phone}?text=Halo%20${(todaySession || upcomingSession)?.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
