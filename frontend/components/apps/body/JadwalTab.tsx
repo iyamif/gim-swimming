@@ -23,8 +23,11 @@ import {
   CheckCircle2,
   Send,
   Info,
+  XCircle,
+  History,
+  CheckCheck,
 } from "lucide-react";
-import { ScheduleSession, Student, Coach, PoolVenue, ClassProgram } from "../types";
+import { ScheduleSession, Student, Coach, PoolVenue, ClassProgram, AttendanceRecord } from "../types";
 
 const MONTH_NAMES_INDO = [
   "Januari",
@@ -47,6 +50,7 @@ interface JadwalTabProps {
   schedules: ScheduleSession[];
   students: Student[];
   coaches: Coach[];
+  attendances?: AttendanceRecord[];
   pools?: PoolVenue[];
   classPrograms?: ClassProgram[];
   sessionUser?: string;
@@ -61,6 +65,7 @@ export default function JadwalTab({
   schedules,
   students,
   coaches,
+  attendances = [],
   pools = [],
   classPrograms = [],
   sessionUser = "",
@@ -74,6 +79,7 @@ export default function JadwalTab({
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterClass, setFilterClass] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
+  const [scheduleTab, setScheduleTab] = useState<"upcoming" | "history">("upcoming");
 
   // ==========================================
   // RESCHEDULE REQUEST STATE (FOR COACH ROLE)
@@ -1067,6 +1073,152 @@ export default function JadwalTab({
     return matchClass && matchSearch;
   });
 
+  // Helper to determine if a schedule session is in the past or finished
+  const isSchedulePast = (sch: ScheduleSession): boolean => {
+    if (!sch.date) return false;
+    if (sch.status === "Completed") return true;
+    if (sch.date < todayStr) return true;
+    if (sch.date === todayStr && sch.timeEnd <= getCurrentHHMM()) return true;
+    return false;
+  };
+
+  // Split into Upcoming vs History
+  const upcomingSchedules = useMemo(() => {
+    return filteredSchedules
+      .filter((s) => !isSchedulePast(s))
+      .sort((a, b) => (a.date + a.timeStart).localeCompare(b.date + b.timeStart));
+  }, [filteredSchedules, todayStr]);
+
+  const historySchedules = useMemo(() => {
+    return filteredSchedules
+      .filter((s) => isSchedulePast(s))
+      .sort((a, b) => (b.date + b.timeStart).localeCompare(a.date + a.timeStart));
+  }, [filteredSchedules, todayStr]);
+
+  const displayedSchedules = scheduleTab === "upcoming" ? upcomingSchedules : historySchedules;
+
+  // Helper to calculate attendance indicator for past schedules
+  // 1. Hijau (Ceklis): Pelatih dan Siswa hadir lengkap (tanpa terlambat & tanpa absen)
+  // 2. Kuning (Tanda Seru): Terlambat ATAU salah satunya tidak hadir
+  // 3. Merah (Tanda X): Tidak ada yang hadir (pelatih maupun siswa)
+  const getPastScheduleAttendanceStatus = (sch: ScheduleSession) => {
+    const sessionAtts = (attendances || []).filter(
+      (a) =>
+        (a.schedule_id && String(a.schedule_id) === String(sch.id)) ||
+        (a.date === sch.date &&
+          ((a.person_type === "coach" &&
+            (a.person_id === sch.coachId ||
+              (a.person_name && sch.coachName && a.person_name.toLowerCase().includes(sch.coachName.toLowerCase())))) ||
+            (a.person_type === "student" &&
+              (sch.studentIds.includes(String(a.person_id)) ||
+                (a.person_name && sch.studentNames.some((sn) => sn.toLowerCase() === a.person_name.toLowerCase()))))))
+    );
+
+    // Coach status
+    const coachAtt = sessionAtts.find((a) => a.person_type === "coach");
+    const isCoachPresent = Boolean(
+      coachAtt &&
+        (coachAtt.status === "Hadir" ||
+          coachAtt.status === "Terlambat" ||
+          coachAtt.status === "Selesai" ||
+          (coachAtt.notes && (coachAtt.notes.includes("Check-in") || coachAtt.notes.includes("Check-out"))))
+    );
+    const isCoachLate = Boolean(coachAtt && (coachAtt.status === "Terlambat" || coachAtt.is_late));
+
+    // Students status
+    const studentAtts = sessionAtts.filter((a) => a.person_type === "student");
+    const totalStudents = Math.max(sch.studentNames?.length || 0, sch.studentIds?.length || 0, 1);
+    let presentStudentsCount = 0;
+    let lateStudentsCount = 0;
+    let absentStudentsCount = 0;
+
+    sch.studentNames.forEach((sName, idx) => {
+      const sId = sch.studentIds[idx];
+      const att = studentAtts.find(
+        (a) => (sId && String(a.person_id) === String(sId)) || (a.person_name && a.person_name.toLowerCase() === sName.toLowerCase())
+      );
+      if (att) {
+        if (att.status === "Hadir" || att.status === "Selesai") {
+          presentStudentsCount++;
+          if (att.is_late) lateStudentsCount++;
+        } else if (att.status === "Terlambat") {
+          presentStudentsCount++;
+          lateStudentsCount++;
+        } else {
+          absentStudentsCount++;
+        }
+      } else {
+        const stObj = students.find((s) => s.name.toLowerCase() === sName.toLowerCase() || (sId && String(s.id) === String(sId)));
+        const logEntry = stObj?.logs?.find((l) => l.date === sch.date);
+        if (logEntry) {
+          if (logEntry.status === "Hadir") {
+            presentStudentsCount++;
+          } else {
+            absentStudentsCount++;
+          }
+        } else if (sch.status === "Completed") {
+          presentStudentsCount++;
+        } else {
+          absentStudentsCount++;
+        }
+      }
+    });
+
+    const effectiveCoachPresent = isCoachPresent || (sch.status === "Completed" && sessionAtts.length === 0);
+
+    // 1. HIJAU: Pelatih & Siswa Hadir Lengkap
+    if (
+      effectiveCoachPresent &&
+      !isCoachLate &&
+      presentStudentsCount === totalStudents &&
+      lateStudentsCount === 0 &&
+      absentStudentsCount === 0
+    ) {
+      return {
+        type: "all_present" as const,
+        icon: <CheckCircle2 size={17} className="text-emerald-600 shrink-0" />,
+        label: "Pelatih & Siswa Hadir Lengkap",
+        desc: `Pelatih Hadir • Seluruh ${totalStudents} Siswa Hadir Tepat Waktu`,
+        badgeClass: "bg-emerald-50/90 border-emerald-200 text-emerald-900",
+        chipClass: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        chipText: "Hadir Lengkap",
+      };
+    }
+
+    // 3. MERAH: Tidak Ada yang Hadir (Nihil)
+    if (!effectiveCoachPresent && presentStudentsCount === 0) {
+      return {
+        type: "none_present" as const,
+        icon: <XCircle size={17} className="text-rose-600 shrink-0" />,
+        label: "Tidak Ada yang Hadir (Nihil)",
+        desc: "Pelatih maupun siswa tidak hadir / belum tercatat presensi",
+        badgeClass: "bg-rose-50/90 border-rose-200 text-rose-900",
+        chipClass: "bg-rose-100 text-rose-800 border-rose-300",
+        chipText: "Nihil / Alpa",
+      };
+    }
+
+    // 2. KUNING: Terlambat atau Salah Satunya Tidak Hadir
+    const coachText = effectiveCoachPresent
+      ? isCoachLate
+        ? "Pelatih Terlambat"
+        : "Pelatih Hadir"
+      : "Pelatih Tidak Hadir";
+    const studentText = `${presentStudentsCount}/${totalStudents} Siswa Hadir${
+      absentStudentsCount > 0 ? ` (${absentStudentsCount} Tidak Hadir)` : ""
+    }${lateStudentsCount > 0 ? ` (${lateStudentsCount} Terlambat)` : ""}`;
+
+    return {
+      type: "partial_or_late" as const,
+      icon: <AlertTriangle size={17} className="text-amber-600 shrink-0" />,
+      label: "Terlambat / Sebagian Tidak Hadir",
+      desc: `${coachText} • ${studentText}`,
+      badgeClass: "bg-amber-50/90 border-amber-200 text-amber-900",
+      chipClass: "bg-amber-100 text-amber-800 border-amber-300",
+      chipText: "Perhatian Presensi",
+    };
+  };
+
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* ==========================================
@@ -1109,6 +1261,55 @@ export default function JadwalTab({
       </div>
 
       {/* ==========================================
+          SCHEDULE VIEW MODE TABS: UPCOMING VS HISTORY
+          ========================================== */}
+      <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/70">
+        <button
+          type="button"
+          onClick={() => setScheduleTab("upcoming")}
+          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            scheduleTab === "upcoming"
+              ? "bg-white text-blue-700 font-black shadow-xs border border-slate-200/60"
+              : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
+          }`}
+        >
+          <CalendarDays size={15} className={scheduleTab === "upcoming" ? "text-blue-600" : "text-slate-400"} />
+          <span>Jadwal Mendatang</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              scheduleTab === "upcoming"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-slate-200 text-slate-600"
+            }`}
+          >
+            {upcomingSchedules.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setScheduleTab("history")}
+          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            scheduleTab === "history"
+              ? "bg-white text-slate-900 font-black shadow-xs border border-slate-200/60"
+              : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
+          }`}
+        >
+          <History size={15} className={scheduleTab === "history" ? "text-slate-900" : "text-slate-400"} />
+          <span>Riwayat Jadwal (Selesai)</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              scheduleTab === "history"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-200 text-slate-600"
+            }`}
+          >
+            {historySchedules.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ==========================================
           FILTERS BAR
           ========================================== */}
       <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -1146,18 +1347,28 @@ export default function JadwalTab({
       {/* ==========================================
           SCHEDULE LIST CARDS (CLICKABLE FOR EDIT / RESCHEDULE)
           ========================================== */}
-      {filteredSchedules.length === 0 ? (
+      {displayedSchedules.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 shadow-sm space-y-3">
-          <CalendarDays size={40} className="text-slate-300 mx-auto" />
+          {scheduleTab === "upcoming" ? (
+            <CalendarDays size={40} className="text-slate-300 mx-auto" />
+          ) : (
+            <History size={40} className="text-slate-300 mx-auto" />
+          )}
           <h3 className="text-sm font-bold text-slate-700">
-            {isCoachRole ? "Belum Ada Jadwal Mengajar" : "Belum Ada Jadwal Sesi"}
+            {scheduleTab === "upcoming"
+              ? isCoachRole
+                ? "Belum Ada Jadwal Mendatang"
+                : "Tidak Ada Jadwal Mendatang"
+              : "Belum Ada Riwayat Jadwal Selesai"}
           </h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            {isCoachRole
-              ? "Tidak ditemukan jadwal sesi mengajar untuk Anda saat ini. Hubungi admin jika membutuhkan konfirmasi jadwal."
-              : "Tidak ditemukan jadwal renang yang cocok. Klik tombol di bawah untuk membuat jadwal sesi baru."}
+            {scheduleTab === "upcoming"
+              ? isCoachRole
+                ? "Tidak ditemukan sesi mengajar yang aktif atau mendatang untuk Anda saat ini."
+                : "Semua jadwal yang ada telah selesai atau belum ada jadwal mendatang yang dibuat. Klik tombol di bawah untuk membuat jadwal baru."
+              : "Riwayat sesi latihan yang telah lewat atau selesai akan otomatis tersimpan dan ditampilkan di sini."}
           </p>
-          {!isCoachRole && (
+          {!isCoachRole && scheduleTab === "upcoming" && (
             <button
               onClick={() => {
                 const currentHHMM = getCurrentHHMM();
@@ -1179,29 +1390,47 @@ export default function JadwalTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredSchedules.map((sch) => {
+          {displayedSchedules.map((sch) => {
             const hasRescheduleReq = (sch.notes || "").includes("[REQ RESCHEDULE:");
             const rescheduleMatch = (sch.notes || "").match(/\[REQ RESCHEDULE:\s*([^\]]+)\]/);
             const rescheduleDetails = rescheduleMatch ? rescheduleMatch[1] : null;
+            const isHistory = isSchedulePast(sch);
+            const attStatus = isHistory ? getPastScheduleAttendanceStatus(sch) : null;
 
             return (
               <div
                 key={sch.id}
                 onClick={() => {
                   if (isCoachRole) {
-                    handleOpenRescheduleModal(sch);
+                    if (!isHistory) handleOpenRescheduleModal(sch);
                   } else {
                     handleOpenEditModal(sch);
                   }
                 }}
-                className="p-5 rounded-3xl bg-white border border-slate-100 hover:border-blue-300 shadow-sm hover:shadow-md transition space-y-3.5 relative overflow-hidden group cursor-pointer active:scale-[0.99]"
-                title={isCoachRole ? "Klik untuk mengajukan request reschedule" : "Klik untuk mengedit jadwal ini"}
+                className={`p-5 rounded-3xl bg-white border transition space-y-3.5 relative overflow-hidden group cursor-pointer active:scale-[0.99] ${
+                  isHistory
+                    ? "border-slate-200/80 hover:border-slate-400 shadow-xs"
+                    : "border-slate-100 hover:border-blue-300 shadow-sm hover:shadow-md"
+                }`}
+                title={
+                  isCoachRole
+                    ? isHistory
+                      ? "Riwayat sesi mengajar selesai"
+                      : "Klik untuk mengajukan request reschedule"
+                    : "Klik untuk mengedit jadwal ini"
+                }
               >
                 {/* Header card */}
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-cyan-50 text-cyan-700 border border-cyan-100">
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                          isHistory
+                            ? "bg-slate-100 text-slate-700 border-slate-200"
+                            : "bg-cyan-50 text-cyan-700 border border-cyan-100"
+                        }`}
+                      >
                         {sch.class}
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 flex items-center gap-0.5">
@@ -1212,7 +1441,9 @@ export default function JadwalTab({
                     <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-1 flex items-center gap-1.5">
                       <span>{sch.title}</span>
                       {isCoachRole ? (
-                        <RotateCcw size={12} className="text-amber-500 opacity-0 group-hover:opacity-100 transition" />
+                        !isHistory && (
+                          <RotateCcw size={12} className="text-amber-500 opacity-0 group-hover:opacity-100 transition" />
+                        )
                       ) : (
                         <Pencil size={12} className="text-blue-500 opacity-0 group-hover:opacity-100 transition" />
                       )}
@@ -1229,6 +1460,30 @@ export default function JadwalTab({
                     </span>
                   </div>
                 </div>
+
+                {/* ATTENDANCE STATUS BADGE FOR HISTORY SCHEDULES */}
+                {isHistory && attStatus && (
+                  <div
+                    className={`p-3 rounded-2xl border flex items-start gap-2.5 transition animate-fadeIn ${attStatus.badgeClass}`}
+                  >
+                    <div className="mt-0.5 shrink-0">{attStatus.icon}</div>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-black tracking-tight flex items-center gap-1.5">
+                          <span>{attStatus.label}</span>
+                        </span>
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${attStatus.chipClass}`}
+                        >
+                          {attStatus.chipText}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium leading-snug opacity-90">
+                        {attStatus.desc}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Reschedule Banner if pending */}
                 {hasRescheduleReq && rescheduleDetails && (
@@ -1298,16 +1553,22 @@ export default function JadwalTab({
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                   {isCoachRole ? (
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenRescheduleModal(sch);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-2xs"
-                      >
-                        <RotateCcw size={12} className="text-amber-600" />
-                        <span>Req Reschedule</span>
-                      </button>
+                      {!isHistory ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenRescheduleModal(sch);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-2xs"
+                        >
+                          <RotateCcw size={12} className="text-amber-600" />
+                          <span>Req Reschedule</span>
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400">
+                          Sesi Selesai
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
@@ -1334,16 +1595,29 @@ export default function JadwalTab({
                     </div>
                   )}
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (setActiveTab) setActiveTab("absensi");
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                  >
-                    <Clock size={12} />
-                    <span>Mulai Presensi</span>
-                  </button>
+                  {!isHistory ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (setActiveTab) setActiveTab("absensi");
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                    >
+                      <Clock size={12} />
+                      <span>Mulai Presensi</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (setActiveTab) setActiveTab("kehadiran");
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                    >
+                      <Clock size={12} />
+                      <span>Rekap Presensi</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInput, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import PushNotificationCard from "../PushNotificationCard";
+import StudentCameraPresensi from "./StudentCameraPresensi";
 import {
   isImageAvatar,
   getAvatarImageUrl,
@@ -2256,233 +2257,14 @@ export default function ParentBody({
             TAB: PRESENSI KEHADIRAN SISWA
             ========================================== */}
         {parentActiveTab === "presensi" && (
-          <div className="-mt-10 relative z-10 space-y-4 animate-fadeIn">
-            {/* Header & Status Card */}
-            <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/80 shadow-2xs">
-                    <CheckCircle2 size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">
-                      Presensi Siswa Hari Ini
-                    </h3>
-                    <p className="text-xs text-slate-400 font-medium">
-                      Verifikasi kehadiran latihan sesuai jadwal yang ditetapkan
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={requestDeviceLocation}
-                  disabled={isLocating}
-                  className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 border border-slate-200/80 cursor-pointer"
-                  title="Perbarui GPS Lokasi"
-                >
-                  <RotateCw size={12} className={isLocating ? "animate-spin text-blue-600" : "text-slate-500"} />
-                  <span>{isLocating ? "Mencari GPS..." : "Refresh GPS"}</span>
-                </button>
-              </div>
-
-              {/* Sesi Hari Ini Card */}
-              {(() => {
-                const targetSchedule = todayStudentSchedules[0] || upcomingScheduleObj;
-                if (!targetSchedule) {
-                  return (
-                    <div className="p-6 text-center text-slate-400 text-xs italic bg-slate-50/50 rounded-2xl border border-slate-100">
-                      Tidak ada jadwal latihan yang aktif untuk presensi saat ini.
-                    </div>
-                  );
-                }
-
-                const existingAtt = getScheduleAttendance(targetSchedule.id, targetSchedule.date);
-                const timeStat = checkAttendanceTimeStatus(targetSchedule.date || todayISO, targetSchedule.timeStart);
-                const distanceKm = calculateScheduleDistance(targetSchedule);
-                const isWithinRadius = distanceKm !== null && distanceKm <= 2.0;
-
-                return (
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/70 to-cyan-50/40 border border-blue-100 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-black text-[10px]">
-                              {targetSchedule.class || student.class} Class
-                            </span>
-                            <span className="text-xs font-black text-slate-900">
-                              {targetSchedule.title}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-600 flex items-center gap-1 mt-1">
-                            <Clock size={13} className="text-blue-600 shrink-0" />
-                            <span className="font-bold">{targetSchedule.timeStart} - {targetSchedule.timeEnd} WIB</span>
-                            <span className="text-slate-400">({targetSchedule.date || "Hari Ini"})</span>
-                          </p>
-                          <p className="text-xs text-slate-600 flex items-center gap-1 mt-1">
-                            <MapPin size={13} className="text-rose-500 shrink-0" />
-                            <span>{targetSchedule.poolArea}</span>
-                            <span className="text-slate-300">•</span>
-                            <User size={13} className="text-slate-400 shrink-0" />
-                            <span>Pelatih: {targetSchedule.coachName || coach.name}</span>
-                          </p>
-                        </div>
-
-                        {existingAtt ? (
-                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${existingAtt.status === "Terlambat"
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            }`}>
-                            {existingAtt.status === "Terlambat" ? "✓ Hadir (Terlambat)" : "✓ Hadir Tepat Waktu"}
-                          </span>
-                        ) : (
-                          <span className={`px-3 py-1.5 rounded-full text-xs font-black border shrink-0 ${!timeStat.isOpen
-                              ? "bg-slate-100 text-slate-600 border-slate-200"
-                              : timeStat.isLate
-                                ? "bg-amber-100 text-amber-800 border-amber-300"
-                                : "bg-emerald-100 text-emerald-800 border-emerald-300"
-                            }`}>
-                            {!timeStat.isOpen
-                              ? `Buka: ${timeStat.openTimeString} WIB`
-                              : timeStat.isLate
-                                ? "Terlambat (> 15m)"
-                                : "Bisa Presensi"}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* GPS & Distance Radius Simulator Pill */}
-                      <div className="pt-2 border-t border-blue-100/60 flex items-center justify-between flex-wrap gap-2 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${isWithinRadius ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                          <span className="text-slate-600 font-medium">
-                            Jarak GPS: <strong className={isWithinRadius ? "text-emerald-700" : "text-rose-600"}>{distanceKm !== null ? `${distanceKm.toFixed(2)} km` : "Mencari GPS..."}</strong> (Maks. 2.0 km)
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setUseSimulatedPoolLocation(!useSimulatedPoolLocation)}
-                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition cursor-pointer ${useSimulatedPoolLocation
-                              ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
-                              : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
-                            }`}
-                        >
-                          {useSimulatedPoolLocation ? "✓ Simulasi Radius Aktif (< 2.0 km)" : "Mode Simulasi Kolam"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Check In Action Button */}
-                    {existingAtt ? (
-                      <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-3">
-                        <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
-                        <div>
-                          <p className="font-black">Presensi Berhasil Diverifikasi</p>
-                          <p className="text-[11px] text-emerald-700 mt-0.5">
-                            Kehadiran siswa {student.name} telah tersimpan di sistem GIM Swimming pada {existingAtt.created_at ? new Date(existingAtt.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "hari ini"} WIB.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handlePerformCheckIn(targetSchedule)}
-                        disabled={isCheckingIn || !timeStat.isOpen}
-                        className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all duration-200 flex items-center justify-center gap-2 shadow-md cursor-pointer ${!timeStat.isOpen
-                            ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none"
-                            : timeStat.isLate
-                              ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-500/25"
-                              : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-blue-600/25"
-                          }`}
-                      >
-                        {isCheckingIn ? (
-                          <>
-                            <RotateCw size={15} className="animate-spin" />
-                            <span>Memproses Presensi...</span>
-                          </>
-                        ) : !timeStat.isOpen ? (
-                          <>
-                            <Clock size={15} />
-                            <span>Presensi Belum Dibuka (Buka: {timeStat.openTimeString} WIB)</span>
-                          </>
-                        ) : timeStat.isLate ? (
-                          <>
-                            <AlertTriangle size={15} />
-                            <span>Presensi Terlambat (Isi Alasan)</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={15} />
-                            <span>Presensi Siswa Hadir Sekarang</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Riwayat Kehadiran Siswa */}
-            <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-blue-600" />
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                      Riwayat Presensi Siswa
-                    </h4>
-                    <p className="text-[10px] text-slate-400 font-medium">
-                      Histori catatan kehadiran yang tervalidasi
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black">
-                  {parentStudentHistory.length} Sesi
-                </span>
-              </div>
-
-              {parentStudentHistory.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs italic">
-                  Belum ada catatan presensi tervalidasi untuk siswa ini.
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {parentStudentHistory.map((item, idx) => (
-                    <div
-                      key={item.id || idx}
-                      className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:border-blue-100 transition flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-black text-slate-900">
-                            {item.title}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${item.status === "Terlambat"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-emerald-100 text-emerald-800"
-                            }`}>
-                            {item.status}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          {item.date} • {item.time} • {item.poolArea}
-                        </p>
-                        {item.lateReason && (
-                          <p className="text-[10px] text-amber-700 italic">
-                            Alasan: {item.lateReason}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-400 shrink-0">
-                        Pelatih: {item.coachName}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <StudentCameraPresensi
+            student={student}
+            coach={coach}
+            schedules={schedules}
+            attendances={attendances}
+            onCheckInAttendance={onCheckInAttendance}
+            onRefresh={onRefresh}
+          />
         )}
 
         {/* ==========================================
@@ -3851,34 +3633,93 @@ export default function ParentBody({
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
             <div className="max-w-3xl mx-auto flex items-center justify-around px-2 h-16">
-              {navTabs.map((tab) => {
-                const isActive = parentActiveTab === tab.id;
-                const TabIcon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => {
-                      setParentActiveTab(tab.id);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-all duration-200 relative group active:scale-95 outline-none focus:outline-none focus:ring-0 focus:border-none select-none ${
-                      isActive
-                        ? "text-blue-600 font-bold"
-                        : "text-slate-400 hover:text-slate-600 font-medium"
-                    }`}
-                    style={{ WebkitTapHighlightColor: "transparent" }}
-                  >
-                    {isActive && (
-                      <span className="absolute -top-1.5 h-0.5 w-8 rounded-full bg-blue-600 animate-fadeIn" />
-                    )}
-                    <TabIcon size={20} className="mb-0.5" />
-                    <span className="text-[10px] tracking-tight truncate max-w-[70px] sm:max-w-none">
-                      {tab.label}
+              {/* 1. Home */}
+              <button
+                type="button"
+                onClick={() => {
+                  setParentActiveTab("home");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+                  parentActiveTab === "home" ? "text-blue-600 font-bold" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                <div className="mb-0.5"><Home size={19} /></div>
+                <span className="text-[10px] tracking-tight font-bold">Home</span>
+              </button>
+
+              {/* 2. Jadwal */}
+              <button
+                type="button"
+                onClick={() => {
+                  setParentActiveTab("jadwal");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+                  parentActiveTab === "jadwal" ? "text-blue-600 font-bold" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                <div className="mb-0.5"><CalendarDays size={19} /></div>
+                <span className="text-[10px] tracking-tight font-bold">Jadwal</span>
+              </button>
+
+              {/* 3. CENTER FLOATING ACTION BUTTON (Presensi) */}
+              <div className="flex flex-col items-center justify-center -mt-7 flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParentActiveTab("presensi");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/40 border-4 border-white active:scale-90 transition-transform duration-150 cursor-pointer"
+                  title="Presensi Siswa Kamera & GPS"
+                >
+                  <Clock size={24} />
+                  {todayStudentSchedules.length > 0 && !todayStudentSchedules.some((s) => getScheduleAttendance(s.id, s.date)) && (
+                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-cyan-400" />
                     </span>
-                  </button>
-                );
-              })}
+                  )}
+                </button>
+                <span
+                  className={`text-[10px] mt-1 tracking-tight font-bold ${
+                    parentActiveTab === "presensi" ? "text-cyan-600 font-black" : "text-slate-500"
+                  }`}
+                >
+                  Presensi
+                </span>
+              </div>
+
+              {/* 4. Progres */}
+              <button
+                type="button"
+                onClick={() => {
+                  setParentActiveTab("progres");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+                  parentActiveTab === "progres" ? "text-blue-600 font-bold" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                <div className="mb-0.5"><TrendingUp size={19} /></div>
+                <span className="text-[10px] tracking-tight font-bold">Progres</span>
+              </button>
+
+              {/* 5. Profile */}
+              <button
+                type="button"
+                onClick={() => {
+                  setParentActiveTab("profile");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+                  parentActiveTab === "profile" ? "text-blue-600 font-bold" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                <div className="mb-0.5"><User size={19} /></div>
+                <span className="text-[10px] tracking-tight font-bold">Profil</span>
+              </button>
             </div>
           </nav>,
           document.body
