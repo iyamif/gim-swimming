@@ -4,6 +4,7 @@
  */
 
 import { fetchVapidPublicKey, subscribePush, unsubscribePush, triggerTestPush } from "./api";
+import { getAuthSession } from "./authSession";
 
 /**
  * Converts a URL-safe Base64 string to a Uint8Array for PushManager subscription
@@ -162,8 +163,9 @@ export async function subscribeToPushNotifications(
     }
 
     // 5. Send verified subscription keys to Backend database
-    const resolvedRole = options.role || localStorage.getItem("gim_swimming_role") || "";
-    const resolvedUsername = options.username || localStorage.getItem("gim_swimming_user") || "";
+    const authSession = getAuthSession();
+    const resolvedRole = options.role || authSession.role || "";
+    const resolvedUsername = options.username || authSession.user || "";
     const resolvedStudent = options.studentName || resolvedUsername;
 
     await subscribePush({

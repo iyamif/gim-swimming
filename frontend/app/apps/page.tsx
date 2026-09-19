@@ -67,6 +67,7 @@ import { DesktopSidebar, MobileBottomNav } from "../../components/apps/Navigatio
 import ParentBody from "../../components/apps/body/ParentBody";
 import AppsBody from "../../components/apps/body/AppsBody";
 import PullToRefresh from "../../components/apps/PullToRefresh";
+import { getAuthSession, saveAuthSession, clearAuthSession } from "../../lib/authSession";
 
 export default function AppsPage() {
   const router = useRouter();
@@ -101,9 +102,7 @@ export default function AppsPage() {
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem("gim_swimming_user");
-    localStorage.removeItem("gim_swimming_role");
-    localStorage.removeItem("gim_swimming_token");
+    clearAuthSession();
     setSessionUser("");
     setSessionRole("");
     router.replace("/");
@@ -113,18 +112,9 @@ export default function AppsPage() {
   const loadAllData = useCallback(async (roleParam?: string, userParam?: string) => {
     try {
       setLoadingData(true);
-      const role =
-        roleParam ||
-        sessionRole ||
-        (typeof window !== "undefined"
-          ? localStorage.getItem("gim_swimming_role") || ""
-          : "");
-      const user =
-        userParam ||
-        sessionUser ||
-        (typeof window !== "undefined"
-          ? localStorage.getItem("gim_swimming_user") || ""
-          : "");
+      const session = getAuthSession();
+      const role = roleParam || sessionRole || session.role || "";
+      const user = userParam || sessionUser || session.user || "";
 
       const [
         fetchedStudents,
@@ -584,12 +574,10 @@ export default function AppsPage() {
   // Authenticate user session on mount & fetch real DB data
   useEffect(() => {
     setMounted(true);
-    const user = typeof window !== "undefined" ? localStorage.getItem("gim_swimming_user") : null;
-    const role = typeof window !== "undefined" ? localStorage.getItem("gim_swimming_role") : null;
-    const token = typeof window !== "undefined" ? localStorage.getItem("gim_swimming_token") : null;
+    const { user, role, token } = getAuthSession();
 
     if (!user || !role) {
-      // If cache/session is null (e.g. after iOS update, fresh install, or logout),
+      // If cache/session is null (e.g. after logout or fresh device),
       // redirect immediately to the main homepage "/"
       router.replace("/");
       return;
@@ -623,12 +611,14 @@ export default function AppsPage() {
           const userData = resp?.data?.user || resp?.data;
           if (userData) {
             const uname = userData.username || user;
+            const urole = userData.role || role;
+            saveAuthSession({
+              user: uname,
+              role: urole,
+              token: token,
+              avatar: userData.avatar,
+            });
             if (userData.avatar !== undefined) {
-              if (userData.avatar) {
-                localStorage.setItem(`gim_avatar_${uname}`, userData.avatar);
-              } else {
-                localStorage.removeItem(`gim_avatar_${uname}`);
-              }
               window.dispatchEvent(new Event("avatar_updated"));
             }
           }

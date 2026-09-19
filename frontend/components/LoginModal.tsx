@@ -27,6 +27,7 @@ import {
   requestPasswordResetOTP,
   resetPasswordWithOTP,
 } from "../lib/api";
+import { saveAuthSession } from "../lib/authSession";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -175,13 +176,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
       setLoading(false);
 
-      // Save session credentials
-      localStorage.setItem("gim_swimming_token", result.data.token);
-
+      // Save session credentials persistently (both localStorage and persistent Cookies)
       const user = result.data.user;
-      if (user?.avatar) {
-        localStorage.setItem(`gim_avatar_${user.username}`, user.avatar);
-      }
+      saveAuthSession({
+        user: user?.username || usernameOrEmail,
+        role: user?.role || getRoleFromUsername(usernameOrEmail),
+        token: result.data.token,
+        avatar: user?.avatar,
+      });
       setCurrentUserData(user);
 
       if (user?.must_change_password) {
@@ -393,11 +395,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             return res.json();
           })
           .then((result) => {
-            localStorage.setItem("gim_swimming_token", result.data.token);
             const user = result.data.user;
-            if (user?.avatar) {
-              localStorage.setItem(`gim_avatar_${user.username}`, user.avatar);
-            }
+            saveAuthSession({
+              user: user?.username || usernameOrEmail,
+              role: user?.role || getRoleFromUsername(usernameOrEmail),
+              token: result.data.token,
+              avatar: user?.avatar,
+            });
             setCurrentUserData(user);
 
             if (user?.must_change_password) {

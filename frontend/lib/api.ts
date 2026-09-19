@@ -10,6 +10,7 @@ import {
   ClassProgram,
   CoachPayroll,
 } from "../components/apps/types";
+import { getAuthToken } from "./authSession";
 
 // Central API configuration for frontend-backend communication
 export function getApiBaseUrl(): string {
@@ -81,11 +82,9 @@ function getHeaders(): HeadersInit {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("gim_swimming_token");
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+  const token = getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
 }
@@ -728,11 +727,9 @@ export async function uploadAvatarFile(file: File): Promise<string> {
   formData.append("avatar", file);
 
   const headers: HeadersInit = {};
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("gim_swimming_token");
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+  const token = getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/avatar`, {

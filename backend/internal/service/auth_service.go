@@ -258,7 +258,7 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, currentP
 
 // generateToken generates a JWT token for a user
 func (s *authService) generateToken(user *model.User) (string, error) {
-	expirationTime := time.Now().Add(24 * time.Hour) // Token expires in 24 hours
+	expirationTime := time.Now().Add(365 * 24 * time.Hour) // Token persists for 1 year (365 days)
 	claims := &Claims{
 		UserID:   strconv.FormatInt(user.ID, 10),
 		Username: user.Username,

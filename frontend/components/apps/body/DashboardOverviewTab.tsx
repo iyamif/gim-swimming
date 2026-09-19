@@ -888,58 +888,51 @@ export default function DashboardOverviewTab({
             JADWAL MELATIH HARI INI (PELATIH VIEW ONLY)
             Hanya muncul jika hari ini ada jadwal melatih yang belum selesai / belum checkout
             ========================================== */}
+        {/* ==========================================
+            JADWAL MELATIH HARI INI (PELATIH VIEW ONLY)
+            Hanya muncul jika hari ini ada jadwal melatih yang belum selesai / belum checkout
+            ========================================== */}
         {isCoachRole && activeTodayCoachSchedules.length > 0 && (
-          <div className="rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 p-5 text-white shadow-xl shadow-blue-500/20 border border-white/20 space-y-4 relative overflow-hidden animate-fadeIn">
-            {/* Ambient Depth Background Circles */}
-            <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-xl pointer-events-none" />
-            <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-cyan-400/20 blur-lg pointer-events-none" />
-
-            {/* Container Header */}
-            <div className="flex items-center justify-between flex-wrap gap-2 relative z-10 border-b border-white/15 pb-3">
+          <div className="rounded-3xl bg-white p-4 sm:p-5 border border-slate-100 shadow-sm space-y-3.5 animate-fadeIn">
+            {/* Header Row */}
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md text-white shadow-xs border border-white/30">
-                  <Waves size={18} />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/80">
+                  <CalendarDays size={18} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
                       Jadwal Melatih Hari Ini
                     </h3>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs animate-pulse">
-                      AKTIF
-                    </span>
+                    {isCoachSessionOngoing && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                        Sesi Berlangsung
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[11px] text-cyan-100 font-medium">
+                  <p className="text-[11px] text-slate-400 font-medium">
                     {todayFormatted} • {activeTodayCoachSchedules.length} Sesi Terjadwal
                   </p>
                 </div>
               </div>
 
-              {/* Status Action / Badge: Jika pelatih sudah absen masuk, tampilkan 'Presensi Masuk Selesai' dan button 'Presensi Keluar' */}
+              {/* Action Button */}
               {isCoachSessionOngoing ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/30 border border-emerald-300/50 text-white text-[11px] font-black flex items-center gap-1.5 shadow-sm backdrop-blur-md">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                    </span>
-                    <span>Presensi Masuk Selesai</span>
-                  </div>
-                  {setActiveTab && (
-                    <button
-                      onClick={() => setActiveTab("absensi")}
-                      className="px-3 py-1.5 rounded-xl bg-white text-emerald-700 hover:bg-emerald-50 text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
-                      title="Ambil foto & presensi keluar selesai sesi"
-                    >
-                      <LogOut size={13} />
-                      <span>Presensi Keluar</span>
-                    </button>
-                  )}
-                </div>
+                setActiveTab && (
+                  <button
+                    onClick={() => setActiveTab("absensi")}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    title="Ambil foto & presensi keluar selesai sesi"
+                  >
+                    <LogOut size={13} />
+                    <span>Presensi Keluar</span>
+                  </button>
+                )
               ) : setActiveTab ? (
                 <button
                   onClick={() => setActiveTab("absensi")}
-                  className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-cyan-50 text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   <Clock size={13} />
                   <span>Input Presensi</span>
@@ -948,76 +941,53 @@ export default function DashboardOverviewTab({
             </div>
 
             {/* List of Today's Active Sessions */}
-            <div className="space-y-3 relative z-10">
+            <div className="space-y-2.5">
               {activeTodayCoachSchedules.map((schedule, idx) => {
                 const studentList = schedule.studentNames || [];
-                const isCheckedIn = isScheduleCoachCheckedIn(schedule);
 
                 return (
                   <div
                     key={schedule.id || idx}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-sm space-y-2.5 hover:bg-white/15 transition duration-200"
+                    className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2 hover:bg-slate-50 transition"
                   >
                     {/* Session Top Info */}
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/20 text-white border border-white/25">
-                            {schedule.class}
-                          </span>
-                          <h4 className="text-xs sm:text-sm font-black text-white">
-                            {schedule.title}
-                          </h4>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-100">
+                          {schedule.class}
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-800">
+                          {schedule.title}
+                        </h4>
                       </div>
-                      <div className="flex items-center gap-2 text-[11px] font-bold">
-                        {isCheckedIn ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-emerald-500/30 text-emerald-100 border border-emerald-300/40 flex items-center gap-1.5 font-bold">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-ping" />
-                            <span>Sesi Berlangsung</span>
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg bg-white/25 text-white border border-white/30 flex items-center gap-1">
-                            <Clock size={11} /> {schedule.timeStart} - {schedule.timeEnd} WIB
-                          </span>
-                        )}
-                        <span className="px-2.5 py-1 rounded-lg bg-white/20 text-cyan-100 flex items-center gap-1">
-                          <MapPin size={11} /> {schedule.poolArea}
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} className="text-slate-400" />
+                          <span>{schedule.timeStart} - {schedule.timeEnd} WIB</span>
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <MapPin size={11} className="text-slate-400" />
+                          <span>{schedule.poolArea}</span>
                         </span>
                       </div>
                     </div>
 
                     {/* Students List */}
-                    <div className="pt-1 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-cyan-100">
-                          Murid yang Dilatih ({studentList.length}):
+                    {studentList.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          Siswa ({studentList.length}):
                         </span>
-                      </div>
-                      {studentList.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {studentList.map((stName, stIdx) => (
-                            <span
-                              key={stIdx}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 backdrop-blur-sm text-white text-[11px] font-semibold border border-white/25 shadow-2xs"
-                            >
-                              <User size={11} />
-                              <span>{stName}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-cyan-100/80 italic">
-                          Belum ada siswa spesifik yang ditautkan.
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Notes if any */}
-                    {schedule.notes && (
-                      <div className="p-2 rounded-xl bg-black/15 text-[10px] text-cyan-50 border border-white/10">
-                        <span className="font-bold text-amber-300">Catatan: </span>
-                        {schedule.notes}
+                        {studentList.map((stName, stIdx) => (
+                          <span
+                            key={stIdx}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white text-slate-700 text-[10px] font-medium border border-slate-200/80"
+                          >
+                            <User size={10} className="text-slate-400" />
+                            <span>{stName}</span>
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>

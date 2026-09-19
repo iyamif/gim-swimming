@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import LoginModal from "./LoginModal";
+import { getAuthSession, saveAuthSession, clearAuthSession } from "../lib/authSession";
 
 export default function Navbar() {
   const router = useRouter();
@@ -12,29 +13,35 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem("gim_swimming_user");
-    if (savedUser) {
+  const syncAuth = () => {
+    const session = getAuthSession();
+    if (session.user && session.role) {
       setIsLoggedIn(true);
-      setUsername(savedUser);
+      setUsername(session.user);
+    } else {
+      setIsLoggedIn(false);
+      setUsername("");
     }
+  };
+
+  useEffect(() => {
+    syncAuth();
+    window.addEventListener("auth_session_changed", syncAuth);
+    return () => window.removeEventListener("auth_session_changed", syncAuth);
   }, []);
 
   const handleLoginSuccess = (name: string, role: string) => {
     setIsLoggedIn(true);
     setUsername(name);
-    localStorage.setItem("gim_swimming_user", name);
-    localStorage.setItem("gim_swimming_role", role);
+    saveAuthSession({ user: name, role });
     setIsLoginModalOpen(false);
     router.push("/apps");
   };
 
   const handleLogout = () => {
+    clearAuthSession();
     setIsLoggedIn(false);
     setUsername("");
-    localStorage.removeItem("gim_swimming_user");
-    localStorage.removeItem("gim_swimming_role");
-    localStorage.removeItem("gim_swimming_token");
     setIsOpen(false);
   };
 

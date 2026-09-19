@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Info,
   Navigation,
+  LogOut,
 } from "lucide-react";
 
 interface StudentCameraPresensiProps {
@@ -38,6 +39,7 @@ interface StudentCameraPresensiProps {
   coach: Coach;
   schedules: ScheduleSession[];
   attendances?: AttendanceRecord[];
+  initialMode?: "masuk" | "keluar";
   onCheckInAttendance?: (payload: {
     schedule_id: string;
     person_type: "coach" | "student";
@@ -62,6 +64,7 @@ export default function StudentCameraPresensi({
   coach,
   schedules,
   attendances = [],
+  initialMode,
   onCheckInAttendance,
   onRefresh,
   onClose,
@@ -251,8 +254,8 @@ export default function StudentCameraPresensi({
     );
   }, [activeSchedule, todayISO]);
 
-  // 10. Check if already checked in today
-  const existingAttendance = useMemo(() => {
+  // 10. Check if already checked in / checked out today
+  const existingCheckInAttendance = useMemo(() => {
     if (!activeSchedule) return null;
     return (
       (attendances || []).find(
@@ -261,12 +264,44 @@ export default function StudentCameraPresensi({
           (String(a.person_id) === String(student.id) ||
             a.person_name.toLowerCase().trim() === student.name.toLowerCase().trim()) &&
           ((a.schedule_id && String(a.schedule_id) === String(activeSchedule.id)) ||
-            a.date === (activeSchedule.date || todayISO))
+            a.date === (activeSchedule.date || todayISO)) &&
+          (a.status === "Hadir" || a.status === "Terlambat" || a.status === "Selesai")
       ) || null
     );
   }, [attendances, activeSchedule, student, todayISO]);
 
-  const isAlreadyCheckedIn = Boolean(existingAttendance);
+  const existingCheckOutAttendance = useMemo(() => {
+    if (!activeSchedule) return null;
+    return (
+      (attendances || []).find(
+        (a) =>
+          a.person_type === "student" &&
+          (String(a.person_id) === String(student.id) ||
+            a.person_name.toLowerCase().trim() === student.name.toLowerCase().trim()) &&
+          ((a.schedule_id && String(a.schedule_id) === String(activeSchedule.id)) ||
+            a.date === (activeSchedule.date || todayISO)) &&
+          (a.status === "Selesai" || (a.notes && a.notes.includes("Presensi Keluar")))
+      ) || null
+    );
+  }, [attendances, activeSchedule, student, todayISO]);
+
+  const isAlreadyCheckedIn = Boolean(existingCheckInAttendance);
+  const isAlreadyCheckedOut = Boolean(existingCheckOutAttendance);
+
+  // Direct Smart Mode: "masuk" if not checked in, "keluar" if already checked in
+  const [chosenMode, setChosenMode] = useState<"masuk" | "keluar">(
+    initialMode || (isAlreadyCheckedIn && !isAlreadyCheckedOut ? "keluar" : "masuk")
+  );
+
+  useEffect(() => {
+    if (initialMode) {
+      setChosenMode(initialMode);
+    } else if (isAlreadyCheckedIn && !isAlreadyCheckedOut) {
+      setChosenMode("keluar");
+    } else if (!isAlreadyCheckedIn) {
+      setChosenMode("masuk");
+    }
+  }, [initialMode, isAlreadyCheckedIn, isAlreadyCheckedOut, activeSchedule]);
 
   // 11. Initialize Camera Stream
   const initCamera = useCallback(async (facing: "user" | "environment") => {
@@ -374,17 +409,26 @@ export default function StudentCameraPresensi({
       setCapturedPhotoUrl(snapshot);
     }
 
-    if (isAlreadyCheckedIn) {
-      alert("Siswa sudah melakukan Presensi Masuk untuk sesi ini.");
-      return;
-    }
+    if (chosenMode === "keluar") {
+      if (isAlreadyCheckedOut) {
+        alert("Siswa sudah melakukan Presensi Keluar untuk sesi ini.");
+        return;
+      }
+      submitPresensiKeluar(snapshot || undefined);
+    } else {
+      if (isAlreadyCheckedIn) {
+        alert("Siswa sudah melakukan Presensi Masuk untuk sesi ini. Silakan gunakan mode Presensi Keluar saat selesai sesi.");
+        setChosenMode("keluar");
+        return;
+      }
 
-    if (timeStatus.isLate && !lateReason.trim()) {
-      setShowLateReasonModal(true);
-      return;
-    }
+      if (timeStatus.isLate && !lateReason.trim()) {
+        setShowLateReasonModal(true);
+        return;
+      }
 
-    submitPresensiMasuk(undefined, snapshot || undefined);
+      submitPresensiMasuk(undefined, snapshot || undefined);
+    }
   };
 
   // Submit Check In Attendance
@@ -404,7 +448,7 @@ export default function StudentCameraPresensi({
           late_reason: reasonOverride || lateReason || (timeStatus.isLate ? "Hadir sesi latihan" : undefined),
           latitude: currentLat || targetPoolInfo.latitude,
           longitude: currentLon || targetPoolInfo.longitude,
-          notes: `Presensi Siswa (${distanceMeters}m dari ${targetPoolInfo.name} • ${radiusPreset})`,
+          notes: `Presensi Masuk Siswa (${distanceMeters}m dari ${targetPoolInfo.name} • ${radiusPreset})`,
           photo: photoToSend,
         });
       }
@@ -413,12 +457,49 @@ export default function StudentCameraPresensi({
       if (onRefresh) {
         await onRefresh();
       }
+      alert("✅ Presensi Masuk Siswa Berhasil Dicatat! Sesi latihan sedang berlangsung.");
+      if (onClose) onClose();
     } catch (err: any) {
       console.warn("Submit attendance error:", err);
-      alert(err.message || "Gagal mengirim presensi siswa.");
+      alert(err.message || "Gagal mengirim presensi masuk siswa.");
     } finally {
       setIsSubmitting(false);
       setShowLateReasonModal(false);
+    }
+  };
+
+  // Submit Check Out Attendance
+  const submitPresensiKeluar = async (snapshotOverride?: string) => {
+    if (!activeSchedule) return;
+
+    setIsSubmitting(true);
+    try {
+      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
+      if (onCheckInAttendance) {
+        await onCheckInAttendance({
+          schedule_id: activeSchedule.id,
+          person_type: "student",
+          person_id: String(student.id || "student_1"),
+          person_name: student.name || "Siswa GIM",
+          status: "Selesai",
+          latitude: currentLat || targetPoolInfo.latitude,
+          longitude: currentLon || targetPoolInfo.longitude,
+          notes: `Presensi Keluar Siswa (${distanceMeters}m dari ${targetPoolInfo.name} • ${radiusPreset})`,
+          photo: photoToSend,
+        });
+      }
+
+      setSuccessCelebration(true);
+      if (onRefresh) {
+        await onRefresh();
+      }
+      alert("✅ Presensi Keluar Siswa Berhasil Disimpan! Sesi latihan renang hari ini telah selesai.");
+      if (onClose) onClose();
+    } catch (err: any) {
+      console.warn("Submit check out error:", err);
+      alert(err.message || "Gagal mengirim presensi keluar siswa.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -540,15 +621,43 @@ export default function StudentCameraPresensi({
             </div>
           </div>
 
-          {/* Quick Flip Camera Button */}
-          <button
-            type="button"
-            onClick={flipCamera}
-            className="h-9 w-9 rounded-2xl bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-lg"
-            title="Putar Kamera Depan/Belakang"
-          >
-            <RefreshCw size={15} />
-          </button>
+          {/* Mode Switcher & Quick Flip Camera Button */}
+          <div className="flex items-center gap-1.5">
+            {hasScheduleToday && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (chosenMode === "masuk") {
+                    if (!isAlreadyCheckedIn) {
+                      alert("Siswa belum melakukan Presensi Masuk. Harap presensi masuk terlebih dahulu.");
+                      return;
+                    }
+                    setChosenMode("keluar");
+                  } else {
+                    setChosenMode("masuk");
+                  }
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border shadow-md backdrop-blur-md ${
+                  chosenMode === "keluar"
+                    ? "bg-amber-500 text-slate-950 border-amber-300 shadow-amber-500/30 font-black"
+                    : "bg-blue-600/90 text-white border-blue-400/60"
+                }`}
+                title="Ganti Mode Presensi Masuk / Keluar"
+              >
+                {chosenMode === "keluar" ? <LogOut size={12} /> : <Clock size={12} />}
+                <span>{chosenMode === "masuk" ? "Masuk" : "Keluar"}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={flipCamera}
+              className="h-9 w-9 rounded-2xl bg-black/50 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-lg shrink-0"
+              title="Putar Kamera Depan/Belakang"
+            >
+              <RefreshCw size={15} />
+            </button>
+          </div>
         </div>
 
         {/* Floating Active Schedule Capsule */}
@@ -596,9 +705,17 @@ export default function StudentCameraPresensi({
             </div>
           )}
 
-          {isAlreadyCheckedIn ? (
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-[10px] font-black shrink-0">
-              ✓ Hadir
+          {isAlreadyCheckedOut ? (
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-[10px] font-black shrink-0 flex items-center gap-1">
+              <CheckCircle2 size={11} /> Selesai
+            </span>
+          ) : isAlreadyCheckedIn ? (
+            <span className="px-2.5 py-1 rounded-full bg-amber-500/30 text-amber-300 border border-amber-400/40 text-[10px] font-black shrink-0 flex items-center gap-1">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+              </span>
+              Sedang Latihan
             </span>
           ) : !hasScheduleToday ? (
             <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-black shrink-0">
@@ -650,23 +767,14 @@ export default function StudentCameraPresensi({
           BOTTOM CONTROL BAR: SHUTTER / CONFIRMATION & SMALL TESTING RADIUS TEXT
           ========================================================================= */}
       <div className="relative z-20 w-full max-w-md mx-auto pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 space-y-2.5">
-        {isAlreadyCheckedIn ? (
+        {isAlreadyCheckedOut ? (
           <div className="p-4 rounded-3xl bg-slate-900/90 backdrop-blur-md border border-emerald-400/30 text-center space-y-2 shadow-2xl animate-fadeIn">
             <div className="flex items-center justify-center gap-2 text-emerald-400 font-black text-sm">
               <CheckCircle2 size={20} />
-              <span>Presensi Siswa Sudah Diverifikasi</span>
+              <span>Sesi Latihan Hari Ini Telah Selesai</span>
             </div>
             <p className="text-xs text-slate-300 leading-snug">
-              Kehadiran <strong>{student.name}</strong> pada sesi ini telah tercatat di sistem pada pukul{" "}
-              <strong>
-                {existingAttendance?.created_at
-                  ? new Date(existingAttendance.created_at).toLocaleTimeString("id-ID", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Hari Ini"}{" "}
-                WIB
-              </strong>.
+              Presensi Masuk dan Presensi Keluar untuk <strong>{student.name}</strong> telah lengkap tercatat di sistem. Terima kasih telah mengikuti sesi latihan renang!
             </p>
             <button
               type="button"
@@ -690,9 +798,13 @@ export default function StudentCameraPresensi({
 
               <button
                 type="button"
-                onClick={() => submitPresensiMasuk()}
+                onClick={() => (chosenMode === "keluar" ? submitPresensiKeluar() : submitPresensiMasuk())}
                 disabled={isSubmitting}
-                className="flex-2 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-black shadow-lg shadow-blue-500/40 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                className={`flex-2 py-3.5 rounded-2xl text-white text-xs font-black shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
+                  chosenMode === "keluar"
+                    ? "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/40 text-slate-950 font-black"
+                    : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-blue-500/40"
+                }`}
               >
                 {isSubmitting ? (
                   <>
@@ -702,7 +814,7 @@ export default function StudentCameraPresensi({
                 ) : (
                   <>
                     <CheckCircle2 size={16} />
-                    <span>Kirim Presensi Sekarang</span>
+                    <span>{chosenMode === "keluar" ? "Kirim Presensi Keluar" : "Kirim Presensi Masuk"}</span>
                   </>
                 )}
               </button>
@@ -721,6 +833,17 @@ export default function StudentCameraPresensi({
           </div>
         ) : (
           <div className="flex flex-col items-center space-y-2">
+            {/* In-Session Shortcut Pill Banner if in keluar mode */}
+            {isAlreadyCheckedIn && chosenMode === "keluar" && (
+              <div className="px-3.5 py-1.5 rounded-full bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-200 text-[11px] font-bold flex items-center gap-1.5 shadow-md mb-1 animate-fadeIn">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
+                </span>
+                <span>Mode Presensi Keluar (Selesai Latihan)</span>
+              </div>
+            )}
+
             {/* Big Circular Camera Shutter Button */}
             <div className="flex items-center justify-around w-full px-4">
               <button
@@ -736,21 +859,33 @@ export default function StudentCameraPresensi({
               <button
                 type="button"
                 onClick={handleShutterPress}
-                disabled={!hasScheduleToday || isSubmitting || !timeStatus.isOpen}
+                disabled={!hasScheduleToday || isSubmitting || (!isAlreadyCheckedIn && !timeStatus.isOpen)}
                 className={`relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-white shadow-2xl transition-transform duration-150 active:scale-90 cursor-pointer ${
                   !hasScheduleToday
                     ? "bg-slate-700/80 opacity-60 cursor-not-allowed border-slate-500"
-                    : !timeStatus.isOpen
+                    : !isAlreadyCheckedIn && !timeStatus.isOpen
                     ? "bg-slate-700 opacity-60 cursor-not-allowed"
                     : !isLocationValid
                     ? "bg-rose-600 shadow-rose-500/50"
+                    : chosenMode === "keluar"
+                    ? "bg-gradient-to-tr from-amber-500 to-orange-500 shadow-amber-500/50"
                     : timeStatus.isLate
                     ? "bg-gradient-to-tr from-amber-500 to-orange-500 shadow-amber-500/50"
                     : "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-400 shadow-cyan-500/50"
                 }`}
-                title={!hasScheduleToday ? "Tidak ada jadwal latihan hari ini" : "Tekan untuk Ambil Foto & Presensi"}
+                title={
+                  !hasScheduleToday
+                    ? "Tidak ada jadwal latihan hari ini"
+                    : chosenMode === "keluar"
+                    ? "Tekan untuk Ambil Foto & Presensi Keluar"
+                    : "Tekan untuk Ambil Foto & Presensi Masuk"
+                }
               >
-                <Camera size={32} className="text-white" />
+                {chosenMode === "keluar" ? (
+                  <LogOut size={28} className="text-slate-950 font-black" />
+                ) : (
+                  <Camera size={32} className="text-white" />
+                )}
               </button>
 
               <button
@@ -772,14 +907,16 @@ export default function StudentCameraPresensi({
                 <span className="text-amber-300 font-bold">⚠️ Saat ini tidak ada sesi latihan renang yang terjadwal untuk hari ini.</span>
               ) : !isLocationValid ? (
                 <span className="text-rose-300 font-bold">⚠️ Di luar radius kolam ({distanceMeters}m).</span>
+              ) : chosenMode === "keluar" ? (
+                "Ketuk tombol di atas untuk ambil foto & Presensi Keluar selesai sesi"
               ) : timeStatus.isLate ? (
                 "⚠️ Waktu Latihan Telah Dimulai (Presensi Terlambat)"
               ) : (
-                "Ketuk tombol kamera di atas untuk ambil foto & verifikasi kehadiran"
+                "Ketuk tombol kamera di atas untuk ambil foto & Presensi Masuk"
               )}
             </p>
 
-            {/* Small text for simulation radius testing (Unobtrusive & Easy to remove later) */}
+            {/* Small text for simulation radius testing */}
             <div className="text-center pt-0.5">
               <button
                 type="button"

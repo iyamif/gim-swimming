@@ -1069,6 +1069,21 @@ export default function ParentBody({
 
   const isTodaySessionCheckedIn = !!todayAttendanceRecord;
 
+  // Check if student has checked out (Presensi Keluar / Selesai)
+  const todayCheckoutRecord = useMemo(() => {
+    return studentAttendances.find((a) => {
+      const isDateMatch = a.date === todayISO;
+      const isScheduleMatch = todayScheduleObj
+        ? String(a.schedule_id) === String(todayScheduleObj.id) || isDateMatch
+        : isDateMatch;
+      const isCheckoutStatus =
+        a.status === "Selesai" || (a.notes && a.notes.includes("Presensi Keluar"));
+      return isScheduleMatch && isCheckoutStatus;
+    });
+  }, [studentAttendances, todayScheduleObj, todayISO]);
+
+  const isTodaySessionCheckedOut = !!todayCheckoutRecord;
+
   const getVenueCoords = (poolArea?: string) => {
     const p = poolArea?.toLowerCase() || "";
     if (p.includes("312") || p.includes("wera")) {
@@ -1774,56 +1789,34 @@ export default function ParentBody({
                 JADWAL LATIHAN (HARI INI / SESI MENDATANG)
                 ========================================== */}
             {(todaySession || upcomingSession) && (
-              <div
-                className={`p-3.5 sm:p-4 rounded-2xl border shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap animate-fadeIn transition-all duration-300 ${
-                  isTodaySessionCheckedIn
-                    ? "bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border-emerald-300 shadow-emerald-500/10"
-                    : "bg-white border-slate-100"
-                }`}
-              >
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap animate-fadeIn">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl shrink-0 border shadow-2xs ${
-                      isTodaySessionCheckedIn
-                        ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                        : "bg-blue-50 text-blue-600 border-blue-100/60"
-                    }`}
-                  >
-                    {isTodaySessionCheckedIn ? (
-                      <Waves size={20} className="animate-pulse" />
-                    ) : (
-                      <CalendarDays size={20} />
-                    )}
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100/60 shadow-2xs">
+                    <CalendarDays size={20} />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span
-                        className={`text-[10px] font-black uppercase px-1.5 py-0.2 rounded border ${
-                          isTodaySessionCheckedIn
-                            ? "bg-emerald-100/80 text-emerald-800 border-emerald-200"
-                            : "bg-cyan-50 text-cyan-700 border-cyan-100/80"
-                        }`}
-                      >
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
                         {(todaySession || upcomingSession)?.class || student.class}
                       </span>
-                      {isTodaySessionCheckedIn ? (
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white border border-emerald-400 flex items-center gap-1 shadow-xs animate-fadeIn">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-                          </span>
-                          <span>Sesi Sedang Berlangsung</span>
+                      {isTodaySessionCheckedOut ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                          Selesai
+                        </span>
+                      ) : isTodaySessionCheckedIn ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                          Sesi Berlangsung
                         </span>
                       ) : todaySession ? (
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
                           Hari Ini
                         </span>
                       ) : (
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                           Sesi Mendatang
                         </span>
                       )}
-                      <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                         {(todaySession || upcomingSession)?.time || "Sesi Latihan"}
                       </h4>
                     </div>
@@ -1833,32 +1826,34 @@ export default function ParentBody({
                       <span className="text-slate-300">•</span>
                       <User size={11} className="text-slate-400 shrink-0" />
                       <span>{(todaySession || upcomingSession)?.coach?.name || coach.name}</span>
-                      {isTodaySessionCheckedIn && todayAttendanceRecord?.time_recorded && (
-                        <>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-emerald-700 font-bold">
-                            Masuk: {todayAttendanceRecord.time_recorded}
-                          </span>
-                        </>
-                      )}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-                  {isTodaySessionCheckedIn ? (
+                  {isTodaySessionCheckedOut ? (
                     <div
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm border border-emerald-500"
-                      title="Presensi masuk telah berhasil dicatat untuk sesi ini"
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold flex items-center gap-1.5"
+                      title="Sesi latihan hari ini telah selesai"
                     >
-                      <CheckCircle2 size={14} className="text-emerald-100" />
-                      <span>Presensi Masuk Selesai</span>
+                      <CheckCircle2 size={13} className="text-blue-600" />
+                      <span>Selesai</span>
                     </div>
+                  ) : isTodaySessionCheckedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setParentActiveTab("presensi")}
+                      className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                      title="Presensi keluar selesai sesi"
+                    >
+                      <LogOut size={13} />
+                      <span>Presensi Keluar</span>
+                    </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setParentActiveTab("presensi")}
-                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs hover:shadow-md cursor-pointer active:scale-95"
+                      className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                       title="Masuk ke menu presensi"
                     >
                       <Clock size={13} />
@@ -1870,10 +1865,10 @@ export default function ParentBody({
                     href={`https://wa.me/${(todaySession || upcomingSession)?.coach?.phone || coach.phone}?text=Halo%20${(todaySession || upcomingSession)?.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-100 shrink-0 cursor-pointer shadow-2xs"
+                    className="px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 border border-slate-200/80 shrink-0 cursor-pointer"
                     title="Hubungi Pelatih via WhatsApp"
                   >
-                    <MessageCircle size={14} className="text-emerald-600" />
+                    <MessageCircle size={14} className="text-slate-500" />
                     <span>Hubungi Pelatih</span>
                   </a>
                 </div>
@@ -2326,6 +2321,7 @@ export default function ParentBody({
               coach={coach}
               schedules={schedules}
               attendances={attendances}
+              initialMode={isTodaySessionCheckedIn && !isTodaySessionCheckedOut ? "keluar" : "masuk"}
               onCheckInAttendance={onCheckInAttendance}
               onRefresh={onRefresh}
               onClose={() => setParentActiveTab("home")}
