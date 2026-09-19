@@ -157,7 +157,69 @@ export default function JadwalTab({
     }
   };
 
+  const formatDateIndo = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Live time helper formatted as "HH:mm"
+  const getCurrentHHMM = () => {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, "0");
+    const m = String(now.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
+  // Helper to get next recommended future time (e.g., next hour :00)
+  const getNextRecommendedFutureTime = () => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    now.setMinutes(0);
+    const h = String(now.getHours()).padStart(2, "0");
+    const m = String(now.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
   const todayStr = getTodayString();
+
+  // Helper to validate if a schedule date and time is in the past
+  const isPastScheduleDateTime = (
+    dateStr: string,
+    timeStartStr: string
+  ): { isPast: boolean; message: string } => {
+    if (!dateStr) return { isPast: false, message: "" };
+
+    // 1. Check past date
+    if (dateStr < todayStr) {
+      return {
+        isPast: true,
+        message: `Tanggal latihan (${formatDateIndo(dateStr)}) sudah lewat. Silakan pilih tanggal hari ini atau yang akan datang.`,
+      };
+    }
+
+    // 2. Check past time if date is today
+    if (dateStr === todayStr && timeStartStr) {
+      const currentHHMM = getCurrentHHMM();
+      if (timeStartStr <= currentHHMM) {
+        return {
+          isPast: true,
+          message: `Jam mulai latihan (${timeStartStr} WIB) pada hari ini sudah lewat dari jam saat ini (${currentHHMM} WIB). Silakan pilih jam setelah waktu sekarang.`,
+        };
+      }
+    }
+
+    return { isPast: false, message: "" };
+  };
 
   // ==========================================
   // CREATE SCHEDULE STATE
@@ -349,7 +411,8 @@ export default function JadwalTab({
 
   // Quick Auto-Add 12 Meetings for Prestasi (Senin, Rabu, Jumat)
   const handleAutoAdd12Prestasi = () => {
-    const base = selectedDates[0] || todayStr;
+    const rawBase = selectedDates[0] || todayStr;
+    const base = rawBase < todayStr ? todayStr : rawBase;
     const results: string[] = [];
     const [y, m, d] = base.split("-").map(Number);
     let curr = new Date(y, m - 1, d);
@@ -370,7 +433,8 @@ export default function JadwalTab({
 
   // Quick Auto-Add 4 Weekly Meetings (+7 days each)
   const handleAutoAdd4Weekly = () => {
-    const base = selectedDates[0] || todayStr;
+    const rawBase = selectedDates[0] || todayStr;
+    const base = rawBase < todayStr ? todayStr : rawBase;
     setSelectedDates([
       base,
       addDaysToDate(base, 7),
@@ -702,11 +766,13 @@ export default function JadwalTab({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Validate past date
-    const hasPastDate = selectedDates.some((d) => !d || d < todayStr);
-    if (hasPastDate) {
-      alert("Ada tanggal pertemuan yang sudah lewat atau belum diisi! Silakan periksa kembali tanggal latihan.");
-      return;
+    // 1. Validate past date & past time
+    for (const d of selectedDates) {
+      const check = isPastScheduleDateTime(d, formTimeStart);
+      if (check.isPast) {
+        alert(`⚠️ WAKTU JADWAL SUDAH LEWAT!\n\n${check.message}`);
+        return;
+      }
     }
 
     // 2. Validate time duration per class
@@ -798,9 +864,10 @@ export default function JadwalTab({
     e.preventDefault();
     if (!editingSchedule) return;
 
-    // 1. Validate past date
-    if (!editDate || editDate < todayStr) {
-      alert("Tanggal latihan tidak boleh tanggal yang sudah lewat! Silakan pilih tanggal hari ini atau yang akan datang.");
+    // 1. Validate past date & past time
+    const check = isPastScheduleDateTime(editDate, editTimeStart);
+    if (check.isPast) {
+      alert(`⚠️ WAKTU JADWAL SUDAH LEWAT!\n\n${check.message}`);
       return;
     }
 
@@ -896,8 +963,10 @@ export default function JadwalTab({
     e.preventDefault();
     if (!rescheduleSchedule) return;
 
-    if (!rescheduleDate || rescheduleDate < todayStr) {
-      alert("Tanggal reschedule yang diajukan tidak boleh tanggal yang sudah lewat!");
+    // 1. Validate past date & past time
+    const check = isPastScheduleDateTime(rescheduleDate, rescheduleTimeStart);
+    if (check.isPast) {
+      alert(`⚠️ WAKTU RESCHEDULE SUDAH LEWAT!\n\n${check.message}`);
       return;
     }
 
@@ -998,20 +1067,6 @@ export default function JadwalTab({
     return matchClass && matchSearch;
   });
 
-  const formatDateIndo = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr + "T00:00:00");
-      return d.toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* ==========================================
@@ -1034,7 +1089,17 @@ export default function JadwalTab({
 
         {!isCoachRole && (
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              const currentHHMM = getCurrentHHMM();
+              let initialStart = formTimeStart;
+              if (initialStart <= currentHHMM) {
+                initialStart = getNextRecommendedFutureTime();
+              }
+              setFormTimeStart(initialStart);
+              setFormTimeEnd(calculateEndTimeForClass(initialStart, formClass));
+              setSelectedDates([todayStr]);
+              setShowAddModal(true);
+            }}
             className="px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2"
           >
             <Plus size={15} />
@@ -1094,7 +1159,17 @@ export default function JadwalTab({
           </p>
           {!isCoachRole && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                const currentHHMM = getCurrentHHMM();
+                let initialStart = formTimeStart;
+                if (initialStart <= currentHHMM) {
+                  initialStart = getNextRecommendedFutureTime();
+                }
+                setFormTimeStart(initialStart);
+                setFormTimeEnd(calculateEndTimeForClass(initialStart, formClass));
+                setSelectedDates([todayStr]);
+                setShowAddModal(true);
+              }}
               className="mt-2 px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 text-xs font-bold hover:bg-cyan-100 transition cursor-pointer flex items-center gap-1.5 mx-auto"
             >
               <Plus size={13} />
@@ -1558,6 +1633,7 @@ export default function JadwalTab({
                     <input
                       type="time"
                       required
+                      min={editDate === todayStr ? getCurrentHHMM() : undefined}
                       value={editTimeStart}
                       onClick={(e) => {
                         try {
@@ -1586,6 +1662,14 @@ export default function JadwalTab({
                     />
                   </div>
                 </div>
+
+                {/* Validation warning if time is in the past */}
+                {editDate === todayStr && editTimeStart <= getCurrentHHMM() && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
+                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
+                    <span>Jam mulai ({editTimeStart} WIB) pada hari ini sudah lewat dari waktu sekarang ({getCurrentHHMM()} WIB). Silakan pilih jam setelah waktu saat ini.</span>
+                  </div>
+                )}
 
                 {/* Validation message if duration mismatch */}
                 {validateDurationForClass(editClass, editTimeStart, editTimeEnd) && (
@@ -1741,11 +1825,15 @@ export default function JadwalTab({
                     Boolean(editConflictingSchedule) ||
                     editSelectedStudentIds.length === 0 ||
                     !editDate ||
+                    editDate < todayStr ||
+                    (editDate === todayStr && editTimeStart <= getCurrentHHMM()) ||
                     timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
                   }
                   className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${Boolean(editConflictingSchedule) ||
                     editSelectedStudentIds.length === 0 ||
                     !editDate ||
+                    editDate < todayStr ||
+                    (editDate === todayStr && editTimeStart <= getCurrentHHMM()) ||
                     timeToMinutes(editTimeStart) >= timeToMinutes(editTimeEnd)
                     ? "bg-slate-400 cursor-not-allowed opacity-75"
                     : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-blue-500/25 active:scale-95"
@@ -1753,6 +1841,8 @@ export default function JadwalTab({
                 >
                   {editConflictingSchedule
                     ? "Jadwal Pelatih Bentrok (Sesuaikan Waktu)"
+                    : editDate < todayStr || (editDate === todayStr && editTimeStart <= getCurrentHHMM())
+                    ? "Waktu Sudah Lewat (Ubah Jadwal)"
                     : "Simpan Perubahan Jadwal"}
                 </button>
                 <button
@@ -2125,6 +2215,7 @@ export default function JadwalTab({
                     <input
                       type="time"
                       required
+                      min={selectedDates.includes(todayStr) ? getCurrentHHMM() : undefined}
                       value={formTimeStart}
                       onClick={(e) => {
                         try {
@@ -2153,6 +2244,14 @@ export default function JadwalTab({
                     />
                   </div>
                 </div>
+
+                {/* Validation warning if time is in the past for today */}
+                {selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
+                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
+                    <span>Jam mulai ({formTimeStart} WIB) pada hari ini sudah lewat dari waktu saat ini ({getCurrentHHMM()} WIB). Silakan pilih jam setelah waktu sekarang.</span>
+                  </div>
+                )}
 
                 {/* Validation message if duration mismatch */}
                 {validateDurationForClass(formClass, formTimeStart, formTimeEnd) && (
@@ -2285,8 +2384,16 @@ export default function JadwalTab({
               <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="submit"
-                  disabled={conflictingSchedules.length > 0 || selectedDates.length === 0}
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedules.length > 0 || selectedDates.length === 0
+                  disabled={
+                    conflictingSchedules.length > 0 ||
+                    selectedDates.length === 0 ||
+                    selectedDates.some((d) => !d || d < todayStr) ||
+                    (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
+                  }
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedules.length > 0 ||
+                    selectedDates.length === 0 ||
+                    selectedDates.some((d) => !d || d < todayStr) ||
+                    (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
                     ? "bg-slate-400 cursor-not-allowed opacity-75"
                     : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
                     }`}
@@ -2298,6 +2405,10 @@ export default function JadwalTab({
                     </span>
                   ) : selectedDates.length === 0 ? (
                     "Pilih Tanggal Pertemuan Terlebih Dahulu"
+                  ) : selectedDates.some((d) => !d || d < todayStr) ? (
+                    "Tanggal Sudah Lewat (Pilih Tanggal Lain)"
+                  ) : selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() ? (
+                    "Waktu Sudah Lewat (Ubah Jam Masuk)"
                   ) : selectedDates.length > 1 ? (
                     `Simpan`
                   ) : (
@@ -2554,6 +2665,14 @@ export default function JadwalTab({
                   </div>
                 </div>
 
+                {/* Validation warning if time is in the past for today */}
+                {rescheduleDate === todayStr && rescheduleTimeStart <= getCurrentHHMM() && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
+                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
+                    <span>Jam mulai reschedule ({rescheduleTimeStart} WIB) pada hari ini sudah lewat dari waktu saat ini ({getCurrentHHMM()} WIB). Silakan pilih jam setelah waktu sekarang.</span>
+                  </div>
+                )}
+
                 {/* Validation message if duration mismatch */}
                 {validateDurationForClass(rescheduleSchedule.class, rescheduleTimeStart, rescheduleTimeEnd) && (
                   <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
@@ -2617,16 +2736,25 @@ export default function JadwalTab({
                   type="submit"
                   disabled={
                     !rescheduleDate ||
+                    rescheduleDate < todayStr ||
+                    (rescheduleDate === todayStr && rescheduleTimeStart <= getCurrentHHMM()) ||
                     timeToMinutes(rescheduleTimeStart) >= timeToMinutes(rescheduleTimeEnd)
                   }
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${!rescheduleDate || timeToMinutes(rescheduleTimeStart) >= timeToMinutes(rescheduleTimeEnd)
+                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${!rescheduleDate ||
+                    rescheduleDate < todayStr ||
+                    (rescheduleDate === todayStr && rescheduleTimeStart <= getCurrentHHMM()) ||
+                    timeToMinutes(rescheduleTimeStart) >= timeToMinutes(rescheduleTimeEnd)
                     ? "bg-slate-400 cursor-not-allowed opacity-75"
                     : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/25 active:scale-95"
                     }`}
                 >
                   <span className="flex items-center justify-center gap-1.5">
                     <Send size={14} />
-                    <span>Ajukan Request Reschedule</span>
+                    <span>
+                      {rescheduleDate < todayStr || (rescheduleDate === todayStr && rescheduleTimeStart <= getCurrentHHMM())
+                        ? "Waktu Sudah Lewat"
+                        : "Ajukan Request Reschedule"}
+                    </span>
                   </span>
                 </button>
                 <button

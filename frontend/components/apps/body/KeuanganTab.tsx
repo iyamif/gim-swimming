@@ -568,22 +568,20 @@ export default function KeuanganTab({
                     <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full max-w-[36px] h-full pb-0.5">
                       {/* Income Bar (Blue) */}
                       <div
-                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
-                          incomeHeight > 0
+                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${incomeHeight > 0
                             ? "bg-gradient-to-t from-blue-700 via-blue-600 to-blue-500 shadow-xs"
                             : "bg-slate-200/60"
-                        }`}
+                          }`}
                         style={{ height: `${Math.max(2, incomeHeight)}%` }}
                         title={`${item.month} Income: ${formatIDR(item.income)}`}
                       />
 
                       {/* Expense Bar (Amber / Orange) */}
                       <div
-                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
-                          expenseHeight > 0
+                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${expenseHeight > 0
                             ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-xs"
                             : "bg-slate-200/60"
-                        }`}
+                          }`}
                         style={{ height: `${Math.max(2, expenseHeight)}%` }}
                         title={`${item.month} Expense: ${formatIDR(item.expenses)}`}
                       />
@@ -683,9 +681,8 @@ export default function KeuanganTab({
                       </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-xs font-black ${
-                            tx.type === "income" ? "text-emerald-600" : "text-amber-600"
-                          }`}
+                          className={`text-xs font-black ${tx.type === "income" ? "text-emerald-600" : "text-amber-600"
+                            }`}
                         >
                           {tx.type === "income" ? "+" : "-"}
                           {formatIDR(tx.amount)}
@@ -788,31 +785,28 @@ export default function KeuanganTab({
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl text-[10px] font-bold">
               <button
                 onClick={() => setStatusFilter("ALL")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
-                  statusFilter === "ALL"
+                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${statusFilter === "ALL"
                     ? "bg-white text-blue-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Semua ({invoices.length})
               </button>
               <button
                 onClick={() => setStatusFilter("PAID")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
-                  statusFilter === "PAID"
+                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${statusFilter === "PAID"
                     ? "bg-white text-emerald-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Lunas ({paidInvoices.length})
               </button>
               <button
                 onClick={() => setStatusFilter("PENDING")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
-                  statusFilter === "PENDING"
+                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${statusFilter === "PENDING"
                     ? "bg-white text-amber-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Pending ({unpaidInvoices.length})
               </button>
@@ -891,13 +885,12 @@ export default function KeuanganTab({
                           {/* Status Badge */}
                           <td className="py-3.5 px-3.5 text-right whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black ${
-                                isPaid
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black ${isPaid
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                   : isPending
-                                  ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                  : "bg-blue-50 text-blue-700 border border-blue-100 animate-pulse"
-                              }`}
+                                    ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                    : "bg-blue-50 text-blue-700 border border-blue-100 animate-pulse"
+                                }`}
                             >
                               {isPaid ? "Paid" : isPending ? "Pending" : "Review"}
                             </span>
@@ -965,13 +958,12 @@ export default function KeuanganTab({
                       setTxType("income");
                       setTxCategory(incomeCategories[0]);
                     }}
-                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                      txType === "income"
+                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${txType === "income"
                         ? "bg-white text-blue-600 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
-                    <span>Pemasukan (Income)</span>
+                    <span>Income</span>
                   </button>
                   <button
                     type="button"
@@ -979,13 +971,12 @@ export default function KeuanganTab({
                       setTxType("expense");
                       setTxCategory(expenseCategories[0]);
                     }}
-                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                      txType === "expense"
+                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${txType === "expense"
                         ? "bg-white text-amber-600 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
-                    <span>Pengeluaran (Expense)</span>
+                    <span>Expense</span>
                   </button>
                 </div>
               </div>
@@ -1350,11 +1341,10 @@ export default function KeuanganTab({
                     setSelectedPeriod(m.shortPeriod);
                     setShowPeriodModal(false);
                   }}
-                  className={`p-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedPeriod === m.shortPeriod
+                  className={`p-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${selectedPeriod === m.shortPeriod
                       ? "bg-blue-600 text-white shadow-xs font-black"
                       : "bg-slate-50 hover:bg-cyan-50 text-slate-700 border border-slate-100"
-                  }`}
+                    }`}
                 >
                   {m.shortPeriod}
                 </button>

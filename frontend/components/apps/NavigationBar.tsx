@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Banknote,
   Sliders,
+  Plane,
 } from "lucide-react";
 
 export function getTabIcon(id: string, size = 18) {
@@ -44,6 +45,8 @@ export function getTabIcon(id: string, size = 18) {
       return <Sliders size={size} className="shrink-0" />;
     case "create":
       return <UserPlus size={size} className="shrink-0" />;
+    case "izin":
+      return <Plane size={size} className="shrink-0" />;
     case "profile":
       return <User size={size} className="shrink-0" />;
     default:
@@ -300,18 +303,7 @@ export function MobileBottomNav({
           )}
         </button>
 
-        {/* 2. Siswa / Timeline */}
-        <button
-          onClick={() => setActiveTab("daftar_hadir")}
-          className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-            activeTab === "daftar_hadir" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className="mb-0.5"><Users size={19} /></div>
-          <span className="text-[10px] tracking-tight">Siswa</span>
-        </button>
-
-        {/* 3. PELATIH ONLY: Center Floating Action Button (Presensi) */}
+        {/* 2. PELATIH ONLY: Center Floating Action Button (Presensi) */}
         {isPelatih && (
           <div className="flex flex-col items-center justify-center -mt-7 flex-1">
             <button
@@ -331,47 +323,19 @@ export function MobileBottomNav({
           </div>
         )}
 
-        {/* 4. ADMIN: Jadwal Sesi Renang (Admin has direct Jadwal in bottom bar) */}
-        {isAdmin && (
-          <button
-            onClick={() => setActiveTab("jadwal")}
-            className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-              activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <div className="mb-0.5"><CalendarDays size={19} /></div>
-            <span className="text-[10px] tracking-tight">Jadwal</span>
-            {unreadSchedule > 0 && (
-              <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
-            )}
-          </button>
-        )}
-
-        {/* 5. Pelatih: Jadwal / Admin: Keuangan */}
-        {isPelatih ? (
-          <button
-            onClick={() => setActiveTab("jadwal")}
-            className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-              activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <div className="mb-0.5"><CalendarDays size={19} /></div>
-            <span className="text-[10px] tracking-tight">Jadwal</span>
-            {unreadSchedule > 0 && (
-              <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
-            )}
-          </button>
-        ) : (
-          <button
-            onClick={() => setActiveTab("keuangan")}
-            className={`flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
-              activeTab === "keuangan" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <div className="mb-0.5"><Wallet size={19} /></div>
-            <span className="text-[10px] tracking-tight">Keuangan</span>
-          </button>
-        )}
+        {/* 3. Jadwal (Admin & Pelatih) */}
+        <button
+          onClick={() => setActiveTab("jadwal")}
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-colors duration-200 ${
+            activeTab === "jadwal" ? "text-cyan-600 font-bold" : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <div className="mb-0.5"><CalendarDays size={19} /></div>
+          <span className="text-[10px] tracking-tight">Jadwal</span>
+          {unreadSchedule > 0 && (
+            <span className="absolute top-1 right-[28%] h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+          )}
+        </button>
 
         {/* 6. User Profile Button */}
         <button

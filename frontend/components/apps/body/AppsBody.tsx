@@ -22,6 +22,7 @@ import KehadiranTab from "./KehadiranTab";
 import PengumumanTab from "./PengumumanTab";
 import GajiSppTab from "./GajiSppTab";
 import GeneralTab from "./GeneralTab";
+import IzinCutiTab from "./IzinCutiTab";
 import PullToRefresh from "../PullToRefresh";
 
 interface AppsBodyProps {
@@ -297,6 +298,10 @@ export default function AppsBody({
         />
       )}
 
+      {activeTab === "izin" && (
+        <IzinCutiTab setActiveTab={setActiveTab} />
+      )}
+
       {activeTab === "profile" && (
         <ProfilTab
           sessionUser={sessionUser}
@@ -325,7 +330,8 @@ export default function AppsBody({
           activeTab === "pelatih" ||
           activeTab === "kehadiran" ||
           activeTab === "pengumuman" ||
-          activeTab === "create"
+          activeTab === "create" ||
+          activeTab === "izin"
           ? "p-0"
           : "px-4 sm:px-6 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1.5rem))] md:pt-6 pb-28 md:pb-6"
         }`}

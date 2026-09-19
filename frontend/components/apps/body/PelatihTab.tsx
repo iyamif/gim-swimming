@@ -321,7 +321,7 @@ export default function PelatihTab({
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="max-w-3xl mx-auto flex items-center justify-between relative z-10">
+        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-xs font-bold tracking-wider uppercase">
@@ -338,6 +338,27 @@ export default function PelatihTab({
               Kelola instruktur renang berlisensi &amp; tarif per sesi
             </p>
           </div>
+
+          {sessionRole === "admin" && setActiveTab && (
+            <div className="flex items-center bg-black/20 backdrop-blur-md p-1 rounded-2xl border border-white/20 self-start sm:self-auto shrink-0 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setActiveTab("daftar_hadir")}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white/85 hover:text-white hover:bg-white/15 transition cursor-pointer"
+                title="Buka Daftar Siswa"
+              >
+                <Users size={13} />
+                <span>Siswa</span>
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-white text-blue-700 shadow-sm transition cursor-default"
+              >
+                <Award size={13} />
+                <span>Pelatih</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -766,50 +787,6 @@ export default function PelatihTab({
 
             {/* Actions */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
-              {/* Quick Toggle Status for Admin */}
-              {sessionRole === "admin" && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const nextStatus = isCoachActive(selectedCoach) ? "Inactive" : "Active";
-                    if (onUpdateCoachStatus) {
-                      await onUpdateCoachStatus(String(selectedCoach.id), nextStatus);
-                    } else if (onUpdateCoach) {
-                      await onUpdateCoach(String(selectedCoach.id), {
-                        name: selectedCoach.name,
-                        spec: selectedCoach.spec,
-                        phone: selectedCoach.phone,
-                        email: selectedCoach.email,
-                        class: selectedCoach.class,
-                        avatar: selectedCoach.avatar,
-                        status: nextStatus,
-                        pay_per_session: selectedCoach.pay_per_session || selectedCoach.payPerSession || 100000,
-                      });
-                    }
-                    setSelectedCoach({
-                      ...selectedCoach,
-                      status: nextStatus,
-                    });
-                  }}
-                  className={`w-full py-2.5 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border cursor-pointer ${
-                    isCoachActive(selectedCoach)
-                      ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
-                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
-                  }`}
-                >
-                  {isCoachActive(selectedCoach) ? (
-                    <>
-                      <X size={15} />
-                      <span>Nonaktifkan Akun Pelatih</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check size={15} />
-                      <span>Aktifkan Kembali Akun Pelatih</span>
-                    </>
-                  )}
-                </button>
-              )}
 
               {selectedCoach.phone && (
                 <a

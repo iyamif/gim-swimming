@@ -28,6 +28,8 @@ import {
   Sliders,
   LogOut,
   CheckCircle2,
+  Award,
+  Wallet,
 } from "lucide-react";
 
 interface DashboardOverviewTabProps {
@@ -320,55 +322,96 @@ export default function DashboardOverviewTab({
     });
   };
 
-  // Quick Menu Grid Items (Registrasi is only available for Admin role)
-  const menuItems = [
-    {
-      id: "kehadiran",
-      label: "Kehadiran",
-      icon: <Clock size={22} />,
-      bgCircle: "bg-orange-50 border-orange-100 text-orange-500",
-      action: () => setActiveTab && setActiveTab("kehadiran"),
-    },
-    {
-      id: "izin",
-      label: "Izin & Cuti",
-      icon: <Plane size={22} />,
-      bgCircle: "bg-sky-50 border-sky-100 text-sky-500",
-      action: () => setActiveTab && setActiveTab("daftar_hadir"),
-    },
-    {
-      id: "gaji",
-      label: isCoachRole ? "Honor Pelatih" : "Gaji & SPP",
-      icon: <CreditCard size={22} />,
-      bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-500",
-      action: () => setActiveTab && setActiveTab("gaji_spp"),
-    },
-    {
-      id: "pengumuman",
-      label: "Pengumuman",
-      icon: <Megaphone size={22} />,
-      bgCircle: "bg-indigo-50 border-indigo-100 text-indigo-500",
-      action: () => setActiveTab && setActiveTab("pengumuman"),
-    },
-    ...(!isCoachRole
-      ? [
-        {
-          id: "general",
-          label: "Master Data",
-          icon: <Sliders size={22} />,
-          bgCircle: "bg-purple-50 border-purple-100 text-purple-600",
-          action: () => setActiveTab && setActiveTab("general"),
-        },
-        {
-          id: "kasbon",
-          label: "Registrasi",
-          icon: <UserPlus size={22} />,
-          bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
-          action: () => setActiveTab && setActiveTab("create"),
-        },
-      ]
-      : []),
-  ];
+  // Quick Menu Grid Items (Customized per role, including Siswa & Keuangan for Admin)
+  const menuItems = isCoachRole
+    ? [
+      {
+        id: "kehadiran",
+        label: "Kehadiran",
+        icon: <Clock size={22} />,
+        bgCircle: "bg-orange-50 border-orange-100 text-orange-500",
+        action: () => setActiveTab && setActiveTab("kehadiran"),
+      },
+      {
+        id: "izin",
+        label: "Izin & Cuti",
+        icon: <Plane size={22} />,
+        bgCircle: "bg-sky-50 border-sky-100 text-sky-500",
+        action: () => setActiveTab && setActiveTab("izin"),
+      },
+      {
+        id: "gaji",
+        label: "Honor Pelatih",
+        icon: <CreditCard size={22} />,
+        bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-500",
+        action: () => setActiveTab && setActiveTab("gaji_spp"),
+      },
+      {
+        id: "pengumuman",
+        label: "Pengumuman",
+        icon: <Megaphone size={22} />,
+        bgCircle: "bg-indigo-50 border-indigo-100 text-indigo-500",
+        action: () => setActiveTab && setActiveTab("pengumuman"),
+      },
+    ]
+    : [
+      {
+        id: "siswa",
+        label: "Member",
+        icon: <Users size={22} />,
+        bgCircle: "bg-blue-50 border-blue-100 text-blue-600",
+        action: () => setActiveTab && setActiveTab("daftar_hadir"),
+      },
+      {
+        id: "keuangan",
+        label: "Keuangan",
+        icon: <Wallet size={22} />,
+        bgCircle: "bg-emerald-50 border-emerald-100 text-emerald-600",
+        action: () => setActiveTab && setActiveTab("keuangan"),
+      },
+      {
+        id: "gaji",
+        label: "Gaji & SPP",
+        icon: <CreditCard size={22} />,
+        bgCircle: "bg-teal-50 border-teal-100 text-teal-600",
+        action: () => setActiveTab && setActiveTab("gaji_spp"),
+      },
+      {
+        id: "kehadiran",
+        label: "Kehadiran",
+        icon: <Clock size={22} />,
+        bgCircle: "bg-orange-50 border-orange-100 text-orange-500",
+        action: () => setActiveTab && setActiveTab("kehadiran"),
+      },
+      {
+        id: "pengumuman",
+        label: "Pengumuman",
+        icon: <Megaphone size={22} />,
+        bgCircle: "bg-indigo-50 border-indigo-100 text-indigo-500",
+        action: () => setActiveTab && setActiveTab("pengumuman"),
+      },
+      {
+        id: "registrasi",
+        label: "Registrasi",
+        icon: <UserPlus size={22} />,
+        bgCircle: "bg-amber-50 border-amber-100 text-amber-500",
+        action: () => setActiveTab && setActiveTab("create"),
+      },
+      {
+        id: "general",
+        label: "Master Data",
+        icon: <Sliders size={22} />,
+        bgCircle: "bg-purple-50 border-purple-100 text-purple-600",
+        action: () => setActiveTab && setActiveTab("general"),
+      },
+      {
+        id: "izin",
+        label: "Izin & Cuti",
+        icon: <Plane size={22} />,
+        bgCircle: "bg-sky-50 border-sky-100 text-sky-500",
+        action: () => setActiveTab && setActiveTab("izin"),
+      },
+    ];
 
   const firstWeekMonth = monthNames[weekDays[0].getMonth()];
   const lastWeekMonth = monthNames[weekDays[6].getMonth()];
@@ -795,10 +838,10 @@ export default function DashboardOverviewTab({
                         {hasSession && (
                           <span
                             className={`h-1.5 w-1.5 rounded-full mt-0.5 ${today
-                                ? "bg-white"
-                                : isCurrentMonth
-                                  ? "bg-cyan-500"
-                                  : "bg-slate-300"
+                              ? "bg-white"
+                              : isCurrentMonth
+                                ? "bg-cyan-500"
+                                : "bg-slate-300"
                               }`}
                           />
                         )}

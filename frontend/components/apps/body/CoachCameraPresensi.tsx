@@ -33,6 +33,10 @@ import {
   Sliders,
   Play,
   ClipboardList,
+  Star,
+  Award,
+  ThumbsUp,
+  GraduationCap,
 } from "lucide-react";
 
 interface CoachCameraPresensiProps {
@@ -367,6 +371,69 @@ export default function CoachCameraPresensi({
   // Check-Out / Catatan Perkembangan Siswa Modal States
   const [showCheckoutNotesModal, setShowCheckoutNotesModal] = useState<boolean>(false);
   const [checkoutNotes, setCheckoutNotes] = useState<string>("");
+  const [selectedStudentForReview, setSelectedStudentForReview] = useState<string>("");
+  const [studentReviews, setStudentReviews] = useState<
+    Record<
+      string,
+      {
+        floating: number;
+        kicking: number;
+        arms: number;
+        breathing: number;
+        notes: string;
+      }
+    >
+  >({});
+
+  // Synchronize student reviews when active schedule changes
+  useEffect(() => {
+    if (activeSchedule?.studentNames && activeSchedule.studentNames.length > 0) {
+      if (!selectedStudentForReview || !activeSchedule.studentNames.includes(selectedStudentForReview)) {
+        setSelectedStudentForReview(activeSchedule.studentNames[0]);
+      }
+      setStudentReviews((prev) => {
+        const next = { ...prev };
+        activeSchedule.studentNames?.forEach((st) => {
+          if (!next[st]) {
+            let existing: any = null;
+            if (typeof window !== "undefined") {
+              const saved = localStorage.getItem(`gim_student_skills_${st.toLowerCase().trim()}`);
+              if (saved) {
+                try {
+                  existing = JSON.parse(saved);
+                } catch {}
+              }
+            }
+            next[st] = {
+              floating: existing?.floating || 5,
+              kicking: existing?.kicking || 4,
+              arms: existing?.arms || 5,
+              breathing: existing?.breathing || 4,
+              notes: existing?.notes || "",
+            };
+          }
+        });
+        return next;
+      });
+    } else {
+      setSelectedStudentForReview("Umum / Seluruh Murid");
+      setStudentReviews((prev) => {
+        if (!prev["Umum / Seluruh Murid"]) {
+          return {
+            "Umum / Seluruh Murid": {
+              floating: 5,
+              kicking: 4,
+              arms: 5,
+              breathing: 4,
+              notes: "",
+            },
+            ...prev,
+          };
+        }
+        return prev;
+      });
+    }
+  }, [activeSchedule, showCheckoutNotesModal]);
 
   // Voice-to-Text / Speech Recognition States
   const [isListeningVoice, setIsListeningVoice] = useState<boolean>(false);
@@ -395,6 +462,28 @@ export default function CoachCameraPresensi({
             }
           }
           if (finalTranscript) {
+            const activeKey =
+              selectedStudentForReview ||
+              activeSchedule?.studentNames?.[0] ||
+              "Umum / Seluruh Murid";
+            setStudentReviews((prev) => {
+              const currentNotes = prev[activeKey]?.notes || "";
+              const updatedNotes = currentNotes
+                ? `${currentNotes} ${finalTranscript.trim()}`
+                : finalTranscript.trim();
+              return {
+                ...prev,
+                [activeKey]: {
+                  ...(prev[activeKey] || {
+                    floating: 5,
+                    kicking: 4,
+                    arms: 5,
+                    breathing: 4,
+                  }),
+                  notes: updatedNotes,
+                },
+              };
+            });
             setCheckoutNotes((prev) => {
               const cleaned = prev.trim();
               return cleaned ? `${cleaned} ${finalTranscript.trim()}` : finalTranscript.trim();
@@ -414,7 +503,7 @@ export default function CoachCameraPresensi({
         recognitionRef.current = recog;
       }
     }
-  }, []);
+  }, [selectedStudentForReview, activeSchedule]);
 
   const toggleVoiceDictation = () => {
     if (!recognitionRef.current) {
@@ -582,11 +671,185 @@ export default function CoachCameraPresensi({
     }
   };
 
+  const SKILL_CATEGORIES = [
+    {
+      key: "floating" as const,
+      label: "Meluncur (Floating & Streamline)",
+      desc: "Keseimbangan posisi tubuh, streamlinening, dan luncuran mandiri",
+    },
+    {
+      key: "kicking" as const,
+      label: "Kayuhan Kaki (Kicking & Gaya Dada)",
+      desc: "Kekuatan dorongan kaki, irama kayuhan, dan konsistensi gerak",
+    },
+    {
+      key: "arms" as const,
+      label: "Gerakan Lengan (Arms Stroke)",
+      desc: "Rotasi kayuhan lengan, pull & push air, serta pemulihan tangan",
+    },
+    {
+      key: "breathing" as const,
+      label: "Pernapasan Ritmik & Stamina",
+      desc: "Pengambilan napas ritmik samping/depan, daya tahan renang 25m",
+    },
+  ];
+
+  const getStarLabel = (stars: number) => {
+    switch (stars) {
+      case 5:
+        return "Sempurna / Mahir (5/5)";
+      case 4:
+        return "Sangat Baik (4/5)";
+      case 3:
+        return "Cukup Baik (3/5)";
+      case 2:
+        return "Berkembang (2/5)";
+      case 1:
+        return "Perlu Bimbingan (1/5)";
+      default:
+        return `${stars}/5`;
+    }
+  };
+
+  const handleSkillRatingChange = (
+    skillKey: "floating" | "kicking" | "arms" | "breathing",
+    rating: number
+  ) => {
+    const activeKey =
+      selectedStudentForReview ||
+      activeSchedule?.studentNames?.[0] ||
+      "Umum / Seluruh Murid";
+    setStudentReviews((prev) => ({
+      ...prev,
+      [activeKey]: {
+        ...(prev[activeKey] || {
+          floating: 5,
+          kicking: 4,
+          arms: 5,
+          breathing: 4,
+          notes: "",
+        }),
+        [skillKey]: rating,
+      },
+    }));
+  };
+
+  const handleStudentNoteChange = (notesText: string) => {
+    const activeKey =
+      selectedStudentForReview ||
+      activeSchedule?.studentNames?.[0] ||
+      "Umum / Seluruh Murid";
+    setStudentReviews((prev) => ({
+      ...prev,
+      [activeKey]: {
+        ...(prev[activeKey] || {
+          floating: 5,
+          kicking: 4,
+          arms: 5,
+          breathing: 4,
+        }),
+        notes: notesText,
+      },
+    }));
+    setCheckoutNotes(notesText);
+  };
+
+  const applyRatingsToAllStudents = () => {
+    const activeKey =
+      selectedStudentForReview ||
+      activeSchedule?.studentNames?.[0] ||
+      "Umum / Seluruh Murid";
+    const currentRev = studentReviews[activeKey] || {
+      floating: 5,
+      kicking: 4,
+      arms: 5,
+      breathing: 4,
+      notes: "",
+    };
+
+    setStudentReviews((prev) => {
+      const next = { ...prev };
+      (activeSchedule?.studentNames || []).forEach((st) => {
+        next[st] = {
+          ...currentRev,
+          notes: next[st]?.notes || currentRev.notes,
+        };
+      });
+      return next;
+    });
+    alert("✅ Nilai bintang berhasil diterapkan ke seluruh murid di sesi ini!");
+  };
+
   const submitPresensiKeluar = async (snapshotOverride?: string) => {
     if (!activeSchedule) return;
     setIsSubmitting(true);
     try {
       const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
+      const todayIsoStr = new Date().toISOString().split("T")[0];
+
+      const studentNamesList =
+        activeSchedule.studentNames && activeSchedule.studentNames.length > 0
+          ? activeSchedule.studentNames
+          : ["Umum / Seluruh Murid"];
+
+      const summaryReports: string[] = [];
+
+      studentNamesList.forEach((stName, idx) => {
+        const rev = studentReviews[stName] || {
+          floating: 5,
+          kicking: 4,
+          arms: 5,
+          breathing: 4,
+          notes: checkoutNotes.trim() || "Perkembangan teknik renang baik dan lancar.",
+        };
+        const studentId = activeSchedule.studentIds?.[idx] || "";
+
+        const payloadToSave = {
+          studentName: stName,
+          studentId: studentId,
+          scheduleId: activeSchedule.id,
+          scheduleTitle: activeSchedule.title || `${activeSchedule.class} Class`,
+          date: todayIsoStr,
+          coachName: activeSchedule.coachName || sessionUser || "Pelatih GIM",
+          floating: rev.floating,
+          kicking: rev.kicking,
+          arms: rev.arms,
+          breathing: rev.breathing,
+          notes:
+            rev.notes.trim() ||
+            checkoutNotes.trim() ||
+            "Perkembangan teknik meluncur, kayuhan kaki, gerakan lengan, dan pernapasan anak sangat baik.",
+          timestamp: new Date().toISOString(),
+        };
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            `gim_student_skills_${stName.toLowerCase().trim()}`,
+            JSON.stringify(payloadToSave)
+          );
+          if (studentId) {
+            localStorage.setItem(
+              `gim_student_skills_${studentId}`,
+              JSON.stringify(payloadToSave)
+            );
+          }
+        }
+
+        summaryReports.push(
+          `[${stName}] Meluncur: ${rev.floating}★, Kaki: ${rev.kicking}★, Lengan: ${rev.arms}★, Napas: ${rev.breathing}★. ${
+            rev.notes.trim() ? `Catatan: ${rev.notes.trim()}` : ""
+          }`
+        );
+      });
+
+      // Dispatch real-time events for instant update on student/parent screens
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("student_evaluation_updated"));
+        window.dispatchEvent(new Event("avatar_updated"));
+      }
+
+      const combinedNotesText = summaryReports.join("\n• ");
+
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
@@ -596,15 +859,16 @@ export default function CoachCameraPresensi({
           status: "Selesai",
           latitude: currentLat || targetPoolInfo.latitude,
           longitude: currentLon || targetPoolInfo.longitude,
-          notes: checkoutNotes.trim()
-            ? `Presensi Keluar: ${checkoutNotes.trim()}`
+          notes: combinedNotesText
+            ? `Presensi Keluar | Evaluasi Sesi:\n• ${combinedNotesText}`
             : `Presensi Keluar (${distanceMeters}m dari ${targetPoolInfo.name})`,
           photo: photoToSend,
         });
       }
+
       setShowCheckoutNotesModal(false);
       setCheckoutNotes("");
-      alert("✅ Presensi Keluar & Catatan Siswa Berhasil Disimpan!");
+      alert("✅ Presensi Keluar & Nilai Bintang Evaluasi Murid Berhasil Disimpan!");
       if (onClose) onClose();
     } catch (err: any) {
       alert(err?.message || "Gagal menyimpan presensi keluar");
@@ -622,17 +886,17 @@ export default function CoachCameraPresensi({
   ];
 
   const appendQuickChip = (text: string) => {
-    setCheckoutNotes((prev) => {
-      const cleaned = prev.trim();
-      return cleaned ? `${cleaned}\n• ${text}` : `• ${text}`;
-    });
+    const activeKey =
+      selectedStudentForReview ||
+      activeSchedule?.studentNames?.[0] ||
+      "Umum / Seluruh Murid";
+    const currentRev = studentReviews[activeKey]?.notes || "";
+    const updated = currentRev ? `${currentRev}\n• ${text}` : `• ${text}`;
+    handleStudentNoteChange(updated);
   };
 
   const appendStudentTag = (studentName: string) => {
-    setCheckoutNotes((prev) => {
-      const cleaned = prev.trim();
-      return cleaned ? `${cleaned} [${studentName}]: ` : `[${studentName}]: `;
-    });
+    setSelectedStudentForReview(studentName);
   };
 
   const formattedDateTime = useMemo(() => {
@@ -988,18 +1252,21 @@ export default function CoachCameraPresensi({
       {/* =========================================================================
           MODAL: PRESENSI KELUAR & CATATAN PERKEMBANGAN SISWA (WITH VOICE INPUT)
           ========================================================================= */}
+      {/* =========================================================================
+          MODAL: PRESENSI KELUAR & REVIEW EVALUASI SISWA (STAR RATINGS & NOTES)
+          ========================================================================= */}
       {showCheckoutNotesModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 space-y-4 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 space-y-4 shadow-2xl text-slate-900 max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 shadow-2xs">
-                  <FileText size={22} />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20">
+                  <Award size={22} />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                    Catatan Perkembangan Sesi
+                    Evaluasi &amp; Presensi Selesai Sesi
                   </h3>
                   <p className="text-[11px] text-emerald-700 font-bold mt-0.5">
                     {activeSchedule?.title || activeSchedule?.class} • {activeSchedule?.poolArea}
@@ -1020,11 +1287,11 @@ export default function CoachCameraPresensi({
                 <img
                   src={capturedPhotoUrl}
                   alt="Snapshot Selfie"
-                  className="h-12 w-12 rounded-xl object-cover border border-emerald-300 shadow-sm"
+                  className="h-11 w-11 rounded-xl object-cover border border-emerald-300 shadow-xs shrink-0"
                 />
                 <div className="flex-1 min-w-0 text-xs">
                   <p className="font-bold text-slate-900 flex items-center gap-1">
-                    <CheckCircle2 size={13} className="text-emerald-600" /> Foto Selesai Sesi Terverifikasi
+                    <CheckCircle2 size={13} className="text-emerald-600" /> Foto Presensi Keluar Terverifikasi
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
                     {formattedDateTime}
@@ -1033,27 +1300,154 @@ export default function CoachCameraPresensi({
               </div>
             )}
 
-            {/* Quick Student Mention Chips */}
-            {activeSchedule?.studentNames && activeSchedule.studentNames.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Siswa di Sesi Ini:
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {activeSchedule.studentNames.map((st, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => appendStudentTag(st)}
-                      className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold transition cursor-pointer active:scale-95 flex items-center gap-1 shadow-2xs"
-                    >
-                      <User size={12} />
-                      <span>{st}</span>
-                    </button>
-                  ))}
-                </div>
+            {/* Student Selector Tabs */}
+            <div className="space-y-1.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
+                  <User size={13} className="text-blue-600" />
+                  <span>Pilih Siswa yang Dinilai:</span>
+                </span>
+                {(activeSchedule?.studentNames?.length || 0) > 1 && (
+                  <button
+                    type="button"
+                    onClick={applyRatingsToAllStudents}
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Award size={11} />
+                    <span>Terapkan ke Semua Siswa</span>
+                  </button>
+                )}
               </div>
-            )}
+
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {(activeSchedule?.studentNames && activeSchedule.studentNames.length > 0
+                  ? activeSchedule.studentNames
+                  : ["Umum / Seluruh Murid"]
+                ).map((stName, idx) => {
+                  const isSelected = selectedStudentForReview === stName;
+                  const currentReview = studentReviews[stName];
+                  const avgRating = currentReview
+                    ? (
+                        (currentReview.floating +
+                          currentReview.kicking +
+                          currentReview.arms +
+                          currentReview.breathing) /
+                        4
+                      ).toFixed(1)
+                    : "4.5";
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStudentForReview(stName);
+                        if (currentReview?.notes) {
+                          setCheckoutNotes(currentReview.notes);
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30 scale-[1.02]"
+                          : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                      }`}
+                    >
+                      <User size={12} className={isSelected ? "text-white" : "text-slate-400"} />
+                      <span>{stName}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-black flex items-center gap-0.5 ${
+                          isSelected
+                            ? "bg-blue-700 text-amber-300"
+                            : "bg-amber-50 text-amber-700 border border-amber-200/60"
+                        }`}
+                      >
+                        <Star size={9} className="fill-amber-400 text-amber-400" />
+                        {avgRating}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Core 4 Skills Rating matching Student Progress Tab */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                  <Star size={14} className="text-amber-500 fill-amber-400" />
+                  <span>Rating Kompetensi Progres ({selectedStudentForReview || "Murid"})</span>
+                </label>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Klik bintang (1 - 5 ⭐)
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {SKILL_CATEGORIES.map((skill) => {
+                  const activeStudentKey =
+                    selectedStudentForReview ||
+                    activeSchedule?.studentNames?.[0] ||
+                    "Umum / Seluruh Murid";
+                  const currentScore =
+                    studentReviews[activeStudentKey]?.[skill.key] ?? 5;
+
+                  return (
+                    <div
+                      key={skill.key}
+                      className="p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/40 border border-slate-200/90 transition-colors space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-black text-slate-800 leading-tight">
+                            {skill.label}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                            {skill.desc}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-100/80 text-amber-800 border border-amber-200">
+                          {getStarLabel(currentScore)}
+                        </span>
+                      </div>
+
+                      {/* Interactive 5-Star Row */}
+                      <div className="flex items-center justify-between pt-0.5">
+                        <div className="flex items-center gap-1.5">
+                          {[1, 2, 3, 4, 5].map((starVal) => {
+                            const isFilled = starVal <= currentScore;
+                            return (
+                              <button
+                                key={starVal}
+                                type="button"
+                                onClick={() => handleSkillRatingChange(skill.key, starVal)}
+                                className={`p-1.5 rounded-xl transition-all cursor-pointer active:scale-90 ${
+                                  isFilled
+                                    ? "bg-amber-50 hover:bg-amber-100 text-amber-400"
+                                    : "bg-slate-100 hover:bg-slate-200 text-slate-300"
+                                }`}
+                                title={`${starVal} Bintang - ${skill.label}`}
+                              >
+                                <Star
+                                  size={18}
+                                  className={
+                                    isFilled
+                                      ? "fill-amber-400 text-amber-400 drop-shadow-2xs"
+                                      : "text-slate-300"
+                                  }
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <span className="text-xs font-black text-slate-700 font-mono">
+                          {currentScore} / 5
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Quick Note Suggestions */}
             <div className="space-y-1">
@@ -1078,7 +1472,7 @@ export default function CoachCameraPresensi({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-slate-700">
-                  Catatan Evaluasi / Catatan Siswa:
+                  Catatan Khusus untuk {selectedStudentForReview || "Murid"}:
                 </label>
                 {speechSupported && (
                   <button
@@ -1097,10 +1491,14 @@ export default function CoachCameraPresensi({
               </div>
 
               <textarea
-                value={checkoutNotes}
-                onChange={(e) => setCheckoutNotes(e.target.value)}
-                placeholder="Tulis atau gunakan tombol Dikte Suara untuk merekam evaluasi perkembangan murid..."
-                rows={3}
+                value={
+                  selectedStudentForReview && studentReviews[selectedStudentForReview]
+                    ? studentReviews[selectedStudentForReview].notes
+                    : checkoutNotes
+                }
+                onChange={(e) => handleStudentNoteChange(e.target.value)}
+                placeholder="Tulis evaluasi teknik, tips perbaikan, atau apresiasi untuk murid ini..."
+                rows={2}
                 className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500 focus:bg-white leading-relaxed resize-none transition"
               />
             </div>
@@ -1123,12 +1521,12 @@ export default function CoachCameraPresensi({
                 {isSubmitting ? (
                   <>
                     <RotateCw size={14} className="animate-spin" />
-                    <span>Menyimpan...</span>
+                    <span>Menyimpan Evaluasi...</span>
                   </>
                 ) : (
                   <>
                     <Check size={14} />
-                    <span>Kirim Presensi Keluar</span>
+                    <span>Kirim Presensi Keluar &amp; Simpan</span>
                   </>
                 )}
               </button>

@@ -549,7 +549,8 @@ export default function AppsPage() {
           activeTab === "general" ||
           activeTab === "kehadiran" ||
           activeTab === "create" ||
-          activeTab === "pengumuman"
+          activeTab === "pengumuman" ||
+          activeTab === "izin"
           ? "#1d4ed8"
           : "#f8fafc";
 
@@ -666,6 +667,10 @@ export default function AppsPage() {
   const navItems: NavItem[] = [
     { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview", icon: "📊" },
     { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
+    { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
+    { id: "pelatih", label: "Pelatih", fullLabel: "Daftar Pelatih & Instruktur", icon: "🏊‍♂️" },
+    { id: "kehadiran", label: "Kehadiran", fullLabel: "Rekap Kehadiran", icon: "✅" },
+    { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
     {
       id: "gaji_spp",
       label: isCoach ? "Honor" : "Gaji & SPP",
@@ -673,12 +678,8 @@ export default function AppsPage() {
       icon: "💳",
     },
     { id: "keuangan", label: "Keuangan", fullLabel: "Laporan Keuangan", icon: "💰" },
-    { id: "general", label: "General", fullLabel: "Pengaturan & Master Data", icon: "⚙️" },
-    { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
-    { id: "pelatih", label: "Pelatih", fullLabel: "Daftar Pelatih & Instruktur", icon: "🏊‍♂️" },
-    { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
-    { id: "kehadiran", label: "Kehadiran", fullLabel: "Rekap Kehadiran", icon: "✅" },
     { id: "pengumuman", label: "Pengumuman", fullLabel: "Pusat Pengumuman", icon: "📢" },
+    { id: "general", label: "General", fullLabel: "Pengaturan & Master Data", icon: "⚙️" },
     { id: "create", label: "Registrasi", fullLabel: "Registrasi Pelatih/Siswa", icon: "👤+" },
     { id: "profile", label: "Profil", fullLabel: "Profil Akun", icon: "👤" },
   ].filter((item) => hasAccess(item.id));
@@ -1231,7 +1232,8 @@ export default function AppsPage() {
           activeTab !== "gaji_spp" &&
           activeTab !== "general" &&
           activeTab !== "kehadiran" &&
-          activeTab !== "pengumuman" && (
+          activeTab !== "pengumuman" &&
+          activeTab !== "izin" && (
             <div className="hidden md:block shrink-0">
               <AdminHeader
                 title={currentTabTitle}

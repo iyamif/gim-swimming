@@ -934,7 +934,92 @@ export default function ParentBody({
   }, [attendances, studentSchedules, student.id, student.name, student.notes, student.class, coach.name, todayISO]);
 
   const latestCoachEvaluation = coachEvaluationsList[0] || null;
-  const hasEverAttendedSession = coachEvaluationsList.length > 0;
+
+  // Real-time listener & state for student skills evaluated by coach
+  const [evaluationRevision, setEvaluationRevision] = useState<number>(0);
+
+  useEffect(() => {
+    const handleEvalUpdate = () => {
+      setEvaluationRevision((v) => v + 1);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("student_evaluation_updated", handleEvalUpdate);
+      window.addEventListener("storage", handleEvalUpdate);
+      return () => {
+        window.removeEventListener("student_evaluation_updated", handleEvalUpdate);
+        window.removeEventListener("storage", handleEvalUpdate);
+      };
+    }
+  }, []);
+
+  const latestSavedSkillReview = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const rawById = student.id ? localStorage.getItem(`gim_student_skills_${student.id}`) : null;
+    if (rawById) {
+      try {
+        return JSON.parse(rawById);
+      } catch {}
+    }
+    const rawByName = student.name ? localStorage.getItem(`gim_student_skills_${student.name.toLowerCase().trim()}`) : null;
+    if (rawByName) {
+      try {
+        return JSON.parse(rawByName);
+      } catch {}
+    }
+    return null;
+  }, [student.id, student.name, evaluationRevision]);
+
+  const studentSkillRatings = useMemo(() => {
+    // 1. Saved review from Coach Checkout
+    if (latestSavedSkillReview) {
+      return {
+        floating: Number(latestSavedSkillReview.floating) || 5,
+        kicking: Number(latestSavedSkillReview.kicking) || 4,
+        arms: Number(latestSavedSkillReview.arms) || 5,
+        breathing: Number(latestSavedSkillReview.breathing) || 4,
+        notes: latestSavedSkillReview.notes || latestCoachEvaluation?.notes || "",
+        coachName: latestSavedSkillReview.coachName || latestCoachEvaluation?.coachName || coach.name,
+        date: latestSavedSkillReview.date || latestCoachEvaluation?.date || todayISO,
+      };
+    }
+
+    // 2. Parse from latestCoachEvaluation.notes if formatted with stars
+    if (latestCoachEvaluation?.notes) {
+      const text = latestCoachEvaluation.notes;
+      const getStarMatch = (keyword: string, fallback: number) => {
+        const regex = new RegExp(`${keyword}[:\\s]+([1-5])(?:★|\\s*bintang|\\s*star|/5)?`, "i");
+        const match = text.match(regex);
+        return match ? parseInt(match[1], 10) : fallback;
+      };
+
+      const hasAnyMatch = /Meluncur|Kaki|Lengan|Napas|Pernapasan/i.test(text);
+      if (hasAnyMatch) {
+        return {
+          floating: getStarMatch("Meluncur", 5),
+          kicking: getStarMatch("Kaki", 4),
+          arms: getStarMatch("Lengan", 5),
+          breathing: getStarMatch("Napas|Pernapasan", 4),
+          notes: latestCoachEvaluation.notes,
+          coachName: latestCoachEvaluation.coachName,
+          date: latestCoachEvaluation.date,
+        };
+      }
+    }
+
+    // 3. Fallback based on completed/attended sessions
+    const count = attendedSessions.length;
+    return {
+      floating: Math.min(5, Math.max(3, count >= 3 ? 5 : 4)),
+      kicking: Math.min(5, Math.max(3, count >= 2 ? 5 : 4)),
+      arms: Math.min(5, Math.max(3, count >= 4 ? 5 : 4)),
+      breathing: Math.min(5, Math.max(2, count >= 5 ? 5 : 4)),
+      notes: latestCoachEvaluation?.notes || "",
+      coachName: latestCoachEvaluation?.coachName || coach.name,
+      date: latestCoachEvaluation?.date || todayISO,
+    };
+  }, [latestSavedSkillReview, latestCoachEvaluation, attendedSessions.length, coach.name, todayISO]);
+
+  const hasEverAttendedSession = coachEvaluationsList.length > 0 || !!latestSavedSkillReview;
 
   // Today's scheduled session created by admin for this student
   const todayScheduleObj = studentSchedules.find((s) => s.date === todayISO) || null;
@@ -1870,121 +1955,49 @@ export default function ParentBody({
                     )}
                   </div>
 
-                  {/* Skills Progress Bars derived from coach report data */}
+                  {/* Skills Progress Bars derived from coach review data (4 Core Competencies) */}
                   <div className="space-y-2.5 pt-0.5">
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                        <span>Meluncur &amp; Streamline</span>
-                        <span className="text-cyan-600">
-                          {Math.min(
-                            100,
-                            Math.max(
-                              60,
-                              55 +
-                                attendedSessions.length * 8 +
-                                (latestCoachEvaluation.notes.toLowerCase().includes("meluncur") ? 15 : 0)
-                            )
-                          )}
-                          %
-                        </span>
+                    {[
+                      {
+                        name: "Meluncur & Streamline",
+                        rating: studentSkillRatings.floating,
+                        percentage: Math.round((studentSkillRatings.floating / 5) * 100),
+                      },
+                      {
+                        name: "Kayuhan Kaki & Gaya Dada",
+                        rating: studentSkillRatings.kicking,
+                        percentage: Math.round((studentSkillRatings.kicking / 5) * 100),
+                      },
+                      {
+                        name: "Gerakan Lengan & Stroke",
+                        rating: studentSkillRatings.arms,
+                        percentage: Math.round((studentSkillRatings.arms / 5) * 100),
+                      },
+                      {
+                        name: "Pernapasan Ritmik & Stamina",
+                        rating: studentSkillRatings.breathing,
+                        percentage: Math.round((studentSkillRatings.breathing / 5) * 100),
+                      },
+                    ].map((item, idx) => (
+                      <div key={idx}>
+                        <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                          <span className="flex items-center gap-1.5">
+                            <span>{item.name}</span>
+                            <span className="text-[10px] text-amber-500 font-semibold flex items-center gap-0.5">
+                              <Star size={10} className="fill-amber-400 text-amber-400" />
+                              {item.rating}/5
+                            </span>
+                          </span>
+                          <span className="text-cyan-600 font-mono font-black">{item.percentage}%</span>
+                        </div>
+                        <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                60,
-                                55 +
-                                  attendedSessions.length * 8 +
-                                  (latestCoachEvaluation.notes.toLowerCase().includes("meluncur") ? 15 : 0)
-                              )
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                        <span>Kayuhan Kaki &amp; Gaya Dada</span>
-                        <span className="text-cyan-600">
-                          {Math.min(
-                            100,
-                            Math.max(
-                              50,
-                              45 +
-                                attendedSessions.length * 8 +
-                                (latestCoachEvaluation.notes.toLowerCase().includes("gaya dada") ||
-                                latestCoachEvaluation.notes.toLowerCase().includes("kaki")
-                                  ? 15
-                                  : 0)
-                            )
-                          )}
-                          %
-                        </span>
-                      </div>
-                      <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                50,
-                                45 +
-                                  attendedSessions.length * 8 +
-                                  (latestCoachEvaluation.notes.toLowerCase().includes("gaya dada") ||
-                                  latestCoachEvaluation.notes.toLowerCase().includes("kaki")
-                                    ? 15
-                                    : 0)
-                              )
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                        <span>Pernapasan Ritmik &amp; Stamina</span>
-                        <span className="text-cyan-600">
-                          {Math.min(
-                            100,
-                            Math.max(
-                              50,
-                              40 +
-                                attendedSessions.length * 8 +
-                                (latestCoachEvaluation.notes.toLowerCase().includes("pernapasan") ||
-                                latestCoachEvaluation.notes.toLowerCase().includes("stamina")
-                                  ? 20
-                                  : 0)
-                            )
-                          )}
-                          %
-                        </span>
-                      </div>
-                      <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                50,
-                                40 +
-                                  attendedSessions.length * 8 +
-                                  (latestCoachEvaluation.notes.toLowerCase().includes("pernapasan") ||
-                                  latestCoachEvaluation.notes.toLowerCase().includes("stamina")
-                                    ? 20
-                                    : 0)
-                              )
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2556,34 +2569,22 @@ export default function ParentBody({
                     {[
                       {
                         name: "Meluncur (Floating & Streamline)",
-                        rating: latestCoachEvaluation?.notes.toLowerCase().includes("meluncur")
-                          ? 5
-                          : Math.min(5, Math.max(3, attendedSessions.length >= 3 ? 5 : 4)),
+                        rating: studentSkillRatings.floating,
                       },
                       {
                         name: "Kayuhan Kaki (Kicking & Gaya Dada)",
-                        rating:
-                          latestCoachEvaluation?.notes.toLowerCase().includes("kaki") ||
-                          latestCoachEvaluation?.notes.toLowerCase().includes("gaya dada")
-                            ? 5
-                            : Math.min(5, Math.max(3, attendedSessions.length >= 2 ? 5 : 4)),
+                        rating: studentSkillRatings.kicking,
                       },
                       {
                         name: "Gerakan Lengan (Arms Stroke)",
-                        rating: latestCoachEvaluation?.notes.toLowerCase().includes("lengan")
-                          ? 5
-                          : Math.min(5, Math.max(3, attendedSessions.length >= 4 ? 5 : 4)),
+                        rating: studentSkillRatings.arms,
                       },
                       {
                         name: "Pernapasan Ritmik & Stamina",
-                        rating:
-                          latestCoachEvaluation?.notes.toLowerCase().includes("pernapasan") ||
-                          latestCoachEvaluation?.notes.toLowerCase().includes("stamina")
-                            ? 5
-                            : Math.min(5, Math.max(2, attendedSessions.length >= 5 ? 5 : 4)),
+                        rating: studentSkillRatings.breathing,
                       },
                     ].map((skill, idx) => (
-                      <div key={idx} className="flex items-center justify-between">
+                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 border border-slate-100">
                         <span className="text-xs sm:text-sm font-bold text-slate-800">
                           {skill.name}
                         </span>
@@ -2592,12 +2593,12 @@ export default function ParentBody({
                             {[1, 2, 3, 4, 5].map((star) => (
                               <Star
                                 key={star}
-                                size={14}
+                                size={15}
                                 className={star <= skill.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}
                               />
                             ))}
                           </div>
-                          <span className="text-xs font-bold text-slate-700 w-3 text-right">
+                          <span className="text-xs font-black text-slate-700 w-3 text-right">
                             {skill.rating}
                           </span>
                         </div>
@@ -2607,11 +2608,12 @@ export default function ParentBody({
 
                   {/* Catatan Pelatih */}
                   <div className="border-t border-slate-100 pt-3 space-y-1.5">
-                    <h5 className="text-xs font-black text-slate-900">
-                      Catatan Evaluasi Pelatih
+                    <h5 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <Award size={14} className="text-cyan-600" />
+                      <span>Catatan Evaluasi Pelatih</span>
                     </h5>
                     <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-2xl border border-slate-100/80">
-                      Coach {latestCoachEvaluation ? latestCoachEvaluation.coachName : coach.name}: &ldquo;{latestCoachEvaluation ? latestCoachEvaluation.notes : "Perkembangan teknik meluncur, posisi tubuh dalam air, dan kayuhan kaki anak sangat memuaskan. Tingkatkan konsistensi pernapasan ritmik dan stamina saat jarak jauh."}&rdquo;
+                      Coach {studentSkillRatings.coachName}: &ldquo;{studentSkillRatings.notes || "Perkembangan teknik meluncur, posisi tubuh dalam air, dan kayuhan kaki anak sangat memuaskan. Tingkatkan konsistensi pernapasan ritmik dan stamina saat jarak jauh."}&rdquo;
                     </p>
                   </div>
                 </>

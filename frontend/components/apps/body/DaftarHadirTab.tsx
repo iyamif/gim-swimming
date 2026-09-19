@@ -16,6 +16,7 @@ import {
   Clock, 
   Calendar,
   Trash2,
+  Award,
 } from "lucide-react";
 import { Student, Coach, ScheduleSession, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
@@ -423,17 +424,40 @@ export default function DaftarHadirTab({
         <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
 
         <div className="max-w-3xl mx-auto relative z-10 space-y-3">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Daftar Siswa
-            </h2>
-            <p className="text-xs text-cyan-100 font-medium mt-1">
-              {statusFilter === "Active"
-                ? `Menampilkan ${filteredStudents.length} Siswa Aktif`
-                : statusFilter === "Inactive"
-                  ? `Menampilkan ${filteredStudents.length} Siswa Tidak Aktif`
-                  : `Total ${students.length} Siswa Terdaftar (${activeCount} Aktif, ${inactiveCount} Tidak Aktif)`}
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Daftar Siswa
+              </h2>
+              <p className="text-xs text-cyan-100 font-medium mt-1">
+                {statusFilter === "Active"
+                  ? `Menampilkan ${filteredStudents.length} Siswa Aktif`
+                  : statusFilter === "Inactive"
+                    ? `Menampilkan ${filteredStudents.length} Siswa Tidak Aktif`
+                    : `Total ${students.length} Siswa Terdaftar (${activeCount} Aktif, ${inactiveCount} Tidak Aktif)`}
+              </p>
+            </div>
+
+            {sessionRole === "admin" && setActiveTab && (
+              <div className="flex items-center bg-black/20 backdrop-blur-md p-1 rounded-2xl border border-white/20 self-start sm:self-auto shrink-0 shadow-inner">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-white text-blue-700 shadow-sm transition cursor-default"
+                >
+                  <Users size={13} />
+                  <span>Siswa</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("pelatih")}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white/85 hover:text-white hover:bg-white/15 transition cursor-pointer"
+                  title="Buka Daftar Pelatih & Instruktur"
+                >
+                  <Award size={13} />
+                  <span>Pelatih</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between text-xs font-bold text-cyan-100/90 pt-1">
