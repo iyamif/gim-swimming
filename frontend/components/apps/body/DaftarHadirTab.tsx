@@ -25,6 +25,7 @@ import SwipeableRow from "../SwipeableRow";
 interface DaftarHadirTabProps {
   students: Student[];
   sessionRole: string;
+  sessionUser?: string;
   schedules?: ScheduleSession[];
   coaches?: Coach[];
   attendances?: AttendanceRecord[];
@@ -39,6 +40,7 @@ interface DaftarHadirTabProps {
 export default function DaftarHadirTab({
   students = [],
   sessionRole,
+  sessionUser,
   schedules = [],
   coaches = [],
   attendances = [],
@@ -111,14 +113,109 @@ export default function DaftarHadirTab({
 
   if (sessionRole !== "admin" && sessionRole !== "pelatih") return null;
 
+  // Helper to normalize coach names
+  const cleanCoachName = (name: string) =>
+    (name || "").toLowerCase().replace(/^coach\s+/i, "").trim();
+
+  const isCoachRole = sessionRole?.toLowerCase() === "pelatih";
+  const normalizedUser = (sessionUser || "").toLowerCase().trim();
+  const cleanedSessionUser = cleanCoachName(sessionUser || "");
+
+  // Find coach data matching sessionUser if logged in as pelatih
+  const currentCoach = useMemo(() => {
+    if (!isCoachRole) return null;
+    return (coaches || []).find((c) => {
+      const cClean = cleanCoachName(c.name);
+      return (
+        c.id === sessionUser ||
+        c.name.toLowerCase().trim() === normalizedUser ||
+        (cleanedSessionUser && (cClean === cleanedSessionUser || cClean.includes(cleanedSessionUser) || cleanedSessionUser.includes(cClean))) ||
+        c.email?.toLowerCase().trim() === normalizedUser
+      );
+    });
+  }, [isCoachRole, coaches, sessionUser, normalizedUser, cleanedSessionUser]);
+
+  const currentCoachId = currentCoach ? String(currentCoach.id) : (sessionUser || "");
+
+  // Find all schedules assigned to this coach
+  const coachSchedules = useMemo(() => {
+    if (!isCoachRole) return [];
+    return (schedules || []).filter((s) => {
+      const sCoachId = (s.coachId || "").trim();
+      const sCoachName = cleanCoachName(s.coachName);
+      return (
+        (currentCoachId && sCoachId === currentCoachId) ||
+        (cleanedSessionUser &&
+          (sCoachName === cleanedSessionUser ||
+            sCoachName.includes(cleanedSessionUser) ||
+            cleanedSessionUser.includes(sCoachName)))
+      );
+    });
+  }, [isCoachRole, schedules, currentCoachId, cleanedSessionUser]);
+
+  // Extract set of student IDs and names enrolled with this coach
+  const coachStudentIds = useMemo(() => {
+    const ids = new Set<string>();
+    coachSchedules.forEach((s) => {
+      (s.studentIds || []).forEach((id) => ids.add(String(id)));
+    });
+    return ids;
+  }, [coachSchedules]);
+
+  const coachStudentNames = useMemo(() => {
+    const names = new Set<string>();
+    coachSchedules.forEach((s) => {
+      (s.studentNames || []).forEach((n) => names.add((n || "").toLowerCase().trim()));
+    });
+    return names;
+  }, [coachSchedules]);
+
+  // Base list of students to display:
+  // If Coach: ONLY students assigned to/taught by this coach
+  // If Admin: All students in database
+  const accessibleStudents = useMemo(() => {
+    if (!isCoachRole) return students;
+
+    return students.filter((st) => {
+      const stId = String(st.id);
+      const stName = (st.name || "").toLowerCase().trim();
+
+      // 1. Matched in coach's schedules by ID or Name
+      if (coachStudentIds.has(stId)) return true;
+      if (Array.from(coachStudentNames).some((n) => n === stName || n.includes(stName) || stName.includes(n))) {
+        return true;
+      }
+
+      // 2. Matched via student's assigned coach ID
+      if (st.coach_id && String(st.coach_id) === currentCoachId) return true;
+      if (st.coachId && String(st.coachId) === currentCoachId) return true;
+
+      // 3. Matched via student's assigned coach Name
+      if (st.coach_name && cleanedSessionUser) {
+        const scClean = cleanCoachName(st.coach_name);
+        if (scClean === cleanedSessionUser || scClean.includes(cleanedSessionUser) || cleanedSessionUser.includes(scClean)) {
+          return true;
+        }
+      }
+      if (st.coachName && cleanedSessionUser) {
+        const scClean = cleanCoachName(st.coachName);
+        if (scClean === cleanedSessionUser || scClean.includes(cleanedSessionUser) || cleanedSessionUser.includes(scClean)) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+  }, [isCoachRole, students, coachStudentIds, coachStudentNames, currentCoachId, cleanedSessionUser]);
+
   // Counts for status
   const activeCount = useMemo(() => {
-    return students.filter((s) => isStudentActive(s)).length;
-  }, [students]);
+    return accessibleStudents.filter((s) => isStudentActive(s)).length;
+  }, [accessibleStudents]);
 
   const inactiveCount = useMemo(() => {
-    return students.filter((s) => !isStudentActive(s)).length;
-  }, [students]);
+    return accessibleStudents.filter((s) => !isStudentActive(s)).length;
+  }, [accessibleStudents]);
 
   // Format ISO date "YYYY-MM-DD" or raw string to "DD MMM YYYY" (e.g. "09 Sep 2026")
   const formatIndonesianDate = (dateStr: string) => {
@@ -250,7 +347,7 @@ export default function DaftarHadirTab({
 
   // Filter and sort students
   const filteredStudents = useMemo(() => {
-    return students
+    return accessibleStudents
       .filter((student) => {
         const matchesQuery =
           student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -280,10 +377,10 @@ export default function DaftarHadirTab({
           return rateB - rateA;
         }
       });
-  }, [students, searchQuery, selectedClass, statusFilter, sortBy, schedules, attendances]);
+  }, [accessibleStudents, searchQuery, selectedClass, statusFilter, sortBy, schedules, attendances]);
 
   // Featured student (first in the filtered list or first student)
-  const featuredStudent = filteredStudents[0] || students[0];
+  const featuredStudent = filteredStudents[0] || accessibleStudents[0] || null;
 
   // Helper to find next upcoming class for a student
   const getNextClassForStudent = (studentName: string) => {
@@ -430,11 +527,17 @@ export default function DaftarHadirTab({
                 Daftar Siswa
               </h2>
               <p className="text-xs text-cyan-100 font-medium mt-1">
-                {statusFilter === "Active"
-                  ? `Menampilkan ${filteredStudents.length} Siswa Aktif`
-                  : statusFilter === "Inactive"
-                    ? `Menampilkan ${filteredStudents.length} Siswa Tidak Aktif`
-                    : `Total ${students.length} Siswa Terdaftar (${activeCount} Aktif, ${inactiveCount} Tidak Aktif)`}
+                {isCoachRole
+                  ? statusFilter === "Active"
+                    ? `Menampilkan ${filteredStudents.length} Siswa Bimbingan Aktif`
+                    : statusFilter === "Inactive"
+                      ? `Menampilkan ${filteredStudents.length} Siswa Bimbingan Tidak Aktif`
+                      : `Total ${accessibleStudents.length} Siswa Bimbingan (${activeCount} Aktif, ${inactiveCount} Tidak Aktif)`
+                  : statusFilter === "Active"
+                    ? `Menampilkan ${filteredStudents.length} Siswa Aktif`
+                    : statusFilter === "Inactive"
+                      ? `Menampilkan ${filteredStudents.length} Siswa Tidak Aktif`
+                      : `Total ${students.length} Siswa Terdaftar (${activeCount} Aktif, ${inactiveCount} Tidak Aktif)`}
               </p>
             </div>
 
@@ -665,7 +768,7 @@ export default function DaftarHadirTab({
                     : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
                     }`}
                 >
-                  Semua ({students.length})
+                  Semua ({accessibleStudents.length})
                 </button>
               </div>
             </div>
@@ -727,20 +830,24 @@ export default function DaftarHadirTab({
               <Users size={36} className="text-slate-300 mx-auto" />
               <h4 className="text-sm font-bold text-slate-700">Siswa Tidak Ditemukan</h4>
               <p className="text-xs text-slate-400">
-                {statusFilter === "Inactive"
-                  ? "Tidak ada siswa dalam kategori Tidak Aktif."
-                  : "Tidak ada siswa yang sesuai dengan filter atau kata kunci pencarian."}
+                {accessibleStudents.length === 0 && isCoachRole
+                  ? "Belum ada siswa yang terdaftar di kelas/jadwal Anda."
+                  : statusFilter === "Inactive"
+                    ? "Tidak ada siswa dalam kategori Tidak Aktif."
+                    : "Tidak ada siswa yang sesuai dengan filter atau kata kunci pencarian."}
               </p>
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedClass("ALL");
-                  setStatusFilter("Active");
-                }}
-                className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-xl transition cursor-pointer"
-              >
-                Reset ke Siswa Aktif
-              </button>
+              {accessibleStudents.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedClass("ALL");
+                    setStatusFilter("Active");
+                  }}
+                  className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-xl transition cursor-pointer"
+                >
+                  Reset ke Siswa Aktif
+                </button>
+              )}
             </div>
           ) : (
             filteredStudents.map((student) => {

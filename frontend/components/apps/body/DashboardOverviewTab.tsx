@@ -326,6 +326,13 @@ export default function DashboardOverviewTab({
   const menuItems = isCoachRole
     ? [
       {
+        id: "siswa",
+        label: "Siswa",
+        icon: <Users size={22} />,
+        bgCircle: "bg-blue-50 border-blue-100 text-blue-600",
+        action: () => setActiveTab && setActiveTab("daftar_hadir"),
+      },
+      {
         id: "kehadiran",
         label: "Kehadiran",
         icon: <Clock size={22} />,

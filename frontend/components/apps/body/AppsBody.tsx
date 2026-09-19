@@ -197,6 +197,7 @@ export default function AppsBody({
         <DaftarHadirTab
           students={students}
           sessionRole={sessionRole}
+          sessionUser={sessionUser}
           schedules={schedules}
           coaches={coaches}
           attendances={attendances}
