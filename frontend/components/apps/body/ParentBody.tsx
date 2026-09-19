@@ -2264,6 +2264,7 @@ export default function ParentBody({
             attendances={attendances}
             onCheckInAttendance={onCheckInAttendance}
             onRefresh={onRefresh}
+            onClose={() => setParentActiveTab("home")}
           />
         )}
 
