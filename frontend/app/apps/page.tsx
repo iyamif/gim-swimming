@@ -94,6 +94,7 @@ export default function AppsPage() {
   // Real-time Notification State & Tracking Refs
   const knownNotificationIdsRef = useRef<Set<number>>(new Set());
   const initialLoadDoneRef = useRef<boolean>(false);
+  const lastHiddenTimeRef = useRef<number>(0);
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -111,7 +112,6 @@ export default function AppsPage() {
   // Load all real data from PostgreSQL Backend
   const loadAllData = useCallback(async (roleParam?: string, userParam?: string) => {
     try {
-      setLoadingData(true);
       const session = getAuthSession();
       const role = roleParam || sessionRole || session.role || "";
       const user = userParam || sessionUser || session.user || "";
@@ -179,6 +179,29 @@ export default function AppsPage() {
       setLoadingData(false);
     }
   }, [sessionRole, sessionUser]);
+
+  // Pull-to-refresh and background resume handler: reloads all database data and profile avatar + checks SW updates
+  const handlePullRefresh = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+
+      // Check Service Worker for new versions in the background
+      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg) reg.update().catch(() => { });
+        });
+      }
+
+      await Promise.all([
+        loadAllData(),
+        sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
+      ]);
+    } catch (err) {
+      console.error("Refresh error:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadAllData, sessionUser]);
 
   // Proactively request browser notification permission on mount if supported
   useEffect(() => {
@@ -393,46 +416,46 @@ export default function AppsPage() {
     // Polling interval: every 3.5s while idle
     const intervalId = setInterval(performSilentPoll, 3500);
 
-    // Immediate poll when tab becomes active / focused / screen unlocked
+    // Immediate reload when tab becomes active / focused / screen unlocked / PWA resumed
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        performSilentPoll();
+      if (document.visibilityState === "hidden") {
+        lastHiddenTimeRef.current = Date.now();
+      } else if (document.visibilityState === "visible") {
+        const timeHidden = Date.now() - lastHiddenTimeRef.current;
+        // If app was in background or idle for > 2 seconds, reload data with visible loading state
+        if (lastHiddenTimeRef.current > 0 && timeHidden > 2000) {
+          handlePullRefresh();
+        } else {
+          performSilentPoll();
+        }
       }
     };
 
+    const handleWindowFocus = () => {
+      const timeHidden = Date.now() - lastHiddenTimeRef.current;
+      if (lastHiddenTimeRef.current > 0 && timeHidden > 2000) {
+        handlePullRefresh();
+      }
+    };
+
+    const handleOnline = () => {
+      handlePullRefresh();
+    };
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleVisibilityChange);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("pageshow", handleWindowFocus);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       isSubscribed = false;
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleVisibilityChange);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("pageshow", handleWindowFocus);
+      window.removeEventListener("online", handleOnline);
     };
-  }, [sessionRole, sessionUser, students]);
-
-  // Pull-to-refresh handler: reloads all database data and profile avatar + checks SW updates
-  const handlePullRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-
-      // Check Service Worker for new versions in the background
-      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-        navigator.serviceWorker.getRegistration().then((reg) => {
-          if (reg) reg.update().catch(() => { });
-        });
-      }
-
-      await Promise.all([
-        loadAllData(),
-        sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
-      ]);
-    } catch (err) {
-      console.error("Refresh error:", err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  }, [handlePullRefresh, sessionRole, sessionUser, students]);
 
   useEffect(() => {
     // Register Service Worker in the browser with auto-update handling
@@ -1029,17 +1052,24 @@ export default function AppsPage() {
     }
   };
 
-  if (!mounted || !sessionUser) {
+  if (!mounted || !sessionUser || loadingData) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#061827] text-white">
-        <div className="flex flex-col items-center space-y-4 animate-pulse">
+        <div className="flex flex-col items-center space-y-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/icon.png"
             alt="GIM Swimming"
-            className="h-20 w-20 object-contain drop-shadow-2xl animate-float-movement"
+            className="h-20 w-20 sm:h-24 sm:w-24 object-contain drop-shadow-2xl animate-float-movement"
           />
-
+          <div className="flex flex-col items-center space-y-2">
+            <div className="h-1.5 w-36 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
+            </div>
+            <p className="text-xs font-bold text-slate-300 tracking-wide">
+              Memuat data terbaru...
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -1148,16 +1178,24 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Floating Loading Screen Overlay only during Pull-to-Refresh */}
+        {/* Centered Floating Loading Screen Overlay during Resume / Refresh */}
         {isRefreshing && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
-            <div className="flex flex-col items-center justify-center space-y-3 scale-100">
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+            <div className="flex flex-col items-center justify-center space-y-3 p-6 rounded-3xl bg-slate-900/85 border border-white/10 shadow-2xl scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/icon.png"
                 alt="Loading"
-                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
+                className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-float-movement drop-shadow-2xl"
               />
+              <div className="flex flex-col items-center space-y-1.5">
+                <div className="h-1 w-28 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
+                </div>
+                <p className="text-xs font-bold text-white tracking-wide drop-shadow-md">
+                  Memperbarui data terbaru...
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -1293,16 +1331,24 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      {/* Centered Floating Loading Screen Overlay only during Pull-to-Refresh */}
+      {/* Centered Floating Loading Screen Overlay during Resume / Refresh */}
       {isRefreshing && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[3px] pointer-events-none transition-all duration-300 animate-fadeIn">
-          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center space-y-3 p-6 rounded-3xl bg-slate-900/85 border border-white/10 shadow-2xl scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
+              className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-float-movement drop-shadow-2xl"
             />
+            <div className="flex flex-col items-center space-y-1.5">
+              <div className="h-1 w-28 rounded-full bg-slate-800 overflow-hidden">
+                <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
+              </div>
+              <p className="text-xs font-bold text-white tracking-wide drop-shadow-md">
+                Memperbarui data terbaru...
+              </p>
+            </div>
           </div>
         </div>
       )}

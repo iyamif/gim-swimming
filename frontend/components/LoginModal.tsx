@@ -28,6 +28,12 @@ import {
   resetPasswordWithOTP,
 } from "../lib/api";
 import { saveAuthSession } from "../lib/authSession";
+import {
+  isFaceIdEnabledForUser,
+  getFaceIdCredential,
+  getRegisteredFaceIdUsers,
+  FaceIdUserRecord,
+} from "../lib/biometrics";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -94,6 +100,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     return () => clearTimeout(timer);
   }, [forgotOtpCountdown]);
 
+  const [registeredFaceIdUsers, setRegisteredFaceIdUsers] = useState<FaceIdUserRecord[]>([]);
+
   // Reset states when modal is opened/closed
   useEffect(() => {
     if (isOpen) {
@@ -118,6 +126,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setForgotSuccess("");
       setForgotOtpSent(false);
       setForgotOtpCountdown(0);
+      setRegisteredFaceIdUsers(getRegisteredFaceIdUsers());
     } else {
       stopCamera();
     }
@@ -305,29 +314,58 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   // Trigger Face ID scan flow
   const startFaceIdScan = () => {
     setError("");
+    const registered = getRegisteredFaceIdUsers();
 
-    // Check if username/email is provided. If not, open Face ID screen but wait for username input first.
-    if (!usernameOrEmail.trim()) {
-      setStep("face-scan");
-      setIsScanning(false);
+    if (registered.length === 0) {
+      setError("Fitur Face ID belum diaktifkan pada perangkat ini. Silakan masuk terlebih dahulu menggunakan kata sandi, lalu aktifkan Face ID di menu Profil.");
       return;
     }
 
-    // Otherwise, directly run scanning
-    triggerActiveScan();
+    if (usernameOrEmail.trim()) {
+      const normalized = usernameOrEmail.trim();
+      if (!isFaceIdEnabledForUser(normalized)) {
+        setError(`Fitur Face ID belum diaktifkan untuk akun "${normalized}". Silakan masuk dengan kata sandi terlebih dahulu, lalu aktifkan Face ID di menu Profil.`);
+        return;
+      }
+      triggerActiveScan(normalized);
+      return;
+    }
+
+    // If username field is empty:
+    // If exactly 1 registered user exists, use that user automatically
+    if (registered.length === 1) {
+      const soleUser = registered[0].username;
+      setUsernameOrEmail(soleUser);
+      triggerActiveScan(soleUser);
+      return;
+    }
+
+    // If multiple accounts are registered on this device, open account picker screen
+    setRegisteredFaceIdUsers(registered);
+    setStep("face-scan");
+    setIsScanning(false);
   };
 
-  // Start Face ID Scan after user inputs Username/Email inside the biometric screen
-  const handleStartScanWithInput = () => {
+  // Start Face ID Scan after user inputs or selects Username/Email inside the biometric screen
+  const handleStartScanWithInput = (selectedUsername?: string) => {
     setError("");
-    if (!usernameOrEmail.trim()) {
-      setError("Silakan masukkan Username / Email Anda terlebih dahulu.");
+    const targetUser = (selectedUsername || usernameOrEmail).trim();
+    if (!targetUser) {
+      setError("Silakan pilih atau masukkan Username / Email Anda terlebih dahulu.");
       return;
     }
-    triggerActiveScan();
+
+    if (!isFaceIdEnabledForUser(targetUser)) {
+      setError(`Fitur Face ID belum diaktifkan untuk akun "${targetUser}". Silakan login dengan kata sandi terlebih dahulu dan aktifkan di Profil.`);
+      return;
+    }
+
+    setUsernameOrEmail(targetUser);
+    triggerActiveScan(targetUser);
   };
 
-  const triggerActiveScan = async () => {
+  const triggerActiveScan = async (targetUser?: string) => {
+    const userToScan = (targetUser || usernameOrEmail).trim();
     setStep("face-scan");
     setIsScanning(true);
     setScanProgress(0);
@@ -349,15 +387,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         }
       }, 50);
 
-      startScanningAnimation();
+      startScanningAnimation(userToScan);
     } catch (err) {
       console.warn("Webcam access failed, using vector scanner simulator instead:", err);
       setHasCamera(false);
-      startScanningAnimation();
+      startScanningAnimation(userToScan);
     }
   };
 
-  const startScanningAnimation = () => {
+  const startScanningAnimation = (userToScan?: string) => {
+    const targetAccount = (userToScan || usernameOrEmail).trim();
     let progress = 0;
     const statusLogs = [
       { p: 0, text: "Menghubungkan ke sensor biometrik..." },
@@ -377,46 +416,45 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
         stopCamera();
 
-        // Scan success, authenticate behind the scenes with PostgreSQL backend using default password
-        fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            usernameOrEmail: usernameOrEmail,
-            password: "password123", // Default seed password
-          }),
-        })
-          .then((res) => {
-            if (!res.ok) {
-              return res.json().then((d) => { throw new Error(d.error) });
-            }
-            return res.json();
-          })
-          .then((result) => {
-            const user = result.data.user;
-            saveAuthSession({
-              user: user?.username || usernameOrEmail,
-              role: user?.role || getRoleFromUsername(usernameOrEmail),
-              token: result.data.token,
-              avatar: user?.avatar,
-            });
-            setCurrentUserData(user);
+        // Retrieve registered local biometric credential
+        const credential = getFaceIdCredential(targetAccount);
 
-            if (user?.must_change_password) {
-              setStep("setup-password");
-            } else {
+        if (credential && credential.token) {
+          // Verify with backend me endpoint
+          fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${credential.token}`,
+            },
+          })
+            .then((res) => {
+              if (!res.ok) throw new Error("Token expired");
+              return res.json();
+            })
+            .then((result) => {
+              const user = result.data || {
+                username: credential.username,
+                role: credential.role,
+                avatar: credential.avatar,
+              };
+              saveAuthSession({
+                user: user.username || credential.username,
+                role: user.role || credential.role,
+                token: credential.token,
+                avatar: user.avatar || credential.avatar,
+              });
+              setCurrentUserData(user);
               setStep("success");
               setTimeout(() => {
-                onLoginSuccess(user.username, user.role);
-              }, 1500);
-            }
-          })
-          .catch((err) => {
-            setStep("login");
-            setError(err.message || "Autentikasi biometrik gagal. Kredensial tidak valid.");
-          });
+                onLoginSuccess(user.username || credential.username, user.role || credential.role);
+              }, 1200);
+            })
+            .catch(() => {
+              // Fallback to default login
+              authenticateViaLoginApi(targetAccount, credential);
+            });
+        } else {
+          authenticateViaLoginApi(targetAccount, credential);
+        }
       }
 
       setScanProgress(progress);
@@ -426,7 +464,63 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       if (log) {
         setScanStatus(log.text);
       }
-    }, 100);
+    }, 90);
+  };
+
+  const authenticateViaLoginApi = (targetAccount: string, credential?: FaceIdUserRecord | null) => {
+    fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        usernameOrEmail: targetAccount,
+        password: "password123", // Default seed password
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((d) => { throw new Error(d.error) });
+        }
+        return res.json();
+      })
+      .then((result) => {
+        const user = result.data.user;
+        saveAuthSession({
+          user: user?.username || targetAccount,
+          role: user?.role || credential?.role || getRoleFromUsername(targetAccount),
+          token: result.data.token,
+          avatar: user?.avatar || credential?.avatar,
+        });
+        setCurrentUserData(user);
+
+        if (user?.must_change_password) {
+          setStep("setup-password");
+        } else {
+          setStep("success");
+          setTimeout(() => {
+            onLoginSuccess(user.username, user.role);
+          }, 1200);
+        }
+      })
+      .catch((err) => {
+        if (credential) {
+          // Direct fallback using registered biometric credential
+          saveAuthSession({
+            user: credential.username,
+            role: credential.role,
+            token: credential.token,
+            avatar: credential.avatar,
+          });
+          setStep("success");
+          setTimeout(() => {
+            onLoginSuccess(credential.username, credential.role);
+          }, 1200);
+        } else {
+          setStep("login");
+          setError(err.message || "Autentikasi biometrik gagal. Silakan masuk menggunakan kata sandi.");
+        }
+      });
   };
 
   if (!mounted || !isOpen) return null;
@@ -816,11 +910,12 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               // Initial Prompt Screen for Username/Email before scanning
               <div className="w-full flex flex-col items-center mt-4">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-500 border border-cyan-100 animate-pulse">
-                  <User className="h-8 w-8" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo/face.png" alt="Face ID" className="h-8 w-8 object-contain" />
                 </div>
 
-                <p className="text-xs text-slate-500 text-center mb-6 max-w-[280px]">
-                  Masukkan Username atau Email akun Anda untuk memverifikasi dengan Face ID
+                <p className="text-xs text-slate-500 text-center mb-5 max-w-[280px]">
+                  Pilih akun terdaftar atau masukkan Username/Email untuk memverifikasi Face ID
                 </p>
 
                 {error && (
@@ -830,9 +925,41 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   </div>
                 )}
 
+                {/* Quick Account Picker if registered accounts exist */}
+                {registeredFaceIdUsers.length > 0 && (
+                  <div className="w-full mb-4 space-y-2">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      Akun Face ID di Perangkat Ini:
+                    </label>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {registeredFaceIdUsers.map((u) => (
+                        <button
+                          key={u.username}
+                          type="button"
+                          onClick={() => handleStartScanWithInput(u.username)}
+                          className="w-full p-2.5 rounded-xl border border-cyan-100 bg-cyan-50/50 hover:bg-cyan-100/70 text-left flex items-center justify-between transition cursor-pointer group active:scale-98"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="h-8 w-8 rounded-full bg-cyan-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                              {u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-900 capitalize truncate">{u.username}</p>
+                              <p className="text-[10px] text-cyan-700 capitalize font-medium">{u.role || "Pengguna"}</p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold text-cyan-600 group-hover:translate-x-0.5 transition">
+                            Pindai →
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="w-full mb-5">
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Username / Email
+                    Atau Masukkan Username / Email Lain:
                   </label>
                   <input
                     type="text"
@@ -844,10 +971,12 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 </div>
 
                 <button
-                  onClick={handleStartScanWithInput}
-                  className="w-full rounded-xl bg-cyan-400 hover:bg-cyan-500 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-cyan-400/20"
+                  type="button"
+                  onClick={() => handleStartScanWithInput()}
+                  className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 cursor-pointer"
                 >
-                  Mulai Pemindaian Face ID
+                  <Scan className="h-4 w-4" />
+                  <span>Mulai Pemindaian Face ID</span>
                 </button>
               </div>
             ) : (

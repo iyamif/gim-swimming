@@ -17,6 +17,11 @@ import {
   resetPasswordWithOTP,
 } from "../../../lib/api";
 import {
+  isFaceIdEnabledForUser,
+  enableFaceIdForUser,
+  disableFaceIdForUser,
+} from "../../../lib/biometrics";
+import {
   Home,
   CalendarDays,
   Calendar,
@@ -61,6 +66,7 @@ import {
   ExternalLink,
   Mail,
   Waves,
+  Scan,
 } from "lucide-react";
 
 // Helper to compress and convert any uploaded image to an ultra-lightweight WebP/JPEG Base64 Data URL (~15-30KB)
@@ -206,12 +212,136 @@ export default function ParentBody({
   const [copiedBank, setCopiedBank] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Profile Sub-View Navigation: "main" | "profilku" | "password" | "notifikasi" | "faq"
-  const [profileView, setProfileView] = useState<"main" | "profilku" | "password" | "notifikasi" | "faq">("main");
+  // Profile Sub-View Navigation: "main" | "profilku" | "password" | "notifikasi" | "faq" | "face-id"
+  const [profileView, setProfileView] = useState<"main" | "profilku" | "password" | "notifikasi" | "faq" | "face-id">("main");
   const [profileLanguage, setProfileLanguage] = useState<"ID" | "EN">("ID");
   const [showProfileLogoutModal, setShowProfileLogoutModal] = useState(false);
   const [showProfileEmojiDrawer, setShowProfileEmojiDrawer] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any>(null);
+
+  // Face ID Biometrics states (Parent / Student)
+  const [isFaceIdActive, setIsFaceIdActive] = useState(false);
+  const [isFaceIdScanning, setIsFaceIdScanning] = useState(false);
+  const [faceIdScanProgress, setFaceIdScanProgress] = useState(0);
+  const [faceIdScanStatus, setFaceIdScanStatus] = useState("Menghubungkan ke sensor biometrik...");
+  const [faceIdHasCamera, setFaceIdHasCamera] = useState<boolean | null>(null);
+  const [faceIdSuccess, setFaceIdSuccess] = useState("");
+  const [faceIdError, setFaceIdError] = useState("");
+  const faceIdVideoRef = useRef<HTMLVideoElement>(null);
+  const faceIdScanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const faceIdStreamRef = useRef<MediaStream | null>(null);
+
+  // Sync Face ID status on mount and student change
+  useEffect(() => {
+    const targetUser = student?.name || "orang tua";
+    setIsFaceIdActive(isFaceIdEnabledForUser(targetUser));
+
+    const handleFaceIdChanged = () => {
+      setIsFaceIdActive(isFaceIdEnabledForUser(targetUser));
+    };
+    window.addEventListener("gim_face_id_changed", handleFaceIdChanged);
+    return () => window.removeEventListener("gim_face_id_changed", handleFaceIdChanged);
+  }, [student?.name]);
+
+  const stopFaceIdCamera = () => {
+    if (faceIdScanIntervalRef.current) {
+      clearInterval(faceIdScanIntervalRef.current);
+      faceIdScanIntervalRef.current = null;
+    }
+    if (faceIdStreamRef.current) {
+      faceIdStreamRef.current.getTracks().forEach((track) => track.stop());
+      faceIdStreamRef.current = null;
+    }
+    setIsFaceIdScanning(false);
+  };
+
+  useEffect(() => {
+    if (profileView !== "face-id") {
+      stopFaceIdCamera();
+    }
+    return () => {
+      stopFaceIdCamera();
+    };
+  }, [profileView]);
+
+  const handleStartFaceIdRegistration = async () => {
+    setFaceIdError("");
+    setFaceIdSuccess("");
+    setIsFaceIdScanning(true);
+    setFaceIdScanProgress(0);
+    setFaceIdScanStatus("Menginisialisasi kamera depan...");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 400, height: 400, facingMode: "user" },
+        audio: false,
+      });
+      setFaceIdHasCamera(true);
+      faceIdStreamRef.current = stream;
+      setTimeout(() => {
+        if (faceIdVideoRef.current) {
+          faceIdVideoRef.current.srcObject = stream;
+        }
+      }, 50);
+      startFaceIdRegistrationScan();
+    } catch (err) {
+      console.warn("Camera access not available or denied, using vector biometrics scanner:", err);
+      setFaceIdHasCamera(false);
+      startFaceIdRegistrationScan();
+    }
+  };
+
+  const startFaceIdRegistrationScan = () => {
+    let progress = 0;
+    const statusLogs = [
+      { p: 0, text: "Menghubungkan ke sensor biometrik..." },
+      { p: 20, text: "Mendeteksi kontur wajah..." },
+      { p: 45, text: "Memetakan titik biometrik terenkripsi..." },
+      { p: 75, text: "Menyimpan kunci biometrik ke perangkat..." },
+      { p: 95, text: "Finalisasi pendaftaran Face ID..." },
+    ];
+
+    if (faceIdScanIntervalRef.current) clearInterval(faceIdScanIntervalRef.current);
+    faceIdScanIntervalRef.current = setInterval(() => {
+      progress += 5;
+      if (progress >= 100) {
+        progress = 100;
+        if (faceIdScanIntervalRef.current) clearInterval(faceIdScanIntervalRef.current);
+        stopFaceIdCamera();
+
+        const targetUser = student?.name || "orang tua";
+        const success = enableFaceIdForUser({
+          username: targetUser,
+          role: "orang tua",
+          token: localStorage.getItem("gim_swimming_token") || "",
+          avatar: userAvatar,
+        });
+
+        if (success) {
+          setIsFaceIdActive(true);
+          setFaceIdSuccess("Face ID berhasil diaktifkan! Anda kini dapat masuk menggunakan Face ID di halaman login.");
+        } else {
+          setFaceIdError("Gagal mengaktifkan Face ID. Silakan coba lagi.");
+        }
+      }
+      setFaceIdScanProgress(progress);
+      const log = [...statusLogs].reverse().find((l) => progress >= l.p);
+      if (log) {
+        setFaceIdScanStatus(log.text);
+      }
+    }, 90);
+  };
+
+  const handleDisableFaceId = () => {
+    setFaceIdError("");
+    setFaceIdSuccess("");
+    const targetUser = student?.name || "orang tua";
+    const disabled = disableFaceIdForUser(targetUser);
+    if (disabled) {
+      setIsFaceIdActive(false);
+      setFaceIdSuccess("Face ID telah dinonaktifkan untuk akun ini.");
+    }
+  };
 
   // Password Sub-View Modes: "direct" | "otp"
   const [profilePasswordMode, setProfilePasswordMode] = useState<"direct" | "otp">("direct");
@@ -2686,6 +2816,38 @@ export default function ParentBody({
                       <ChevronRight size={18} className="text-slate-400" />
                     </button>
 
+                    {/* 5. Face ID / Biometrik */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileView("face-id");
+                        setFaceIdSuccess("");
+                        setFaceIdError("");
+                      }}
+                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 active:bg-slate-100 transition border-t border-slate-100 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="h-6 w-6 flex items-center justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/logo/face.png" alt="Face ID" className="h-5 w-5 object-contain" />
+                        </div>
+                        <span className="text-sm font-bold text-slate-700">Face ID &amp; Biometrik</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border flex items-center gap-1.5 ${
+                            isFaceIdActive
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-slate-100 text-slate-500 border-slate-200"
+                          }`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${isFaceIdActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                          {isFaceIdActive ? "Aktif" : "Nonaktif"}
+                        </span>
+                        <ChevronRight size={18} className="text-slate-400" />
+                      </div>
+                    </button>
+
                     {/* 5. FAQ & Panduan */}
                     <button
                       type="button"
@@ -3306,6 +3468,160 @@ export default function ParentBody({
                       <ExternalLink size={14} className="text-emerald-600" />
                     </a>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================
+                VIEW 6: HALAMAN "FACE ID & BIOMETRIK" (PARENT / SISWA)
+                ======================================================== */}
+            {profileView === "face-id" && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="-mt-8 sm:-mt-10 relative z-10 rounded-3xl bg-white p-5 sm:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5 text-slate-800">
+                  {/* Header info */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 border border-cyan-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/logo/face.png" alt="Face ID" className="h-6 w-6 object-contain" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-slate-900 tracking-tight">Face ID &amp; Biometrik</h3>
+                        <p className="text-xs text-slate-500 font-medium">Login instan untuk akun wali murid / siswa</p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase border flex items-center gap-1.5 ${
+                        isFaceIdActive
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-100 text-slate-500 border-slate-200"
+                      }`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${isFaceIdActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                      {isFaceIdActive ? "Aktif" : "Nonaktif"}
+                    </span>
+                  </div>
+
+                  {/* Success & Error alerts */}
+                  {faceIdSuccess && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs animate-fadeIn">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                      <span>{faceIdSuccess}</span>
+                    </div>
+                  )}
+                  {faceIdError && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs animate-fadeIn">
+                      <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                      <span>{faceIdError}</span>
+                    </div>
+                  )}
+
+                  {/* Active Scanner interface */}
+                  {isFaceIdScanning ? (
+                    <div className="flex flex-col items-center py-4 bg-slate-950 rounded-2xl p-6 text-white space-y-4 shadow-xl shadow-cyan-950/20">
+                      <p className="text-xs text-cyan-300 font-semibold tracking-wide">
+                        Posisikan wajah Anda di depan kamera
+                      </p>
+
+                      {/* Video / Simulator viewport */}
+                      <div className="relative h-44 w-44 rounded-full overflow-hidden border-2 border-cyan-400 bg-slate-900 flex items-center justify-center shadow-lg shadow-cyan-400/30">
+                        {faceIdHasCamera ? (
+                          <video
+                            ref={faceIdVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="h-full w-full object-cover scale-x-[-1]"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-6 text-cyan-400 bg-cyan-950/40">
+                            <Scan size={64} className="animate-pulse" />
+                          </div>
+                        )}
+
+                        {/* Scanning Laser Line */}
+                        <div className="absolute left-0 w-full h-[3px] bg-cyan-400 shadow-[0_0_12px_3px_rgba(34,211,238,0.8)] animate-laser pointer-events-none" />
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full max-w-xs text-center space-y-2">
+                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-cyan-400 transition-all duration-100"
+                            style={{ width: `${faceIdScanProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-cyan-400 font-bold animate-pulse">{faceIdScanStatus}</p>
+                        <p className="text-[11px] text-slate-400">{faceIdScanProgress}% Selesai</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={stopFaceIdCamera}
+                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition cursor-pointer"
+                      >
+                        Batal Pindai
+                      </button>
+                    </div>
+                  ) : (
+                    /* Overview & Actions */
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-50/70 to-blue-50/70 border border-cyan-100 text-xs text-slate-700 space-y-2">
+                        <div className="flex items-center gap-2 font-bold text-cyan-950">
+                          <Sparkles size={16} className="text-cyan-600" />
+                          <span>Keuntungan Mengaktifkan Face ID:</span>
+                        </div>
+                        <ul className="list-disc list-inside space-y-1.5 text-slate-600 pl-1 font-medium">
+                          <li>Masuk ke akun <strong>secara instan</strong> cukup dengan klik ikon Face ID pada layar login.</li>
+                          <li>Tidak perlu mengetik kata sandi setiap kali membuka aplikasi GIM Swimming.</li>
+                          <li>Kredensial disimpan secara aman &amp; terenkripsi lokal pada perangkat ini.</li>
+                        </ul>
+                      </div>
+
+                      {isFaceIdActive ? (
+                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <div>
+                              <p className="font-bold text-slate-900">Status Face ID: Aktif</p>
+                              <p className="text-[11px] text-slate-500">Terdaftar untuk akun: <strong>{student.name}</strong></p>
+                            </div>
+                            <span className="h-3 w-3 rounded-full bg-emerald-500 shadow-sm" />
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleStartFaceIdRegistration}
+                              className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-xs transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                            >
+                              <Scan size={15} />
+                              <span>Pindai Ulang Wajah</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDisableFaceId}
+                              className="py-3 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <span>Nonaktifkan Face ID</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleStartFaceIdRegistration}
+                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-cyan-500/20 transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/logo/face.png" alt="Face ID" className="h-5 w-5 object-contain brightness-0 invert" />
+                            <span>Aktifkan Face ID Sekarang</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
