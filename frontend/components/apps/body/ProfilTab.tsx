@@ -16,7 +16,7 @@ import {
   enableFaceIdForUser,
   disableFaceIdForUser,
 } from "../../../lib/biometrics";
-import { detectFaceInVideo } from "../../../lib/faceDetection";
+import { detectFaceInVideo, averageFaceDescriptors } from "../../../lib/faceDetection";
 import PushNotificationCard from "../PushNotificationCard";
 import {
   Camera,
@@ -282,6 +282,7 @@ export default function ProfilTab({
     let consecutiveFaceHits = 0;
     let consecutiveMisses = 0;
     let isRegistering = false;
+    const descriptorSamples: number[][] = [];
 
     if (faceIdScanIntervalRef.current) clearInterval(faceIdScanIntervalRef.current);
 
@@ -297,15 +298,18 @@ export default function ProfilTab({
               setFaceIdIsDetected(true);
               consecutiveFaceHits++;
               consecutiveMisses = 0;
+              if (result.descriptor && result.descriptor.length === 128) {
+                descriptorSamples.push(result.descriptor);
+              }
               progress = Math.min(100, progress + 5);
               setFaceIdScanProgress(progress);
 
               if (progress < 25) {
                 setFaceIdScanStatus("Wajah terdeteksi. Memetakan 30,000+ titik biometrik...");
               } else if (progress < 60) {
-                setFaceIdScanStatus("Merekam struktur dan kontur wajah...");
+                setFaceIdScanStatus("Merekam struktur kontur dan ciri unik wajah...");
               } else if (progress < 90) {
-                setFaceIdScanStatus("Menyimpan kunci biometrik terenkripsi...");
+                setFaceIdScanStatus("Menyimpan template biometrik terenkripsi...");
               } else {
                 setFaceIdScanStatus("Pendaftaran Face ID selesai!");
               }
@@ -337,16 +341,19 @@ export default function ProfilTab({
         if (faceIdScanIntervalRef.current) clearInterval(faceIdScanIntervalRef.current);
         stopFaceIdCamera();
 
+        const masterDescriptor = descriptorSamples.length > 0 ? averageFaceDescriptors(descriptorSamples) : undefined;
+
         const success = enableFaceIdForUser({
           username: sessionUser,
           role: sessionRole,
           token: localStorage.getItem("gim_swimming_token") || "",
           avatar: currentAvatar,
+          faceDescriptor: masterDescriptor,
         });
 
         if (success) {
           setIsFaceIdActive(true);
-          setFaceIdSuccess("Face ID berhasil diaktifkan! Anda kini dapat masuk menggunakan Face ID di halaman login.");
+          setFaceIdSuccess("Face ID berhasil diaktifkan! Fitur biometrik wajah Anda telah tersimpan dengan aman.");
         } else {
           setFaceIdError("Gagal mengaktifkan Face ID. Silakan coba lagi.");
         }

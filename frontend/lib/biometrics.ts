@@ -1,7 +1,8 @@
 /**
  * Biometric / Face ID Authentication Manager for GIM Swimming
  * Handles local biometric device registration, Face ID activation state per user,
- * and secure credential retrieval for one-tap biometric login.
+ * facial biometric embedding template storage, and secure credential retrieval
+ * for one-tap biometric login.
  */
 
 export interface FaceIdUserRecord {
@@ -9,6 +10,7 @@ export interface FaceIdUserRecord {
   role: string;
   token?: string;
   avatar?: string;
+  faceDescriptor?: number[]; // 128-dimensional L2-normalized biometric face descriptor
   enabledAt: number;
 }
 
@@ -72,13 +74,14 @@ export function getFaceIdCredential(username?: string): FaceIdUserRecord | null 
 }
 
 /**
- * Enable Face ID for a user account on this device
+ * Enable Face ID for a user account on this device, storing their face descriptor template
  */
 export function enableFaceIdForUser(data: {
   username: string;
   role: string;
   token?: string;
   avatar?: string;
+  faceDescriptor?: number[];
 }): boolean {
   if (typeof window === "undefined" || !data.username) return false;
   try {
@@ -93,6 +96,7 @@ export function enableFaceIdForUser(data: {
       role: data.role || "orang tua",
       token: data.token || "",
       avatar: data.avatar || "",
+      faceDescriptor: data.faceDescriptor && data.faceDescriptor.length === 128 ? data.faceDescriptor : undefined,
       enabledAt: Date.now(),
     };
 

@@ -34,7 +34,7 @@ import {
   getRegisteredFaceIdUsers,
   FaceIdUserRecord,
 } from "../lib/biometrics";
-import { detectFaceInVideo } from "../lib/faceDetection";
+import { detectFaceInVideo, detectAndVerifyFace } from "../lib/faceDetection";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -43,16 +43,16 @@ interface LoginModalProps {
 }
 
 // Helper to determine the RBAC role based on username or email
-const getRoleFromUsername = (name: string): string => {
-  const normalized = name.toLowerCase();
-  if (normalized.includes("admin")) return "admin";
-  if (normalized.includes("pelatih") || normalized.includes("coach")) return "pelatih";
-  return "orang tua"; // Default standard role
+const getRoleFromUsername = (nameOrEmail: string): string => {
+  const clean = nameOrEmail.toLowerCase().trim();
+  if (clean.includes("admin")) return "admin";
+  if (clean.includes("coach") || clean.includes("pelatih")) return "pelatih";
+  return "orang tua";
 };
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps) {
-  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"login" | "face-scan" | "setup-password" | "forgot-password" | "success">("login");
+  const [mounted, setMounted] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<{ username: string; role: string; must_change_password?: boolean } | null>(null);
 
   useEffect(() => {
@@ -89,6 +89,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
+  const [isFaceMismatch, setIsFaceMismatch] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -121,6 +122,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setScanStatus("Menghubungkan ke sensor biometrik...");
       setIsScanning(false);
       setIsFaceDetected(false);
+      setIsFaceMismatch(false);
       setForgotEmail("");
       setForgotOtp("");
       setForgotNewPassword("");
@@ -145,6 +147,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
+    setIsFaceDetected(false);
+    setIsFaceMismatch(false);
   };
 
   // Normal Form Login handler
@@ -400,6 +404,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
   const startScanningAnimation = (userToScan?: string) => {
     const targetAccount = (userToScan || usernameOrEmail).trim();
+    const credential = getFaceIdCredential(targetAccount);
+    const registeredDescriptor = credential?.faceDescriptor;
+
     let progress = 0;
     let consecutiveFaceHits = 0;
     let consecutiveMisses = 0;
@@ -410,35 +417,49 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     scanIntervalRef.current = setInterval(async () => {
       if (isProcessingAuth) return;
 
-      // Continuous Real-Time Face Verification
+      // Continuous Real-Time Biometric Face Identity Verification
       if (hasCamera) {
         if (videoRef.current) {
           try {
-            const result = await detectFaceInVideo(videoRef.current);
+            const result = await detectAndVerifyFace(videoRef.current, registeredDescriptor);
             if (result.isFace) {
-              setIsFaceDetected(true);
-              consecutiveFaceHits++;
-              consecutiveMisses = 0;
-              // Advance progress only when real human face is confirmed
-              progress = Math.min(100, progress + 6);
-              setScanProgress(progress);
+              if (result.isMatch) {
+                setIsFaceDetected(true);
+                setIsFaceMismatch(false);
+                consecutiveFaceHits++;
+                consecutiveMisses = 0;
+                // Advance progress only when genuine registered face is confirmed
+                progress = Math.min(100, progress + 6);
+                setScanProgress(progress);
 
-              if (progress < 30) {
-                setScanStatus("Wajah terdeteksi. Memetakan 30,000+ titik biometrik...");
-              } else if (progress < 65) {
-                setScanStatus("Memverifikasi kontur dan struktur wajah...");
-              } else if (progress < 90) {
-                setScanStatus("Mencocokkan kunci biometrik terenkripsi...");
+                if (progress < 30) {
+                  setScanStatus("Wajah terdeteksi. Memetakan 30,000+ titik biometrik...");
+                } else if (progress < 65) {
+                  setScanStatus("Memverifikasi keselarasan kontur dan ciri unik wajah...");
+                } else if (progress < 90) {
+                  setScanStatus(`Identitas terverifikasi (${Math.round(result.matchScore * 100)}% kecocokan). Membuka kunci...`);
+                } else {
+                  setScanStatus("Otorisasi Face ID berhasil! Membuka sesi...");
+                }
               } else {
-                setScanStatus("Otorisasi Face ID berhasil! Membuka sesi...");
+                // Face detected, but it does NOT match the registered owner!
+                setIsFaceDetected(false);
+                setIsFaceMismatch(true);
+                consecutiveMisses += 2;
+                consecutiveFaceHits = 0;
+                progress = Math.max(0, progress - 8);
+                setScanProgress(progress);
+                setScanStatus(`Wajah tidak cocok dengan akun "${targetAccount}"! Akses ditolak.`);
+                return;
               }
             } else {
+              // Not a face or hand/object detected
               setIsFaceDetected(false);
+              setIsFaceMismatch(false);
               consecutiveMisses++;
               consecutiveFaceHits = Math.max(0, consecutiveFaceHits - 1);
               setScanStatus(result.message || "Wajah tidak terdeteksi. Posisikan wajah Anda di depan kamera");
 
-              // Pause and slightly decay progress if face is absent or object/hand is shown
               if (consecutiveMisses > 2) {
                 progress = Math.max(0, progress - 4);
                 setScanProgress(progress);
@@ -455,16 +476,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         setScanProgress(progress);
       }
 
-      // Face must be verified across multiple frames and reach 100%
+      // Face must be strictly verified across multiple frames and reach 100%
       if (progress >= 100 && ((hasCamera && consecutiveFaceHits >= 8) || hasCamera === false)) {
         isProcessingAuth = true;
         progress = 100;
         setScanProgress(100);
         if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
         stopCamera();
-
-        // Retrieve registered local biometric credential
-        const credential = getFaceIdCredential(targetAccount);
 
         if (credential && credential.token) {
           // Verify with backend me endpoint
@@ -1027,14 +1045,20 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
                 {/* Scanning window (webcam container maintains dark contrast for laser visibility) */}
                 <div className={`relative h-44 w-44 rounded-full overflow-hidden border-2 transition-colors duration-300 bg-slate-950 flex items-center justify-center shadow-lg ${
-                  isFaceDetected
+                  isFaceMismatch
+                    ? "border-rose-500 shadow-rose-500/40"
+                    : isFaceDetected
                     ? "border-emerald-400 shadow-emerald-400/30"
                     : "border-amber-400/80 shadow-amber-400/20"
                 }`}>
 
                   {/* Outer Pulsing Glow */}
                   <div className={`absolute inset-0 border-4 rounded-full animate-pulse-ring pointer-events-none ${
-                    isFaceDetected ? "border-emerald-400/20" : "border-amber-400/20"
+                    isFaceMismatch
+                      ? "border-rose-500/30"
+                      : isFaceDetected
+                      ? "border-emerald-400/20"
+                      : "border-amber-400/20"
                   }`} />
 
                   {/* Dynamic Camera Feed or Fallback Graphics */}
@@ -1069,7 +1093,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
                   {/* Scanning Laser Line Overlay */}
                   <div className={`absolute left-0 w-full h-[3px] animate-laser pointer-events-none transition-colors duration-300 ${
-                    isFaceDetected
+                    isFaceMismatch
+                      ? "bg-rose-500 shadow-[0_0_14px_4px_rgba(244,63,94,0.9)]"
+                      : isFaceDetected
                       ? "bg-emerald-400 shadow-[0_0_12px_3px_rgba(52,211,153,0.8)]"
                       : "bg-amber-400 shadow-[0_0_10px_2px_rgba(251,191,36,0.7)]"
                   }`} />
@@ -1084,14 +1110,22 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   <div className="w-3/4 mx-auto bg-slate-100 h-1.5 rounded-full overflow-hidden mb-3">
                     <div
                       className={`h-full transition-all duration-150 ease-out ${
-                        isFaceDetected ? "bg-emerald-500" : "bg-amber-500"
+                        isFaceMismatch
+                          ? "bg-rose-500"
+                          : isFaceDetected
+                          ? "bg-emerald-500"
+                          : "bg-amber-500"
                       }`}
                       style={{ width: `${scanProgress}%` }}
                     />
                   </div>
 
                   <p className={`text-sm font-semibold transition-colors duration-200 min-h-[20px] px-4 ${
-                    isFaceDetected ? "text-emerald-600 font-bold" : "text-amber-600 font-medium animate-pulse"
+                    isFaceMismatch
+                      ? "text-rose-600 font-bold animate-shake"
+                      : isFaceDetected
+                      ? "text-emerald-600 font-bold"
+                      : "text-amber-600 font-medium animate-pulse"
                   }`}>
                     {scanStatus}
                   </p>
