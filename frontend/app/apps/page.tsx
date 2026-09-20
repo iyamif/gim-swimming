@@ -1054,7 +1054,7 @@ export default function AppsPage() {
 
   if (!mounted || !sessionUser || loadingData) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#061827] text-white">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-sm text-white">
         <div className="flex flex-col items-center space-y-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -1063,12 +1063,9 @@ export default function AppsPage() {
             className="h-20 w-20 sm:h-24 sm:w-24 object-contain drop-shadow-2xl animate-float-movement"
           />
           <div className="flex flex-col items-center space-y-2">
-            <div className="h-1.5 w-36 rounded-full bg-slate-800 overflow-hidden">
+            <div className="h-1.5 w-36 rounded-full bg-slate-800/80 overflow-hidden shadow-inner">
               <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
             </div>
-            <p className="text-xs font-bold text-slate-300 tracking-wide">
-              Memuat data terbaru...
-            </p>
           </div>
         </div>
       </div>
