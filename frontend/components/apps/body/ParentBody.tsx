@@ -21,6 +21,7 @@ import {
   enableFaceIdForUser,
   disableFaceIdForUser,
 } from "../../../lib/biometrics";
+import { detectFaceInVideo } from "../../../lib/faceDetection";
 import {
   Home,
   CalendarDays,
@@ -225,6 +226,7 @@ export default function ParentBody({
   const [faceIdScanProgress, setFaceIdScanProgress] = useState(0);
   const [faceIdScanStatus, setFaceIdScanStatus] = useState("Menghubungkan ke sensor biometrik...");
   const [faceIdHasCamera, setFaceIdHasCamera] = useState<boolean | null>(null);
+  const [faceIdIsDetected, setFaceIdIsDetected] = useState(false);
   const [faceIdSuccess, setFaceIdSuccess] = useState("");
   const [faceIdError, setFaceIdError] = useState("");
   const faceIdVideoRef = useRef<HTMLVideoElement>(null);
@@ -253,6 +255,7 @@ export default function ParentBody({
       faceIdStreamRef.current = null;
     }
     setIsFaceIdScanning(false);
+    setFaceIdIsDetected(false);
   };
 
   useEffect(() => {
@@ -293,19 +296,60 @@ export default function ParentBody({
 
   const startFaceIdRegistrationScan = () => {
     let progress = 0;
-    const statusLogs = [
-      { p: 0, text: "Menghubungkan ke sensor biometrik..." },
-      { p: 20, text: "Mendeteksi kontur wajah..." },
-      { p: 45, text: "Memetakan titik biometrik terenkripsi..." },
-      { p: 75, text: "Menyimpan kunci biometrik ke perangkat..." },
-      { p: 95, text: "Finalisasi pendaftaran Face ID..." },
-    ];
+    let consecutiveFaceHits = 0;
+    let consecutiveMisses = 0;
+    let isRegistering = false;
 
     if (faceIdScanIntervalRef.current) clearInterval(faceIdScanIntervalRef.current);
-    faceIdScanIntervalRef.current = setInterval(() => {
-      progress += 5;
-      if (progress >= 100) {
+    faceIdScanIntervalRef.current = setInterval(async () => {
+      if (isRegistering) return;
+
+      // Real-time Face Verification during Registration
+      if (faceIdHasCamera) {
+        if (faceIdVideoRef.current) {
+          try {
+            const result = await detectFaceInVideo(faceIdVideoRef.current);
+            if (result.isFace) {
+              setFaceIdIsDetected(true);
+              consecutiveFaceHits++;
+              consecutiveMisses = 0;
+              progress = Math.min(100, progress + 5);
+              setFaceIdScanProgress(progress);
+
+              if (progress < 25) {
+                setFaceIdScanStatus("Wajah terdeteksi. Memetakan 30,000+ titik biometrik...");
+              } else if (progress < 60) {
+                setFaceIdScanStatus("Merekam struktur dan kontur wajah...");
+              } else if (progress < 90) {
+                setFaceIdScanStatus("Menyimpan kunci biometrik terenkripsi...");
+              } else {
+                setFaceIdScanStatus("Pendaftaran Face ID selesai!");
+              }
+            } else {
+              setFaceIdIsDetected(false);
+              consecutiveMisses++;
+              consecutiveFaceHits = Math.max(0, consecutiveFaceHits - 1);
+              setFaceIdScanStatus(result.message || "Wajah tidak terdeteksi. Posisikan wajah Anda di depan kamera");
+
+              if (consecutiveMisses > 2) {
+                progress = Math.max(0, progress - 4);
+                setFaceIdScanProgress(progress);
+              }
+              return;
+            }
+          } catch (err) {
+            console.warn("Face detection frame error:", err);
+          }
+        }
+      } else if (faceIdHasCamera === false) {
+        progress += 4;
+        setFaceIdScanProgress(progress);
+      }
+
+      if (progress >= 100 && ((faceIdHasCamera && consecutiveFaceHits >= 8) || faceIdHasCamera === false)) {
+        isRegistering = true;
         progress = 100;
+        setFaceIdScanProgress(100);
         if (faceIdScanIntervalRef.current) clearInterval(faceIdScanIntervalRef.current);
         stopFaceIdCamera();
 
@@ -323,11 +367,6 @@ export default function ParentBody({
         } else {
           setFaceIdError("Gagal mengaktifkan Face ID. Silakan coba lagi.");
         }
-      }
-      setFaceIdScanProgress(progress);
-      const log = [...statusLogs].reverse().find((l) => progress >= l.p);
-      if (log) {
-        setFaceIdScanStatus(log.text);
       }
     }, 90);
   };
@@ -3525,7 +3564,11 @@ export default function ParentBody({
                       </p>
 
                       {/* Video / Simulator viewport */}
-                      <div className="relative h-44 w-44 rounded-full overflow-hidden border-2 border-cyan-400 bg-slate-900 flex items-center justify-center shadow-lg shadow-cyan-400/30">
+                      <div className={`relative h-44 w-44 rounded-full overflow-hidden border-2 transition-colors duration-300 bg-slate-900 flex items-center justify-center shadow-lg ${
+                        faceIdIsDetected
+                          ? "border-emerald-400 shadow-emerald-400/30"
+                          : "border-amber-400/80 shadow-amber-400/20"
+                      }`}>
                         {faceIdHasCamera ? (
                           <video
                             ref={faceIdVideoRef}
@@ -3541,18 +3584,28 @@ export default function ParentBody({
                         )}
 
                         {/* Scanning Laser Line */}
-                        <div className="absolute left-0 w-full h-[3px] bg-cyan-400 shadow-[0_0_12px_3px_rgba(34,211,238,0.8)] animate-laser pointer-events-none" />
+                        <div className={`absolute left-0 w-full h-[3px] animate-laser pointer-events-none transition-colors duration-300 ${
+                          faceIdIsDetected
+                            ? "bg-emerald-400 shadow-[0_0_12px_3px_rgba(52,211,153,0.8)]"
+                            : "bg-amber-400 shadow-[0_0_10px_2px_rgba(251,191,36,0.7)]"
+                        }`} />
                       </div>
 
                       {/* Progress bar */}
                       <div className="w-full max-w-xs text-center space-y-2">
                         <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-cyan-400 transition-all duration-100"
+                            className={`h-full transition-all duration-150 ease-out ${
+                              faceIdIsDetected ? "bg-emerald-500" : "bg-amber-500"
+                            }`}
                             style={{ width: `${faceIdScanProgress}%` }}
                           />
                         </div>
-                        <p className="text-xs text-cyan-400 font-bold animate-pulse">{faceIdScanStatus}</p>
+                        <p className={`text-xs font-bold transition-colors duration-200 px-2 min-h-[20px] ${
+                          faceIdIsDetected ? "text-emerald-400" : "text-amber-400 animate-pulse"
+                        }`}>
+                          {faceIdScanStatus}
+                        </p>
                         <p className="text-[11px] text-slate-400">{faceIdScanProgress}% Selesai</p>
                       </div>
 

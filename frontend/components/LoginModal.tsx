@@ -34,6 +34,7 @@ import {
   getRegisteredFaceIdUsers,
   FaceIdUserRecord,
 } from "../lib/biometrics";
+import { detectFaceInVideo } from "../lib/faceDetection";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -87,6 +88,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -118,6 +120,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setScanProgress(0);
       setScanStatus("Menghubungkan ke sensor biometrik...");
       setIsScanning(false);
+      setIsFaceDetected(false);
       setForgotEmail("");
       setForgotOtp("");
       setForgotNewPassword("");
@@ -398,21 +401,65 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   const startScanningAnimation = (userToScan?: string) => {
     const targetAccount = (userToScan || usernameOrEmail).trim();
     let progress = 0;
-    const statusLogs = [
-      { p: 0, text: "Menghubungkan ke sensor biometrik..." },
-      { p: 15, text: "Mendeteksi wajah..." },
-      { p: 35, text: "Memetakan 30,000+ titik inframerah..." },
-      { p: 60, text: "Memverifikasi struktur wajah..." },
-      { p: 85, text: "Mencocokkan dengan kunci terenkripsi..." },
-      { p: 98, text: "Memproses otorisasi..." },
-    ];
+    let consecutiveFaceHits = 0;
+    let consecutiveMisses = 0;
+    let isProcessingAuth = false;
 
     if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
 
-    scanIntervalRef.current = setInterval(() => {
-      progress += 4;
-      if (progress >= 100) {
+    scanIntervalRef.current = setInterval(async () => {
+      if (isProcessingAuth) return;
+
+      // Continuous Real-Time Face Verification
+      if (hasCamera) {
+        if (videoRef.current) {
+          try {
+            const result = await detectFaceInVideo(videoRef.current);
+            if (result.isFace) {
+              setIsFaceDetected(true);
+              consecutiveFaceHits++;
+              consecutiveMisses = 0;
+              // Advance progress only when real human face is confirmed
+              progress = Math.min(100, progress + 6);
+              setScanProgress(progress);
+
+              if (progress < 30) {
+                setScanStatus("Wajah terdeteksi. Memetakan 30,000+ titik biometrik...");
+              } else if (progress < 65) {
+                setScanStatus("Memverifikasi kontur dan struktur wajah...");
+              } else if (progress < 90) {
+                setScanStatus("Mencocokkan kunci biometrik terenkripsi...");
+              } else {
+                setScanStatus("Otorisasi Face ID berhasil! Membuka sesi...");
+              }
+            } else {
+              setIsFaceDetected(false);
+              consecutiveMisses++;
+              consecutiveFaceHits = Math.max(0, consecutiveFaceHits - 1);
+              setScanStatus(result.message || "Wajah tidak terdeteksi. Posisikan wajah Anda di depan kamera");
+
+              // Pause and slightly decay progress if face is absent or object/hand is shown
+              if (consecutiveMisses > 2) {
+                progress = Math.max(0, progress - 4);
+                setScanProgress(progress);
+              }
+              return;
+            }
+          } catch (err) {
+            console.warn("Face detection frame error:", err);
+          }
+        }
+      } else if (hasCamera === false) {
+        // Fallback without camera only if webcam is physically missing or permission denied
+        progress += 4;
+        setScanProgress(progress);
+      }
+
+      // Face must be verified across multiple frames and reach 100%
+      if (progress >= 100 && ((hasCamera && consecutiveFaceHits >= 8) || hasCamera === false)) {
+        isProcessingAuth = true;
         progress = 100;
+        setScanProgress(100);
         if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
         stopCamera();
 
@@ -455,14 +502,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         } else {
           authenticateViaLoginApi(targetAccount, credential);
         }
-      }
-
-      setScanProgress(progress);
-
-      // Update status text based on progress milestone
-      const log = [...statusLogs].reverse().find((l) => progress >= l.p);
-      if (log) {
-        setScanStatus(log.text);
       }
     }, 90);
   };
@@ -987,10 +1026,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 </p>
 
                 {/* Scanning window (webcam container maintains dark contrast for laser visibility) */}
-                <div className="relative h-44 w-44 rounded-full overflow-hidden border-2 border-cyan-400 bg-slate-950 flex items-center justify-center shadow-lg shadow-cyan-400/20">
+                <div className={`relative h-44 w-44 rounded-full overflow-hidden border-2 transition-colors duration-300 bg-slate-950 flex items-center justify-center shadow-lg ${
+                  isFaceDetected
+                    ? "border-emerald-400 shadow-emerald-400/30"
+                    : "border-amber-400/80 shadow-amber-400/20"
+                }`}>
 
                   {/* Outer Pulsing Glow */}
-                  <div className="absolute inset-0 border-4 border-cyan-400/20 rounded-full animate-pulse-ring pointer-events-none" />
+                  <div className={`absolute inset-0 border-4 rounded-full animate-pulse-ring pointer-events-none ${
+                    isFaceDetected ? "border-emerald-400/20" : "border-amber-400/20"
+                  }`} />
 
                   {/* Dynamic Camera Feed or Fallback Graphics */}
                   {hasCamera ? (
@@ -1023,7 +1068,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   )}
 
                   {/* Scanning Laser Line Overlay */}
-                  <div className="absolute left-0 w-full h-[3px] bg-cyan-400 shadow-[0_0_10px_2px_rgba(34,211,238,0.7)] animate-laser pointer-events-none" />
+                  <div className={`absolute left-0 w-full h-[3px] animate-laser pointer-events-none transition-colors duration-300 ${
+                    isFaceDetected
+                      ? "bg-emerald-400 shadow-[0_0_12px_3px_rgba(52,211,153,0.8)]"
+                      : "bg-amber-400 shadow-[0_0_10px_2px_rgba(251,191,36,0.7)]"
+                  }`} />
 
                   {/* Holographic grid matrix (overlay for tech look) */}
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-[#0a1926]/10 to-[#0a1926]/40 pointer-events-none" />
@@ -1032,14 +1081,18 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 {/* Progress Circular ring value & Status Log */}
                 <div className="w-full mt-6 text-center">
                   {/* Progress Percentage bar */}
-                  <div className="w-3/4 mx-auto bg-slate-100 h-1 rounded-full overflow-hidden mb-3">
+                  <div className="w-3/4 mx-auto bg-slate-100 h-1.5 rounded-full overflow-hidden mb-3">
                     <div
-                      className="h-full bg-cyan-400 transition-all duration-100 ease-out"
+                      className={`h-full transition-all duration-150 ease-out ${
+                        isFaceDetected ? "bg-emerald-500" : "bg-amber-500"
+                      }`}
                       style={{ width: `${scanProgress}%` }}
                     />
                   </div>
 
-                  <p className="text-sm font-semibold text-cyan-600 animate-pulse min-h-[20px]">
+                  <p className={`text-sm font-semibold transition-colors duration-200 min-h-[20px] px-4 ${
+                    isFaceDetected ? "text-emerald-600 font-bold" : "text-amber-600 font-medium animate-pulse"
+                  }`}>
                     {scanStatus}
                   </p>
                   <p className="text-xs text-slate-500 mt-1 max-w-[280px] mx-auto truncate">
