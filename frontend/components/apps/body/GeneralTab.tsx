@@ -34,6 +34,14 @@ interface GeneralTabProps {
   onRefresh?: () => Promise<void>;
 }
 
+const formatRupiah = (val: number | string): string => {
+  if (val === "" || val === null || val === undefined) return "";
+  const clean = String(val).replace(/\D/g, "");
+  if (!clean) return "";
+  const num = parseInt(clean, 10);
+  return `Rp ${num.toLocaleString("id-ID")}`;
+};
+
 export default function GeneralTab({
   sessionUser = "",
   sessionRole = "admin",
@@ -53,6 +61,7 @@ export default function GeneralTab({
   const [poolLng, setPoolLng] = useState<number>(107.76104);
   const [poolRadius, setPoolRadius] = useState<number>(200);
   const [savingPool, setSavingPool] = useState(false);
+  const [deletingPoolId, setDeletingPoolId] = useState<string | null>(null);
 
   // State: Class Programs
   const [programs, setPrograms] = useState<ClassProgram[]>([]);
@@ -61,9 +70,11 @@ export default function GeneralTab({
   const [editingProgram, setEditingProgram] = useState<ClassProgram | null>(null);
   const [progName, setProgName] = useState("");
   const [progDesc, setProgDesc] = useState("");
-  const [progFee, setProgFee] = useState<number>(450000);
+  const [progFee, setProgFee] = useState<number>(350000);
+  const [progFeeDisplay, setProgFeeDisplay] = useState<string>("Rp 350.000");
   const [progSessions, setProgSessions] = useState<number>(2);
   const [savingProgram, setSavingProgram] = useState(false);
+  const [deletingProgramId, setDeletingProgramId] = useState<string | null>(null);
 
   // Load Pools & Programs
   const loadData = async () => {
@@ -134,7 +145,7 @@ export default function GeneralTab({
       await loadData();
       if (onRefresh) await onRefresh();
     } catch (err: any) {
-      alert(err.message || "Gagal menyimpan data lokasi kolam");
+      console.error("Error saving pool:", err);
     } finally {
       setSavingPool(false);
     }
@@ -142,13 +153,15 @@ export default function GeneralTab({
 
   // Delete Pool
   const handleDeletePool = async (id: string, name: string) => {
-    if (!confirm(`Hapus lokasi kolam renang '${name}'?`)) return;
     try {
+      setDeletingPoolId(id);
       await deletePool(id);
       await loadData();
       if (onRefresh) await onRefresh();
     } catch (err) {
-      alert("Gagal menghapus lokasi kolam");
+      console.error("Error deleting pool:", err);
+    } finally {
+      setDeletingPoolId(null);
     }
   };
 
@@ -158,43 +171,63 @@ export default function GeneralTab({
       setEditingProgram(prog);
       setProgName(prog.name);
       setProgDesc(prog.description || "");
-      setProgFee(prog.monthly_fee || 450000);
+      const fee = prog.monthly_fee || 0;
+      setProgFee(fee);
+      setProgFeeDisplay(fee > 0 ? formatRupiah(fee) : "");
       setProgSessions(prog.sessions_per_week || 2);
     } else {
       setEditingProgram(null);
       setProgName("");
       setProgDesc("");
-      setProgFee(450000);
+      setProgFee(350000);
+      setProgFeeDisplay("Rp 350.000");
       setProgSessions(2);
     }
     setShowProgramModal(true);
   };
 
+  // Handle live fee currency typing
+  const handleFeeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+    const digitsOnly = rawVal.replace(/\D/g, "");
+    if (!digitsOnly) {
+      setProgFee(0);
+      setProgFeeDisplay("");
+      return;
+    }
+    const num = parseInt(digitsOnly, 10);
+    setProgFee(num);
+    setProgFeeDisplay(formatRupiah(num));
+  };
+
   // Submit Program Form
   const handleSubmitProgram = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!progName.trim()) {
+      return;
+    }
     try {
       setSavingProgram(true);
       if (editingProgram) {
         await updateClassProgram(editingProgram.id, {
-          name: progName,
-          description: progDesc,
-          monthly_fee: progFee,
-          sessions_per_week: progSessions,
+          name: progName.trim(),
+          description: progDesc.trim(),
+          monthly_fee: Number(progFee) || 0,
+          sessions_per_week: Number(progSessions) || 1,
         });
       } else {
         await createClassProgram({
-          name: progName,
-          description: progDesc,
-          monthly_fee: progFee,
-          sessions_per_week: progSessions,
+          name: progName.trim(),
+          description: progDesc.trim(),
+          monthly_fee: Number(progFee) || 0,
+          sessions_per_week: Number(progSessions) || 1,
         });
       }
       setShowProgramModal(false);
       await loadData();
       if (onRefresh) await onRefresh();
     } catch (err: any) {
-      alert(err.message || "Gagal menyimpan program kelas");
+      console.error("Error saving class program:", err);
     } finally {
       setSavingProgram(false);
     }
@@ -202,13 +235,15 @@ export default function GeneralTab({
 
   // Delete Program
   const handleDeleteProgram = async (id: string, name: string) => {
-    if (!confirm(`Hapus program kelas renang '${name}'?`)) return;
     try {
+      setDeletingProgramId(id);
       await deleteClassProgram(id);
       await loadData();
       if (onRefresh) await onRefresh();
     } catch (err) {
-      alert("Gagal menghapus program kelas");
+      console.error("Error deleting class program:", err);
+    } finally {
+      setDeletingProgramId(null);
     }
   };
 
@@ -265,7 +300,7 @@ export default function GeneralTab({
           >
             <Plus size={16} className="stroke-[3]" />
             <span>
-              {activeSubTab === "pools" ? "+ Tambah Kolam" : "+ Tambah Program"}
+              {activeSubTab === "pools" ? "Tambah Kolam" : "Tambah Program"}
             </span>
           </button>
         </div>
@@ -282,11 +317,10 @@ export default function GeneralTab({
               setActiveSubTab("pools");
               setSearchQuery("");
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeSubTab === "pools"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${activeSubTab === "pools"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              }`}
           >
             <MapPin size={16} />
             <span>Lokasi Kolam ({pools.length})</span>
@@ -296,11 +330,10 @@ export default function GeneralTab({
               setActiveSubTab("programs");
               setSearchQuery("");
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeSubTab === "programs"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${activeSubTab === "programs"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              }`}
           >
             <Layers size={16} />
             <span>Program Kelas ({programs.length})</span>
@@ -421,10 +454,11 @@ export default function GeneralTab({
                       </button>
                       <button
                         onClick={() => handleDeletePool(pool.id, pool.name)}
-                        className="flex items-center gap-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                        disabled={deletingPoolId === pool.id}
+                        className="flex items-center gap-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
                       >
-                        <Trash2 size={13} />
-                        <span>Hapus</span>
+                        <Trash2 size={13} className={deletingPoolId === pool.id ? "animate-spin" : ""} />
+                        <span>{deletingPoolId === pool.id ? "Menghapus..." : "Hapus"}</span>
                       </button>
                     </div>
                   </div>
@@ -509,10 +543,11 @@ export default function GeneralTab({
                     </button>
                     <button
                       onClick={() => handleDeleteProgram(prog.id, prog.name)}
-                      className="flex items-center gap-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+                      disabled={deletingProgramId === prog.id}
+                      className="flex items-center gap-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50"
                     >
-                      <Trash2 size={13} />
-                      <span>Hapus</span>
+                      <Trash2 size={13} className={deletingProgramId === prog.id ? "animate-spin" : ""} />
+                      <span>{deletingProgramId === prog.id ? "Menghapus..." : "Hapus"}</span>
                     </button>
                   </div>
                 </div>
@@ -699,14 +734,14 @@ export default function GeneralTab({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Biaya SPP Bulanan (Rp) <span className="text-rose-500">*</span>
+                    SPP Bulanan <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    type="number"
-                    min={0}
-                    step={10000}
-                    value={progFee}
-                    onChange={(e) => setProgFee(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. Rp 350.000"
+                    value={progFeeDisplay}
+                    onChange={handleFeeChange}
                     required
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition"
                   />
