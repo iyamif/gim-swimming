@@ -96,7 +96,7 @@ func (r *pgCoachRepository) UpdateStatus(ctx context.Context, coachID int64, sta
 
 func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) {
 	query := `
-		SELECT 
+		SELECT DISTINCT ON (c.id)
 			c.id, 
 			c.user_id, 
 			c.name, 

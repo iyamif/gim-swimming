@@ -511,7 +511,7 @@ func (s *appService) GetCoaches(ctx context.Context) ([]model.Coach, error) {
 // CreateCoach adds a new coach
 func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachInput) (*model.Coach, error) {
 	if input.Name == "" || input.Phone == "" || input.Email == "" {
-		return nil, errors.New("name, phone, and email are required")
+		return nil, errors.New("nama, phone, dan email wajib diisi")
 	}
 
 	payPerSession := input.PayPerSession
@@ -540,69 +540,79 @@ func (s *appService) CreateCoach(ctx context.Context, input *model.CreateCoachIn
 		coach.Spec = "Instruktur Renang"
 	}
 
-	// Auto-create user login account for the coach if not existing
-	nameParts := strings.Fields(input.Name)
-	rawUsername := strings.ToLower(nameParts[0])
-	if strings.HasPrefix(strings.ToLower(input.Name), "coach ") && len(nameParts) > 1 {
-		rawUsername = strings.ToLower(nameParts[1])
-	}
-	reg := regexp.MustCompile("[^a-z0-9_]")
-	username := reg.ReplaceAllString(rawUsername, "")
-	if username == "" {
-		username = "coach"
-	}
-
 	email := strings.TrimSpace(strings.ToLower(input.Email))
-	if email == "" {
-		email = fmt.Sprintf("%s@gimswimming.com", username)
+
+	// Check if email already registered in users table
+	existingByEmail, _ := s.userRepo.FindByEmail(ctx, email)
+	if existingByEmail != nil {
+		return nil, errors.New("Email sudah terdaftar untuk pengguna lain")
 	}
 
-	existingUser, _ := s.userRepo.FindByUsername(ctx, username)
-	if existingUser != nil && !strings.EqualFold(existingUser.Email, email) {
-		// Username is taken by another user, try email prefix
-		emailPrefix := strings.Split(email, "@")[0]
-		emailClean := reg.ReplaceAllString(emailPrefix, "")
-		if emailClean != "" && emailClean != username {
-			if u2, _ := s.userRepo.FindByUsername(ctx, emailClean); u2 == nil {
-				username = emailClean
-				existingUser = nil
+	reg := regexp.MustCompile("[^a-z0-9_]")
+	var username string
+
+	// Use provided username or auto-generate
+	if strings.TrimSpace(input.Username) != "" {
+		customUser := reg.ReplaceAllString(strings.ToLower(strings.TrimSpace(input.Username)), "")
+		if customUser != "" {
+			existingUser, _ := s.userRepo.FindByUsername(ctx, customUser)
+			if existingUser != nil {
+				return nil, errors.New("Username sudah digunakan oleh akun lain")
+			}
+			username = customUser
+		}
+	}
+
+	if username == "" {
+		nameParts := strings.Fields(input.Name)
+		rawUsername := strings.ToLower(nameParts[0])
+		if strings.HasPrefix(strings.ToLower(input.Name), "coach ") && len(nameParts) > 1 {
+			rawUsername = strings.ToLower(nameParts[1])
+		}
+		username = reg.ReplaceAllString(rawUsername, "")
+		if username == "" {
+			username = "coach"
+		}
+
+		existingUser, _ := s.userRepo.FindByUsername(ctx, username)
+		if existingUser != nil {
+			emailPrefix := strings.Split(email, "@")[0]
+			emailClean := reg.ReplaceAllString(emailPrefix, "")
+			if emailClean != "" && emailClean != username {
+				if u2, _ := s.userRepo.FindByUsername(ctx, emailClean); u2 == nil {
+					username = emailClean
+					existingUser = nil
+				}
+			}
+		}
+		if existingUser != nil {
+			candidate := fmt.Sprintf("%s%d", username, time.Now().Unix()%10000)
+			if u3, _ := s.userRepo.FindByUsername(ctx, candidate); u3 == nil {
+				username = candidate
 			}
 		}
 	}
-	if existingUser != nil && !strings.EqualFold(existingUser.Email, email) {
-		// If still taken, append suffix
-		candidate := fmt.Sprintf("%s%d", username, time.Now().Unix()%10000)
-		if u3, _ := s.userRepo.FindByUsername(ctx, candidate); u3 == nil {
-			username = candidate
-			existingUser = nil
-		}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte("gim123"), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.New("Gagal enkripsi password akun pelatih")
 	}
 
-	if existingUser == nil {
-		existingByEmail, _ := s.userRepo.FindByEmail(ctx, email)
-		if existingByEmail != nil {
-			existingUser = existingByEmail
-		}
+	newUser := &model.User{
+		Username:           username,
+		Email:              email,
+		Password:           string(hashed),
+		Role:               model.RolePelatih,
+		MustChangePassword: true,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
 
-	if existingUser == nil {
-		hashed, err := bcrypt.GenerateFromPassword([]byte("gim123"), bcrypt.DefaultCost)
-		if err == nil {
-			newUser := &model.User{
-				Username:           username,
-				Email:              email,
-				Password:           string(hashed),
-				Role:               model.RolePelatih,
-				MustChangePassword: true,
-				CreatedAt:          time.Now(),
-				UpdatedAt:          time.Now(),
-			}
-			_ = s.userRepo.Create(ctx, newUser)
-			coach.UserID = &newUser.ID
-		}
-	} else {
-		coach.UserID = &existingUser.ID
+	if err := s.userRepo.Create(ctx, newUser); err != nil {
+		return nil, fmt.Errorf("Gagal membuat akun user pelatih: %v", err)
 	}
+
+	coach.UserID = &newUser.ID
 
 	if err := s.coachRepo.Create(ctx, coach); err != nil {
 		return nil, err

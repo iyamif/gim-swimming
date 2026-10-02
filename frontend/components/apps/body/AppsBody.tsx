@@ -69,6 +69,7 @@ interface AppsBodyProps {
   }) => void;
   onAddCoach: (data: {
     name: string;
+    username?: string;
     spec: string;
     phone: string;
     email: string;

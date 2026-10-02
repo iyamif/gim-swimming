@@ -780,10 +780,16 @@ export default function AppsPage() {
   // Handler: Add Coach to PostgreSQL DB
   const handleAddPelatihSubmit = async (data: {
     name: string;
+    username?: string;
     spec: string;
     phone: string;
     email: string;
     class: string;
+    age?: string;
+    address?: string;
+    gender?: string;
+    experience?: string;
+    pay_per_session?: number;
   }) => {
     if (!data.name || !data.phone || !data.email) {
       return;
@@ -795,8 +801,9 @@ export default function AppsPage() {
         const updatedCoaches = await fetchCoaches();
         setCoaches(updatedCoaches);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to add coach:", err);
+      throw err;
     }
   };
 

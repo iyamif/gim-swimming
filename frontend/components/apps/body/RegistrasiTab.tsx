@@ -29,6 +29,7 @@ interface RegistrasiTabProps {
   }) => Promise<boolean | void> | boolean | void;
   onAddCoach: (data: {
     name: string;
+    username?: string;
     spec: string;
     phone: string;
     email: string;
@@ -71,6 +72,7 @@ export default function RegistrasiTab({
   const [address, setAddress] = useState("");
 
   // Pelatih (Coach) Specific Fields
+  const [coachUsername, setCoachUsername] = useState("");
   const [coachAge, setCoachAge] = useState("");
   const [coachSpec, setCoachSpec] = useState("");
   const [coachClass, setCoachClass] = useState("Prestasi");
@@ -164,6 +166,7 @@ export default function RegistrasiTab({
     setEmail("");
     setPhone("");
     setAddress("");
+    setCoachUsername("");
     setCoachAge("");
     setCoachSpec("");
     setCoachClass("Prestasi");
@@ -200,6 +203,7 @@ export default function RegistrasiTab({
       try {
         await onAddCoach({
           name: name.trim(),
+          username: coachUsername.trim() || undefined,
           spec: coachSpec.trim() || "Instruktur Renang Umum",
           phone: phone.trim(),
           email: email.trim(),
@@ -447,6 +451,19 @@ export default function RegistrasiTab({
               {selectedRole === "pelatih" ? (
                 /* Detail Pelatih */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Username Akun Pelatih <span className="text-blue-600 font-normal">(untuk login)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={coachUsername}
+                      onChange={(e) => setCoachUsername(e.target.value)}
+                      placeholder="Contoh: coachadi (opsional, auto-generate jika kosong)"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Usia Pelatih (Tahun)

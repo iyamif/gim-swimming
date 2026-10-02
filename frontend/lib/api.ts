@@ -321,6 +321,7 @@ export async function fetchCoaches(): Promise<Coach[]> {
 
 export async function createCoach(payload: {
   name: string;
+  username?: string;
   spec?: string;
   phone: string;
   email: string;
@@ -335,7 +336,10 @@ export async function createCoach(payload: {
       headers: getHeaders(),
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Gagal mendaftarkan pelatih");
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || errJson?.message || "Gagal mendaftarkan pelatih");
+    }
     const json = await res.json();
     const c = json.data;
     const payRate = Number(c.pay_per_session) || Number(payload.pay_per_session) || 100000;

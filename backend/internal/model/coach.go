@@ -21,6 +21,7 @@ type Coach struct {
 // CreateCoachInput represents payload for registering a new coach
 type CreateCoachInput struct {
 	Name          string  `json:"name" binding:"required"`
+	Username      string  `json:"username"`
 	Spec          string  `json:"spec"`
 	Phone         string  `json:"phone" binding:"required"`
 	Email         string  `json:"email" binding:"required,email"`
