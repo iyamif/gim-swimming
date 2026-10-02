@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Send, MessageCircle, CheckCircle2 } from "lucide-re
 export default function Pendaftaran() {
   const [formData, setFormData] = useState({
     nama: "",
+    username: "",
     usia: "",
     program: "Kids Swimming (Usia 0–12 bulan)",
     whatsapp: "",
@@ -69,6 +70,7 @@ export default function Pendaftaran() {
       const text = `Halo Admin GIM Swimming, saya ingin mendaftar kelas berenang baru:
 
 *Nama Lengkap*: ${formData.nama}
+*Username Akun*: ${formData.username || "-"}
 *Usia*: ${formData.usia} tahun
 *Pilihan Program*: ${formData.program}
 *Nomor WhatsApp*: ${formData.whatsapp}
@@ -139,6 +141,22 @@ Mohon informasi mengenai pendaftaran lebih lanjut. Terima kasih!`;
                 value={formData.nama}
                 onChange={handleChange}
                 placeholder="Masukkan nama lengkap"
+                className="w-full rounded-xl border border-slate-200/80 bg-slate-50/50 py-3 px-4 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-4 focus:ring-cyan-400/10 focus:border-cyan-400 focus:outline-none transition-all duration-300"
+              />
+            </div>
+
+            {/* Username Akun */}
+            <div>
+              <label htmlFor="username" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Username Akun <span className="text-slate-400 text-[10px] font-normal">(Opsional, untuk Login App)</span>
+              </label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="Contoh: siswabudi"
                 className="w-full rounded-xl border border-slate-200/80 bg-slate-50/50 py-3 px-4 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-4 focus:ring-cyan-400/10 focus:border-cyan-400 focus:outline-none transition-all duration-300"
               />
             </div>

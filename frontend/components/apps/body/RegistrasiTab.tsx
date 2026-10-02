@@ -379,6 +379,24 @@ export default function RegistrasiTab({
                   />
                 </div>
 
+                {/* Username Akun (untuk login) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Username Akun <span className="text-blue-600 font-normal">(untuk login)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedRole === "pelatih" ? coachUsername : studentUsername}
+                    onChange={(e) =>
+                      selectedRole === "pelatih"
+                        ? setCoachUsername(e.target.value)
+                        : setStudentUsername(e.target.value)
+                    }
+                    placeholder="Contoh: user123 (opsional, auto-generate jika kosong)"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
+                  />
+                </div>
+
                 {/* Jenis Kelamin */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
@@ -456,19 +474,6 @@ export default function RegistrasiTab({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Username Akun Pelatih <span className="text-blue-600 font-normal">(untuk login)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={coachUsername}
-                      onChange={(e) => setCoachUsername(e.target.value)}
-                      placeholder="Contoh: coachadi (opsional, auto-generate jika kosong)"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Usia Pelatih (Tahun)
                     </label>
                     <input
@@ -543,19 +548,6 @@ export default function RegistrasiTab({
               ) : (
                 /* Detail Siswa */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Username Akun Siswa/Wali <span className="text-blue-600 font-normal">(untuk login)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={studentUsername}
-                      onChange={(e) => setStudentUsername(e.target.value)}
-                      placeholder="Contoh: siswabudi (opsional, auto-generate jika kosong)"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Nama Orang Tua / Wali <span className="text-rose-500">*</span>
