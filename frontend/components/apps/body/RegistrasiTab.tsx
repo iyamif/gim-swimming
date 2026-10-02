@@ -16,6 +16,7 @@ interface RegistrasiTabProps {
   classPrograms?: ClassProgram[];
   onAddStudent: (data: {
     name: string;
+    username?: string;
     age: string;
     parent: string;
     phone: string;
