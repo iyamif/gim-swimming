@@ -344,6 +344,20 @@ func (s *appService) UpdateStudent(ctx context.Context, id int64, input *model.U
 		student.Status = dbStatus
 	}
 
+	if newUsername := strings.TrimSpace(input.Username); newUsername != "" {
+		existingUser, _ := s.userRepo.FindByUsername(ctx, newUsername)
+		if student.UserID != nil && *student.UserID > 0 {
+			if existingUser != nil && existingUser.ID != *student.UserID {
+				return nil, errors.New("Username sudah digunakan oleh akun lain")
+			}
+			_ = s.userRepo.UpdateUsername(ctx, *student.UserID, newUsername)
+		} else {
+			if existingUser != nil {
+				return nil, errors.New("Username sudah digunakan oleh akun lain")
+			}
+		}
+	}
+
 	student.UpdatedAt = time.Now()
 	if err := s.studentRepo.Update(ctx, student); err != nil {
 		return nil, err
@@ -676,6 +690,26 @@ func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.Upd
 	if input.PayPerSession > 0 {
 		existing.PayPerSession = input.PayPerSession
 	}
+
+	if newUsername := strings.TrimSpace(input.Username); newUsername != "" {
+		existingUser, _ := s.userRepo.FindByUsername(ctx, newUsername)
+		if existing.UserID != nil && *existing.UserID > 0 {
+			if existingUser != nil && existingUser.ID != *existing.UserID {
+				return nil, errors.New("Username sudah digunakan oleh akun lain")
+			}
+			_ = s.userRepo.UpdateUsername(ctx, *existing.UserID, newUsername)
+		} else {
+			if existingUser != nil {
+				return nil, errors.New("Username sudah digunakan oleh akun lain")
+			} else {
+				u, _ := s.userRepo.FindByEmail(ctx, existing.Email)
+				if u != nil {
+					_ = s.userRepo.UpdateUsername(ctx, u.ID, newUsername)
+				}
+			}
+		}
+	}
+
 	existing.UpdatedAt = time.Now()
 
 	if err := s.coachRepo.Update(ctx, existing); err != nil {

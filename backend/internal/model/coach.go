@@ -34,6 +34,7 @@ type CreateCoachInput struct {
 // UpdateCoachInput represents payload for editing an existing coach
 type UpdateCoachInput struct {
 	Name          string  `json:"name" binding:"required"`
+	Username      string  `json:"username"`
 	Spec          string  `json:"spec"`
 	Phone         string  `json:"phone" binding:"required"`
 	Email         string  `json:"email" binding:"required,email"`

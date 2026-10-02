@@ -62,6 +62,7 @@ type UpdateStudentStatusInput struct {
 type UpdateStudentInput struct {
 	UserID         *int64 `json:"user_id,omitempty"`
 	Name           string `json:"name"`
+	Username       string `json:"username"`
 	Class          string `json:"class"`
 	Parent         string `json:"parent"`
 	Phone          string `json:"phone"`

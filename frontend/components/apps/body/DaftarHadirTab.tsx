@@ -72,6 +72,7 @@ export default function DaftarHadirTab({
   // Edit mode states in modal
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
   const [editClass, setEditClass] = useState("");
   const [editParent, setEditParent] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -405,10 +406,11 @@ export default function DaftarHadirTab({
   };
 
   // Open detail modal and initialize edit state
-  const handleOpenStudentDetail = (student: Student) => {
+  const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student);
     setIsEditing(false);
     setEditName(student.name || "");
+    setEditUsername(student.username || "");
     setEditClass(student.class || "Prestasi");
     setEditParent(student.parent || "");
     setEditPhone(student.phone || "");
@@ -418,11 +420,13 @@ export default function DaftarHadirTab({
     setEditStatus(isStudentActive(student) ? "Active" : "Inactive");
     setFeedbackMsg(null);
   };
+  const handleOpenStudentDetail = handleSelectStudent;
 
   // Start edit mode
   const handleStartEdit = () => {
     if (!selectedStudent) return;
     setEditName(selectedStudent.name || "");
+    setEditUsername(selectedStudent.username || "");
     setEditClass(selectedStudent.class || "Prestasi");
     setEditParent(selectedStudent.parent || "");
     setEditPhone(selectedStudent.phone || "");
@@ -449,8 +453,9 @@ export default function DaftarHadirTab({
     const resolvedCoachId = editCoachId || (selectedCoachObj ? String(selectedCoachObj.id) : "");
     const resolvedCoachName = editCoachName || (selectedCoachObj ? selectedCoachObj.name : "");
 
-    const updatePayload: Partial<Student> = {
+    const updatePayload: Partial<Student> & { username?: string } = {
       name: editName.trim(),
+      username: editUsername.trim(),
       class: editClass.trim() || selectedStudent.class,
       parent: editParent.trim(),
       phone: editPhone.trim(),
@@ -1035,18 +1040,33 @@ export default function DaftarHadirTab({
                   </span>
                 </div>
 
-                {/* Nama Lengkap */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                    Nama Lengkap Siswa:
-                  </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Nama siswa..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                {/* Nama Lengkap & Username */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
+                      Nama Lengkap Siswa:
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Nama siswa..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
+                      Username Akun (Login):
+                    </label>
+                    <input
+                      type="text"
+                      value={editUsername}
+                      onChange={(e) => setEditUsername(e.target.value)}
+                      placeholder="Username untuk login..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Status & Kelas Grid */}

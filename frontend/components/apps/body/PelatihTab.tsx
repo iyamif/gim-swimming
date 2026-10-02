@@ -35,6 +35,7 @@ interface PelatihTabProps {
   onUpdateCoachStatus?: (coachId: string, status: string) => Promise<void> | void;
   onUpdateCoach?: (coachId: string, data: {
     name: string;
+    username?: string;
     spec?: string;
     phone: string;
     email: string;
@@ -80,6 +81,7 @@ export default function PelatihTab({
 
   // Edit Coach Form States
   const [editName, setEditName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
   const [editSpec, setEditSpec] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -99,6 +101,7 @@ export default function PelatihTab({
   const handleOpenEdit = (coach: Coach) => {
     setCoachToEdit(coach);
     setEditName(coach.name || "");
+    setEditUsername(coach.username || "");
     setEditSpec(coach.spec || "");
     setEditPhone(coach.phone || "");
     setEditEmail(coach.email || "");
@@ -133,6 +136,7 @@ export default function PelatihTab({
       if (onUpdateCoach) {
         await onUpdateCoach(String(coachToEdit.id), {
           name: editName.trim(),
+          username: editUsername.trim(),
           spec: editSpec.trim() || "Instruktur Renang",
           phone: editPhone.trim(),
           email: editEmail.trim(),
@@ -852,18 +856,33 @@ export default function PelatihTab({
                 </div>
               )}
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Nama Lengkap Pelatih <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="Contoh: Coach Adi Pratama"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Nama Lengkap Pelatih <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Contoh: Coach Adi Pratama"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Username Akun (untuk login)
+                  </label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="Contoh: coachadi"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

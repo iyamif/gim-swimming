@@ -7,6 +7,7 @@ export interface Student {
   id: string;
   user_id?: number | string;
   userId?: number | string;
+  username?: string;
   name: string;
   class: string;
   attendanceRate: string;
@@ -30,6 +31,7 @@ export interface Coach {
   id: string;
   user_id?: number | string;
   userId?: number | string;
+  username?: string;
   name: string;
   spec: string;
   phone: string;

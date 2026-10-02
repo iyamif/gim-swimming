@@ -18,6 +18,7 @@ type UserRepository interface {
 	FindByPhoneOrIdentifier(ctx context.Context, identifier string) (*model.User, error)
 	UpdateAvatar(ctx context.Context, username string, avatar string) error
 	UpdatePassword(ctx context.Context, userID int64, hashedPassword string) error
+	UpdateUsername(ctx context.Context, userID int64, newUsername string) error
 	Delete(ctx context.Context, id int64) error
 	DeleteByUsernameOrEmail(ctx context.Context, username, email string) error
 }
@@ -261,6 +262,13 @@ func (r *pgUserRepository) UpdateAvatar(ctx context.Context, username string, av
 	_, _ = r.db.ExecContext(ctx, queryCoach, avatar, username)
 
 	return nil
+}
+
+// Delete removes a user by ID from the users table
+func (r *pgUserRepository) UpdateUsername(ctx context.Context, userID int64, newUsername string) error {
+	query := `UPDATE users SET username = $1, updated_at = NOW() WHERE id = $2;`
+	_, err := r.db.ExecContext(ctx, query, newUsername, userID)
+	return err
 }
 
 // Delete removes a user by ID from the users table

@@ -103,6 +103,7 @@ export async function fetchStudents(): Promise<Student[]> {
       id: String(s.id),
       user_id: s.user_id || s.userId || undefined,
       userId: s.user_id || s.userId || undefined,
+      username: s.username || s.user_username || "",
       name: s.name,
       class: s.class,
       attendanceRate: s.attendanceRate || "100%",
@@ -202,6 +203,7 @@ export async function updateStudent(
   id: string | number,
   payload: {
     name?: string;
+    username?: string;
     class?: string;
     parent?: string;
     phone?: string;
@@ -307,6 +309,7 @@ export async function fetchCoaches(): Promise<Coach[]> {
         id: String(c.id),
         user_id: c.user_id || c.userId || undefined,
         userId: c.user_id || c.userId || undefined,
+        username: c.username || c.user_username || "",
         name: c.name,
         spec: c.spec,
         phone: c.phone,
@@ -370,6 +373,7 @@ export async function updateCoach(
   id: string | number,
   payload: {
     name: string;
+    username?: string;
     spec?: string;
     phone: string;
     email: string;
