@@ -58,6 +58,7 @@ interface AppsBodyProps {
   onDeleteStudent?: (studentId: string) => Promise<void> | void;
   onAddStudent: (data: {
     name: string;
+    username?: string;
     age: string;
     parent: string;
     phone: string;

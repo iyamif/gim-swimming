@@ -772,8 +772,9 @@ export default function AppsPage() {
         setStudents(updatedStudents);
         setInvoices(updatedInvoices);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to add student:", err);
+      throw err;
     }
   };
 

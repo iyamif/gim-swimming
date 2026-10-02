@@ -80,6 +80,7 @@ export default function RegistrasiTab({
   const [coachPayPerSession, setCoachPayPerSession] = useState("100000");
 
   // Siswa (Student) Specific Fields
+  const [studentUsername, setStudentUsername] = useState("");
   const [studentParent, setStudentParent] = useState("");
   const [studentAge, setStudentAge] = useState("");
   const [studentClass, setStudentClass] = useState("Prestasi");
@@ -172,6 +173,7 @@ export default function RegistrasiTab({
     setCoachClass("Prestasi");
     setCoachExperience("");
     setCoachPayPerSession("100000");
+    setStudentUsername("");
     setStudentParent("");
     setStudentAge("");
     setStudentClass("Prestasi");
@@ -240,6 +242,7 @@ export default function RegistrasiTab({
 
         await onAddStudent({
           name: name.trim(),
+          username: studentUsername.trim() || undefined,
           age: studentAge.trim() || "8",
           parent: studentParent.trim(),
           phone: phone.trim(),
@@ -540,6 +543,19 @@ export default function RegistrasiTab({
               ) : (
                 /* Detail Siswa */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Username Akun Siswa/Wali <span className="text-blue-600 font-normal">(untuk login)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={studentUsername}
+                      onChange={(e) => setStudentUsername(e.target.value)}
+                      placeholder="Contoh: siswabudi (opsional, auto-generate jika kosong)"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Nama Orang Tua / Wali <span className="text-rose-500">*</span>

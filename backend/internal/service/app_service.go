@@ -221,20 +221,43 @@ func (s *appService) CreateStudent(ctx context.Context, input *model.CreateStude
 	}
 
 	// Auto-create user login account for the student/parent if not existing
-	rawUsername := strings.ToLower(strings.Fields(input.Name)[0])
 	reg := regexp.MustCompile("[^a-z0-9_]")
-	username := reg.ReplaceAllString(rawUsername, "")
+	var username string
+
+	if strings.TrimSpace(input.Username) != "" {
+		customUser := reg.ReplaceAllString(strings.ToLower(strings.TrimSpace(input.Username)), "")
+		if customUser != "" {
+			existingUser, _ := s.userRepo.FindByUsername(ctx, customUser)
+			if existingUser != nil {
+				return nil, errors.New("Username sudah digunakan oleh akun lain")
+			}
+			username = customUser
+		}
+	}
+
 	if username == "" {
-		username = fmt.Sprintf("siswa%d", time.Now().Unix()%10000)
+		rawUsername := strings.ToLower(strings.Fields(input.Name)[0])
+		username = reg.ReplaceAllString(rawUsername, "")
+		if username == "" {
+			username = fmt.Sprintf("siswa%d", time.Now().Unix()%10000)
+		}
+
+		existingUser, _ := s.userRepo.FindByUsername(ctx, username)
+		if existingUser != nil {
+			username = fmt.Sprintf("%s%d", username, time.Now().Unix()%10000)
+		}
 	}
 
-	// Make username unique if already taken
-	existingUser, _ := s.userRepo.FindByUsername(ctx, username)
-	if existingUser != nil {
-		username = fmt.Sprintf("%s%d", username, time.Now().Unix()%10000)
+	email := strings.TrimSpace(strings.ToLower(input.Email))
+	if email != "" {
+		existingByEmail, _ := s.userRepo.FindByEmail(ctx, email)
+		if existingByEmail != nil {
+			return nil, errors.New("Email sudah terdaftar untuk pengguna lain")
+		}
+	} else {
+		email = fmt.Sprintf("%s@gimswimming.com", username)
 	}
 
-	email := fmt.Sprintf("%s@gimswimming.com", username)
 	hashed, err := bcrypt.GenerateFromPassword([]byte("gim123"), bcrypt.DefaultCost)
 	if err == nil {
 		newUser := &model.User{

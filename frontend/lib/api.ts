@@ -128,9 +128,11 @@ export async function fetchStudents(): Promise<Student[]> {
 
 export async function createStudent(payload: {
   name: string;
+  username?: string;
   class: string;
   parent: string;
   phone: string;
+  email?: string;
   age?: string;
   coach_id?: string;
   coach_name?: string;
@@ -149,7 +151,10 @@ export async function createStudent(payload: {
       headers: getHeaders(),
       body: JSON.stringify(bodyPayload),
     });
-    if (!res.ok) throw new Error("Gagal mendaftarkan siswa");
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || errJson?.message || "Gagal mendaftarkan siswa");
+    }
     const json = await res.json();
     const s = json.data;
     return {

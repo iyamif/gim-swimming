@@ -34,6 +34,8 @@ type Student struct {
 type CreateStudentInput struct {
 	UserID         *int64 `json:"user_id,omitempty"`
 	Name           string `json:"name" binding:"required"`
+	Username       string `json:"username"`
+	Email          string `json:"email"`
 	Class          string `json:"class" binding:"required"`
 	Parent         string `json:"parent" binding:"required"`
 	Phone          string `json:"phone" binding:"required"`
