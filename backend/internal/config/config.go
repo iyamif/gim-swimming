@@ -27,6 +27,11 @@ type Config struct {
 	FirebaseCredentialsJSON string
 	FirebaseCredentialsFile string
 	FCMServerKey            string
+	SMTPHost                string
+	SMTPPort                string
+	SMTPUser                string
+	SMTPPassword            string
+	SMTPFrom                string
 }
 
 // LoadConfig loads the configuration from environment variables with sensible defaults
@@ -55,6 +60,11 @@ func LoadConfig() *Config {
 		FirebaseCredentialsJSON: getEnvRaw("FIREBASE_CREDENTIALS_JSON", ""),
 		FirebaseCredentialsFile: getEnv("FIREBASE_CREDENTIALS_FILE", "firebase-service-account.json"),
 		FCMServerKey:            getEnv("FCM_SERVER_KEY", ""),
+		SMTPHost:                getEnv("SMTP_HOST", ""),
+		SMTPPort:                getEnv("SMTP_PORT", "587"),
+		SMTPUser:                getEnv("SMTP_USER", ""),
+		SMTPPassword:            getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:                getEnv("SMTP_FROM", ""),
 	}
 }
 

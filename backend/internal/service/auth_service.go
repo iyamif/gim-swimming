@@ -539,7 +539,7 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 </body>
 </html>`, username, otpCode)
 
-	log.Printf("📧 [EMAIL OTP GIM SWIMMING] Mengirim kode OTP [%s] ke email: %s (User: %s)", otpCode, toEmail, username)
+	log.Printf("📧 [EMAIL OTP GIM SWIMMING] Target: %s (User: %s) | Kode OTP: [%s]", toEmail, username, otpCode)
 
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
@@ -547,11 +547,17 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 	smtpPass := os.Getenv("SMTP_PASSWORD")
 	smtpFrom := os.Getenv("SMTP_FROM")
 
-	if smtpFrom == "" {
-		smtpFrom = "noreply@gimswimming.com"
+	if smtpHost == "" {
+		log.Printf("ℹ️ [SMTP INFO] SMTP_HOST belum diset di .env. Kode OTP untuk [%s] adalah: %s (Berlaku 15 menit). Untuk pengiriman email fisik ke inbox, atur SMTP_HOST, SMTP_USER, & SMTP_PASSWORD di .env", toEmail, otpCode)
+		return
 	}
 
-	if smtpHost != "" {
+	if smtpFrom == "" {
+		smtpFrom = smtpUser
+		if smtpFrom == "" {
+			smtpFrom = "noreply@gimswimming.com"
+		}
+	}
 		if smtpPort == "" {
 			smtpPort = "587"
 		}
@@ -624,7 +630,6 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 		} else {
 			log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via SMTP ke %s", toEmail)
 		}
-	}
 }
 
 // ResetPasswordWithOTP verifies OTP and sets new password
