@@ -64,6 +64,7 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 		SELECT 
 			s.id, 
 			s.user_id,
+			COALESCE(u.username, ''),
 			s.name, 
 			s.class, 
 			s.attendance_rate, 
@@ -93,6 +94,7 @@ func (r *pgStudentRepository) FindAll(ctx context.Context) ([]model.Student, err
 		err := rows.Scan(
 			&s.ID,
 			&userID,
+			&s.Username,
 			&s.Name,
 			&s.Class,
 			&s.AttendanceRate,
@@ -132,6 +134,7 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 		SELECT 
 			s.id, 
 			s.user_id,
+			COALESCE(u.username, ''),
 			s.name, 
 			s.class, 
 			s.attendance_rate, 
@@ -153,6 +156,7 @@ func (r *pgStudentRepository) FindByID(ctx context.Context, id int64) (*model.St
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&s.ID,
 		&userID,
+		&s.Username,
 		&s.Name,
 		&s.Class,
 		&s.AttendanceRate,
@@ -191,6 +195,7 @@ func (r *pgStudentRepository) FindByUserID(ctx context.Context, userID int64) ([
 		SELECT 
 			s.id, 
 			s.user_id,
+			COALESCE(u.username, ''),
 			s.name, 
 			s.class, 
 			s.attendance_rate, 
@@ -221,6 +226,7 @@ func (r *pgStudentRepository) FindByUserID(ctx context.Context, userID int64) ([
 		err := rows.Scan(
 			&s.ID,
 			&uid,
+			&s.Username,
 			&s.Name,
 			&s.Class,
 			&s.AttendanceRate,
@@ -259,6 +265,7 @@ func (r *pgStudentRepository) FindByParentPhone(ctx context.Context, phone strin
 		SELECT 
 			s.id, 
 			s.user_id,
+			COALESCE(u.username, ''),
 			s.name, 
 			s.class, 
 			s.attendance_rate, 
@@ -289,6 +296,7 @@ func (r *pgStudentRepository) FindByParentPhone(ctx context.Context, phone strin
 		err := rows.Scan(
 			&s.ID,
 			&uid,
+			&s.Username,
 			&s.Name,
 			&s.Class,
 			&s.AttendanceRate,

@@ -99,6 +99,7 @@ func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) 
 		SELECT DISTINCT ON (c.id)
 			c.id, 
 			c.user_id, 
+			COALESCE(u.username, ''),
 			c.name, 
 			c.spec, 
 			c.phone, 
@@ -131,6 +132,7 @@ func (r *pgCoachRepository) FindAll(ctx context.Context) ([]model.Coach, error) 
 		err := rows.Scan(
 			&c.ID,
 			&userID,
+			&c.Username,
 			&c.Name,
 			&c.Spec,
 			&c.Phone,
@@ -159,6 +161,7 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 		SELECT 
 			c.id, 
 			c.user_id, 
+			COALESCE(u.username, ''),
 			c.name, 
 			c.spec, 
 			c.phone, 
@@ -183,6 +186,7 @@ func (r *pgCoachRepository) FindByID(ctx context.Context, id int64) (*model.Coac
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&c.ID,
 		&userID,
+		&c.Username,
 		&c.Name,
 		&c.Spec,
 		&c.Phone,

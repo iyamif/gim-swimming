@@ -346,11 +346,16 @@ func (s *appService) UpdateStudent(ctx context.Context, id int64, input *model.U
 
 	if newUsername := strings.TrimSpace(input.Username); newUsername != "" {
 		existingUser, _ := s.userRepo.FindByUsername(ctx, newUsername)
+		var studentUserID int64
 		if student.UserID != nil && *student.UserID > 0 {
-			if existingUser != nil && existingUser.ID != *student.UserID {
+			studentUserID = *student.UserID
+		}
+
+		if studentUserID > 0 {
+			if existingUser != nil && existingUser.ID != studentUserID {
 				return nil, errors.New("Username sudah digunakan oleh akun lain")
 			}
-			_ = s.userRepo.UpdateUsername(ctx, *student.UserID, newUsername)
+			_ = s.userRepo.UpdateUsername(ctx, studentUserID, newUsername)
 		} else {
 			if existingUser != nil {
 				return nil, errors.New("Username sudah digunakan oleh akun lain")
@@ -693,19 +698,25 @@ func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.Upd
 
 	if newUsername := strings.TrimSpace(input.Username); newUsername != "" {
 		existingUser, _ := s.userRepo.FindByUsername(ctx, newUsername)
+		var coachUserID int64
 		if existing.UserID != nil && *existing.UserID > 0 {
-			if existingUser != nil && existingUser.ID != *existing.UserID {
+			coachUserID = *existing.UserID
+		} else if existing.Email != "" {
+			u, _ := s.userRepo.FindByEmail(ctx, existing.Email)
+			if u != nil {
+				coachUserID = u.ID
+				existing.UserID = &u.ID
+			}
+		}
+
+		if coachUserID > 0 {
+			if existingUser != nil && existingUser.ID != coachUserID {
 				return nil, errors.New("Username sudah digunakan oleh akun lain")
 			}
-			_ = s.userRepo.UpdateUsername(ctx, *existing.UserID, newUsername)
+			_ = s.userRepo.UpdateUsername(ctx, coachUserID, newUsername)
 		} else {
 			if existingUser != nil {
 				return nil, errors.New("Username sudah digunakan oleh akun lain")
-			} else {
-				u, _ := s.userRepo.FindByEmail(ctx, existing.Email)
-				if u != nil {
-					_ = s.userRepo.UpdateUsername(ctx, u.ID, newUsername)
-				}
 			}
 		}
 	}

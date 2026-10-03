@@ -147,7 +147,7 @@ export default function PelatihTab({
         });
       }
 
-      if (onUpdateCoachStatus && coachToEdit.status !== editStatus) {
+      if (!onUpdateCoach && onUpdateCoachStatus && coachToEdit.status !== editStatus) {
         await onUpdateCoachStatus(String(coachToEdit.id), editStatus);
       }
 

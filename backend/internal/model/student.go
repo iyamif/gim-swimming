@@ -15,6 +15,7 @@ type AttendanceLog struct {
 type Student struct {
 	ID             int64           `json:"id"`
 	UserID         *int64          `json:"user_id,omitempty"`
+	Username       string          `json:"username"`
 	Name           string          `json:"name"`
 	Class          string          `json:"class"`
 	AttendanceRate string          `json:"attendanceRate"`

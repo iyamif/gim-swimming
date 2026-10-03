@@ -6,6 +6,7 @@ import "time"
 type Coach struct {
 	ID            int64     `json:"id"`
 	UserID        *int64    `json:"user_id,omitempty"`
+	Username      string    `json:"username"`
 	Name          string    `json:"name"`
 	Spec          string    `json:"spec"`
 	Phone         string    `json:"phone"`
