@@ -563,7 +563,7 @@ export default function ProfilTab({
 
   const roleLabel = isAdmin ? "Administrator" : isCoach ? "Pelatih Renang" : "Wali Murid / Siswa";
 
-  // Phone lookup
+  // Phone & Email lookup
   const matchedCoach = coaches.find((c) => c.name.toLowerCase().includes(sessionUser.toLowerCase()));
   const matchedStudent = students.find(
     (s) =>
@@ -571,7 +571,7 @@ export default function ProfilTab({
       s.parent.toLowerCase().includes(sessionUser.toLowerCase())
   );
   const userPhone = matchedCoach?.phone || matchedStudent?.phone || "+62 812-3456-7890";
-  const userEmail = currentUserData?.email || `${sessionUser.toLowerCase().replace(/\s+/g, "")}@gimswimming.com`;
+  const userEmail = currentUserData?.email || matchedCoach?.email || `${sessionUser.toLowerCase().replace(/\s+/g, "")}@gimswimming.com`;
   const userMemberId = `GIM-${isAdmin ? "ADM" : isCoach ? "CCH" : "STU"}-${currentUserData?.id ? String(currentUserData.id).padStart(3, "0") : "001"}`;
 
   // FAQ Items Data
