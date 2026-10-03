@@ -1,13 +1,17 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"net/smtp"
 	"os"
 	"strconv"
@@ -548,6 +552,75 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 		return strings.TrimSpace(s)
 	}
 
+	// 1. Check HTTP-based Email Providers first (Port 443 HTTPS - NEVER blocked by ISPs)
+	resendAPIKey := cleanStr(os.Getenv("RESEND_API_KEY"))
+	if resendAPIKey != "" {
+		resendFrom := cleanStr(os.Getenv("RESEND_FROM"))
+		if resendFrom == "" {
+			resendFrom = "GIM Swimming <onboarding@resend.dev>"
+		}
+		payload := map[string]interface{}{
+			"from":    resendFrom,
+			"to":      []string{toEmail},
+			"subject": subject,
+			"html":    htmlBody,
+			"text":    plainBody,
+		}
+		jsonBytes, _ := json.Marshal(payload)
+		req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonBytes))
+		if err == nil {
+			req.Header.Set("Authorization", "Bearer "+resendAPIKey)
+			req.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via Resend API (HTTPS) ke %s", toEmail)
+					return
+				}
+				respBytes, _ := io.ReadAll(resp.Body)
+				log.Printf("⚠️ [RESEND API ERROR] Status %d: %s", resp.StatusCode, string(respBytes))
+			} else {
+				log.Printf("⚠️ [RESEND API NETWORK ERROR]: %v", err)
+			}
+		}
+	}
+
+	brevoAPIKey := cleanStr(os.Getenv("BREVO_API_KEY"))
+	if brevoAPIKey != "" {
+		brevoFrom := cleanStr(os.Getenv("BREVO_FROM"))
+		if brevoFrom == "" {
+			brevoFrom = "admin@gimswimming.com"
+		}
+		payload := map[string]interface{}{
+			"sender":      map[string]string{"name": "GIM Swimming", "email": brevoFrom},
+			"to":          []map[string]string{{"email": toEmail, "name": username}},
+			"subject":     subject,
+			"htmlContent": htmlBody,
+			"textContent": plainBody,
+		}
+		jsonBytes, _ := json.Marshal(payload)
+		req, err := http.NewRequest("POST", "https://api.brevo.com/v3/smtp/email", bytes.NewBuffer(jsonBytes))
+		if err == nil {
+			req.Header.Set("api-key", brevoAPIKey)
+			req.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via Brevo API (HTTPS) ke %s", toEmail)
+					return
+				}
+				respBytes, _ := io.ReadAll(resp.Body)
+				log.Printf("⚠️ [BREVO API ERROR] Status %d: %s", resp.StatusCode, string(respBytes))
+			} else {
+				log.Printf("⚠️ [BREVO API NETWORK ERROR]: %v", err)
+			}
+		}
+	}
+
 	smtpHost := cleanStr(os.Getenv("SMTP_HOST"))
 	smtpPort := cleanStr(os.Getenv("SMTP_PORT"))
 	smtpUser := cleanStr(os.Getenv("SMTP_USER"))
@@ -560,7 +633,7 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 	}
 
 	if smtpHost == "" {
-		log.Printf("ℹ️ [SMTP INFO] SMTP_HOST belum diset di .env. Kode OTP untuk [%s] adalah: %s (Berlaku 15 menit). Untuk pengiriman email fisik ke inbox, atur SMTP_HOST, SMTP_USER, & SMTP_PASSWORD di backend/.env", toEmail, otpCode)
+		log.Printf("ℹ️ [SMTP INFO] SMTP_HOST belum diset di .env. Kode OTP untuk [%s] adalah: %s (Berlaku 15 menit). Untuk pengiriman email fisik ke inbox, atur SMTP_HOST, SMTP_USER, & SMTP_PASSWORD atau RESEND_API_KEY di backend/.env", toEmail, otpCode)
 		return
 	}
 
