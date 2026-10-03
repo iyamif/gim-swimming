@@ -798,195 +798,237 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         {/* STEP: Lupa Kata Sandi (Reset via Email OTP) */}
         {step === "forgot-password" && (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            {/* Header & Back Button */}
+            <div className="flex items-center justify-between mb-5">
               <button
                 type="button"
                 onClick={() => {
                   setStep("login");
                   setForgotError("");
                   setForgotSuccess("");
+                  setForgotOtpSent(false);
                 }}
-                className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-cyan-600 transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-cyan-600 transition duration-150 cursor-pointer group"
               >
-                <ChevronLeft className="h-4 w-4" />
-                Kembali ke Login
+                <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                <span>Kembali ke Login</span>
               </button>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-600 border border-cyan-100">
-                Reset Password
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100">
+                {forgotOtpSent ? "Langkah 2 / 2" : "Langkah 1 / 2"}
               </span>
             </div>
 
-            <div className="text-center mb-5">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-500 border border-cyan-100 shadow-sm">
+            {/* Title & Icon Header */}
+            <div className="text-center mb-6">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100 shadow-sm">
                 <KeyRound className="h-6 w-6 text-cyan-500" />
               </div>
-              <h3 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-                Lupa Kata Sandi?
+              <h3 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                {forgotOtpSent ? "Verifikasi & Sandi Baru" : "Lupa Kata Sandi?"}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-[320px] mx-auto">
-                Masukkan alamat email akun Anda. Sistem akan memeriksa email terdaftar dan mengirimkan 6-digit kode verifikasi (OTP).
+              <p className="text-xs text-slate-500 mt-1 max-w-[320px] mx-auto leading-relaxed">
+                {forgotOtpSent
+                  ? "Masukkan 6-digit kode OTP dari email dan tentukan kata sandi baru Anda."
+                  : "Masukkan alamat email yang terdaftar pada akun Anda untuk menerima kode verifikasi OTP."}
               </p>
             </div>
 
+            {/* Error Alert */}
             {forgotError && (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-650 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-                <span>{forgotError}</span>
+              <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 flex items-start gap-2.5 animate-fadeIn">
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
+                <span className="font-medium leading-relaxed">{forgotError}</span>
               </div>
             )}
 
+            {/* Success Alert */}
             {forgotSuccess && (
-              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                <span>{forgotSuccess}</span>
+              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 flex items-start gap-2.5 animate-fadeIn">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
+                <span className="font-medium leading-relaxed">{forgotSuccess}</span>
               </div>
             )}
 
-            <form onSubmit={handleForgotResetSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Alamat Email Terdaftar
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
+            {/* FASE 1: Form Input Email & Kirim OTP */}
+            {!forgotOtpSent ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Alamat Email Terdaftar
+                  </label>
+                  <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       type="email"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleForgotSendOTP();
+                        }
+                      }}
                       placeholder="nama@email.com"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-white"
+                      autoFocus
                     />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleForgotSendOTP}
+                  disabled={isForgotSendingOtp || !forgotEmail.trim()}
+                  className="w-full rounded-xl bg-cyan-500 hover:bg-cyan-600 active:scale-[0.99] py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-md shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isForgotSendingOtp ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <span>Mengirim Kode OTP...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span>Kirim Kode OTP</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              /* FASE 2: Form Input OTP & Sandi Baru */
+              <form onSubmit={handleForgotResetSubmit} className="space-y-4 animate-fadeIn">
+                {/* Email Info Card with Resend Option */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-slate-500 font-medium truncate">
+                        OTP terkirim ke:
+                      </p>
+                      <p className="text-xs font-bold text-slate-800 truncate">
+                        {forgotMaskedEmail || forgotEmail}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleForgotSendOTP}
-                    disabled={isForgotSendingOtp || forgotOtpCountdown > 0 || !forgotEmail.trim()}
-                    className="shrink-0 px-3.5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-cyan-400/30 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+                    disabled={isForgotSendingOtp || forgotOtpCountdown > 0}
+                    className="shrink-0 text-[11px] font-bold text-cyan-600 hover:text-cyan-700 disabled:text-slate-400 transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-cyan-50"
                   >
                     {isForgotSendingOtp ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Mengirim...
-                      </>
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : forgotOtpCountdown > 0 ? (
-                      <>
-                        <RotateCw className="h-3.5 w-3.5 animate-spin" />
-                        {forgotOtpCountdown}s
-                      </>
-                    ) : forgotOtpSent ? (
-                      <>
-                        <RotateCw className="h-3.5 w-3.5" />
-                        Kirim Ulang
-                      </>
+                      <span>Ulang ({forgotOtpCountdown}s)</span>
                     ) : (
                       <>
-                        <Send className="h-3.5 w-3.5" />
-                        Kirim OTP
+                        <RotateCw className="h-3 w-3" />
+                        <span>Kirim Ulang</span>
                       </>
                     )}
                   </button>
                 </div>
-                {forgotOtpSent && (
-                  <p className="mt-1.5 text-[11px] font-medium text-emerald-600 flex items-center gap-1">
-                    <Check className="h-3.5 w-3.5 shrink-0" />
-                    Kode 6-digit terkirim ke {forgotMaskedEmail || forgotEmail} (berlaku 15 mnt)
-                  </p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Kode Verifikasi OTP (6 Digit)
-                </label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={forgotOtp}
-                    onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
-                    placeholder="Contoh: 123456"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm font-mono tracking-widest text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Kata Sandi Baru
+                {/* Input OTP 6-Digit */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Kode Verifikasi (OTP 6-Digit)
                   </label>
-                  {forgotNewPassword && (
-                    <span className={`text-[10px] font-bold ${forgotNewPassword.length >= 6 ? "text-emerald-600" : "text-amber-600"}`}>
-                      {forgotNewPassword.length >= 6 ? "✓ Minimal 6 karakter" : `${forgotNewPassword.length}/6 karakter`}
-                    </span>
-                  )}
+                  <div className="relative">
+                    <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={forgotOtp}
+                      onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
+                      placeholder="••••••"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-center font-mono text-base font-bold tracking-[0.3em] text-slate-900 placeholder-slate-300 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-white"
+                      autoFocus
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type={showForgotNewPassword ? "text" : "password"}
-                    value={forgotNewPassword}
-                    onChange={(e) => setForgotNewPassword(e.target.value)}
-                    placeholder="Minimal 6 karakter"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showForgotNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Konfirmasi Kata Sandi Baru
-                  </label>
-                  {forgotConfirmPassword && (
-                    <span className={`text-[10px] font-bold ${forgotNewPassword === forgotConfirmPassword ? "text-emerald-600" : "text-rose-600"}`}>
-                      {forgotNewPassword === forgotConfirmPassword ? "✓ Kata sandi cocok" : "✗ Belum sesuai"}
-                    </span>
-                  )}
+                {/* Kata Sandi Baru */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Kata Sandi Baru
+                    </label>
+                    {forgotNewPassword && (
+                      <span className={`text-[10px] font-bold ${forgotNewPassword.length >= 6 ? "text-emerald-600" : "text-amber-600"}`}>
+                        {forgotNewPassword.length >= 6 ? "✓ Minimal 6 karakter" : `${forgotNewPassword.length}/6 karakter`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type={showForgotNewPassword ? "text" : "password"}
+                      value={forgotNewPassword}
+                      onChange={(e) => setForgotNewPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showForgotNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type={showForgotConfirmPassword ? "text" : "password"}
-                    value={forgotConfirmPassword}
-                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
-                    placeholder="Ulangi kata sandi baru"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showForgotConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={isForgotResetting}
-                className="w-full rounded-xl bg-cyan-500 hover:bg-cyan-600 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
-              >
-                {isForgotResetting ? (
-                  <>
-                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
-                    Menyimpan Kata Sandi...
-                  </>
-                ) : (
-                  "Verifikasi & Simpan Kata Sandi"
-                )}
-              </button>
-            </form>
+                {/* Konfirmasi Kata Sandi Baru */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Konfirmasi Kata Sandi Baru
+                    </label>
+                    {forgotConfirmPassword && (
+                      <span className={`text-[10px] font-bold ${forgotNewPassword === forgotConfirmPassword ? "text-emerald-600" : "text-rose-600"}`}>
+                        {forgotNewPassword === forgotConfirmPassword ? "✓ Kata sandi cocok" : "✗ Belum sesuai"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type={showForgotConfirmPassword ? "text" : "password"}
+                      value={forgotConfirmPassword}
+                      onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                      placeholder="Ulangi kata sandi baru"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showForgotConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tombol Simpan Sandi Baru */}
+                <button
+                  type="submit"
+                  disabled={isForgotResetting || !forgotOtp.trim() || forgotNewPassword.length < 6 || forgotNewPassword !== forgotConfirmPassword}
+                  className="w-full rounded-xl bg-cyan-500 hover:bg-cyan-600 active:scale-[0.99] py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-md shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
+                >
+                  {isForgotResetting ? (
+                    <>
+                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
+                      <span>Menyimpan Kata Sandi...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Kata Sandi Baru</span>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         )}
 
