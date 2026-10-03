@@ -506,197 +506,296 @@ export default function DaftarHadirTab({
 
   if (studentToEdit) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12 pt-6 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto space-y-5 animate-fadeIn">
-          {/* Top Bar Header */}
-          <div className="flex items-center justify-between bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
-            <div className="flex items-center gap-3">
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12">
+        {/* ==========================================
+            1. TOP VIBRANT BLUE HERO HEADER
+            ========================================== */}
+        <div className="relative w-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 text-white pt-[max(2.5rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-14 sm:pb-16 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden">
+          {/* Subtle geometric & ambient water decoration */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
+            <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
+            <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25" />
+            <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl" />
+            <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
+          </div>
+
+          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+            <div>
               <button
                 type="button"
                 onClick={() => !isSaving && setStudentToEdit(null)}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold transition backdrop-blur-md cursor-pointer mb-2.5 active:scale-95 disabled:opacity-50"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={14} />
                 <span>Kembali ke Data Siswa</span>
               </button>
-            </div>
-            <div className="text-right">
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-                Halaman Edit Siswa
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-xs font-bold tracking-wider uppercase">
+                  ADMINISTRASI • SISWA
+                </span>
+                <span className="text-blue-100 text-xs font-medium">
+                  ID #{studentToEdit.id}
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-xs mt-1">
+                Edit Data Siswa
+              </h1>
+              <p className="text-xs sm:text-sm text-blue-100 font-medium mt-0.5">
+                Perbarui profil siswa, program kelas, orang tua &amp; pelatih penanggung jawab
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* Full Page Card Form */}
-          <div className="bg-white border border-slate-100 rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
-                <Pencil size={22} />
+        {/* ==========================================
+            2. FLOATING CLEAN CARD FORM
+            ========================================== */}
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20 animate-fadeIn">
+          {/* Error Alert */}
+          {editError && (
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2.5 shadow-sm animate-fadeIn">
+              <AlertCircle size={16} className="shrink-0 text-rose-600" />
+              <span>{editError}</span>
+            </div>
+          )}
+
+          {/* Clean White Card */}
+          <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
+            {/* Student Profile Quick Banner */}
+            <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <div className="flex items-center gap-3.5">
+                {(() => {
+                  const avatar = getStudentAvatar(studentToEdit);
+                  const isImg = isImageAvatar(avatar);
+                  const active = editStatus === "Active";
+                  return (
+                    <div
+                      className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full ${
+                        active
+                          ? "bg-gradient-to-tr from-blue-600 via-blue-500 to-cyan-500"
+                          : "bg-slate-400"
+                      } text-white font-black text-lg flex items-center justify-center border-2 border-white shadow-md overflow-hidden shrink-0`}
+                    >
+                      {isImg && avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={getAvatarImageUrl(avatar)}
+                          alt={studentToEdit.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : avatar ? (
+                        <span className="text-xl">{avatar}</span>
+                      ) : (
+                        <span>{(editName || studentToEdit.name).charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })()}
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 capitalize">
+                    {editName || studentToEdit.name}
+                  </h3>
+                  <p className="text-xs text-blue-600 font-bold mt-0.5">
+                    {editClass} Class • {editAge || studentToEdit.age || "Usia belum diatur"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900">
-                  Edit Data Siswa - {studentToEdit.name}
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  Perbarui profil siswa, program kelas, orang tua &amp; pelatih penanggung jawab
-                </p>
-              </div>
+
+              <span
+                className={`px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 border ${
+                  editStatus === "Active"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    editStatus === "Active" ? "bg-emerald-500" : "bg-slate-400"
+                  }`}
+                />
+                {editStatus === "Active" ? "Aktif" : "Non-Aktif"}
+              </span>
             </div>
 
-            <form onSubmit={handleSaveStudentEdit} className="space-y-4">
-              {editError && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold animate-fadeIn">
-                  {editError}
-                </div>
-              )}
+            {/* Form */}
+            <form onSubmit={handleSaveStudentEdit} className="space-y-5">
+              {/* Section 1: Informasi Dasar */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Informasi Dasar Siswa
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Nama Lengkap Siswa <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Contoh: Muhammad Alif"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nama Lengkap Siswa <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Contoh: Muhammad Alif"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Username Akun (untuk login)
-                  </label>
-                  <input
-                    type="text"
-                    value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value)}
-                    placeholder="Contoh: alif123"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Program Kelas Renang
-                  </label>
-                  <select
-                    value={editClass}
-                    onChange={(e) => setEditClass(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
-                  >
-                    {availablePrograms.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Status Keaktifan Siswa
-                  </label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
-                  >
-                    <option value="Active">Aktif (Masih Mengikuti Kelas)</option>
-                    <option value="Inactive">Tidak Aktif (Tidak Melanjutkan)</option>
-                  </select>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Username Akun <span className="text-blue-600 font-normal">(untuk login)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editUsername}
+                      onChange={(e) => setEditUsername(e.target.value)}
+                      placeholder="Contoh: alif123"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nama Orang Tua / Wali
-                  </label>
-                  <input
-                    type="text"
-                    value={editParent}
-                    onChange={(e) => setEditParent(e.target.value)}
-                    placeholder="Contoh: Bapak Hendra"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Pelatih Penanggung Jawab
-                  </label>
-                  <select
-                    value={editCoachName}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditCoachName(val);
-                      const c = (coaches || []).find((coach) => coach.name === val);
-                      setEditCoachId(c ? String(c.id) : "");
-                    }}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
-                  >
-                    {coaches && coaches.length > 0 ? (
-                      coaches.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name} {c.spec ? `(${c.spec})` : ""}
+              {/* Section 2: Program & Status */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Program &amp; Keanggotaan
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Program Kelas Renang
+                    </label>
+                    <select
+                      value={editClass}
+                      onChange={(e) => setEditClass(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      {availablePrograms.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
                         </option>
-                      ))
-                    ) : (
-                      <option value="">Belum ada data pelatih</option>
-                    )}
-                  </select>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Status Keaktifan Siswa
+                    </label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      <option value="Active">Aktif (Masih Mengikuti Kelas)</option>
+                      <option value="Inactive">Tidak Aktif (Tidak Melanjutkan)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nomor WhatsApp / HP Orang Tua
-                  </label>
-                  <input
-                    type="tel"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="Contoh: 081234567890"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
+              {/* Section 3: Kontak & Pembimbing */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Kontak &amp; Pembimbing
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Nama Orang Tua / Wali
+                    </label>
+                    <input
+                      type="text"
+                      value={editParent}
+                      onChange={(e) => setEditParent(e.target.value)}
+                      placeholder="Contoh: Bapak Hendra"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Pelatih Penanggung Jawab
+                    </label>
+                    <select
+                      value={editCoachName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditCoachName(val);
+                        const c = (coaches || []).find((coach) => coach.name === val);
+                        setEditCoachId(c ? String(c.id) : "");
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      {coaches && coaches.length > 0 ? (
+                        coaches.map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name} {c.spec ? `(${c.spec})` : ""}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">Belum ada data pelatih</option>
+                      )}
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Usia / Umur Siswa
-                  </label>
-                  <input
-                    type="text"
-                    value={editAge}
-                    onChange={(e) => setEditAge(e.target.value)}
-                    placeholder="Contoh: 8 thn"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Nomor WhatsApp / HP Orang Tua
+                    </label>
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="Contoh: 081234567890"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Usia / Umur Siswa
+                    </label>
+                    <input
+                      type="text"
+                      value={editAge}
+                      onChange={(e) => setEditAge(e.target.value)}
+                      placeholder="Contoh: 8 thn"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   disabled={isSaving}
                   onClick={() => setStudentToEdit(null)}
-                  className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
+                  className="py-2.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                 >
                   Batal / Kembali
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-blue-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="py-2.5 px-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/25 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+                  {isSaving ? (
+                    <span>Menyimpan...</span>
+                  ) : (
+                    <>
+                      <Save size={14} />
+                      <span>Simpan Perubahan</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
