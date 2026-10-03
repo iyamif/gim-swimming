@@ -677,12 +677,15 @@ func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.Upd
 		return nil, errors.New("data pelatih tidak ditemukan")
 	}
 
+	oldEmail := existing.Email
+	newEmail := strings.TrimSpace(strings.ToLower(input.Email))
+
 	existing.Name = input.Name
 	if input.Spec != "" {
 		existing.Spec = input.Spec
 	}
 	existing.Phone = input.Phone
-	existing.Email = input.Email
+	existing.Email = newEmail
 	if input.Class != "" {
 		existing.Class = input.Class
 	}
@@ -696,19 +699,49 @@ func (s *appService) UpdateCoach(ctx context.Context, id int64, input *model.Upd
 		existing.PayPerSession = input.PayPerSession
 	}
 
-	if newUsername := strings.TrimSpace(input.Username); newUsername != "" {
-		existingUser, _ := s.userRepo.FindByUsername(ctx, newUsername)
-		var coachUserID int64
-		if existing.UserID != nil && *existing.UserID > 0 {
-			coachUserID = *existing.UserID
-		} else if existing.Email != "" {
-			u, _ := s.userRepo.FindByEmail(ctx, existing.Email)
-			if u != nil {
+	// Resolve linked user for this coach
+	var coachUserID int64
+	if existing.UserID != nil && *existing.UserID > 0 {
+		coachUserID = *existing.UserID
+	} else {
+		// Look up by old email, new email, or coach username/name
+		if oldEmail != "" {
+			if u, _ := s.userRepo.FindByEmail(ctx, oldEmail); u != nil {
 				coachUserID = u.ID
 				existing.UserID = &u.ID
 			}
 		}
+		if coachUserID == 0 && newEmail != "" {
+			if u, _ := s.userRepo.FindByEmail(ctx, newEmail); u != nil {
+				coachUserID = u.ID
+				existing.UserID = &u.ID
+			}
+		}
+		if coachUserID == 0 {
+			nameParts := strings.Fields(existing.Name)
+			rawUser := strings.ToLower(nameParts[0])
+			if strings.HasPrefix(strings.ToLower(existing.Name), "coach ") && len(nameParts) > 1 {
+				rawUser = strings.ToLower(nameParts[1])
+			}
+			if u, _ := s.userRepo.FindByUsername(ctx, rawUser); u != nil {
+				coachUserID = u.ID
+				existing.UserID = &u.ID
+			}
+		}
+	}
 
+	// 1. Sync email in users table
+	if coachUserID > 0 && newEmail != "" {
+		existingUserWithEmail, _ := s.userRepo.FindByEmail(ctx, newEmail)
+		if existingUserWithEmail != nil && existingUserWithEmail.ID != coachUserID {
+			return nil, errors.New("Email sudah digunakan oleh akun lain")
+		}
+		_ = s.userRepo.UpdateEmail(ctx, coachUserID, newEmail)
+	}
+
+	// 2. Sync username in users table if provided
+	if newUsername := strings.TrimSpace(input.Username); newUsername != "" {
+		existingUser, _ := s.userRepo.FindByUsername(ctx, newUsername)
 		if coachUserID > 0 {
 			if existingUser != nil && existingUser.ID != coachUserID {
 				return nil, errors.New("Username sudah digunakan oleh akun lain")

@@ -190,6 +190,16 @@ func (s *authService) Login(ctx context.Context, input model.LoginInput) (string
 				if cStatus == "inactive" || cStatus == "tidak aktif" {
 					return "", nil, errors.New("Akun Pelatih Anda telah dinonaktifkan oleh Admin. Silakan hubungi Admin untuk mengaktifkan kembali akun Anda.")
 				}
+
+				// Auto-sync coach.UserID and user.Email if admin updated coach email
+				if coach.UserID == nil || *coach.UserID == 0 {
+					coach.UserID = &user.ID
+					_ = s.coachRepo.Update(ctx, coach)
+				}
+				if coach.Email != "" && !strings.EqualFold(coach.Email, user.Email) {
+					user.Email = strings.ToLower(strings.TrimSpace(coach.Email))
+					_ = s.userRepo.UpdateEmail(ctx, user.ID, user.Email)
+				}
 			}
 		}
 	}

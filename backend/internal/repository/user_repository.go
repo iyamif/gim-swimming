@@ -19,6 +19,7 @@ type UserRepository interface {
 	UpdateAvatar(ctx context.Context, username string, avatar string) error
 	UpdatePassword(ctx context.Context, userID int64, hashedPassword string) error
 	UpdateUsername(ctx context.Context, userID int64, newUsername string) error
+	UpdateEmail(ctx context.Context, userID int64, newEmail string) error
 	Delete(ctx context.Context, id int64) error
 	DeleteByUsernameOrEmail(ctx context.Context, username, email string) error
 }
@@ -264,10 +265,17 @@ func (r *pgUserRepository) UpdateAvatar(ctx context.Context, username string, av
 	return nil
 }
 
-// Delete removes a user by ID from the users table
+// UpdateUsername updates a user's username by ID
 func (r *pgUserRepository) UpdateUsername(ctx context.Context, userID int64, newUsername string) error {
 	query := `UPDATE users SET username = $1, updated_at = NOW() WHERE id = $2;`
 	_, err := r.db.ExecContext(ctx, query, newUsername, userID)
+	return err
+}
+
+// UpdateEmail updates a user's email by ID
+func (r *pgUserRepository) UpdateEmail(ctx context.Context, userID int64, newEmail string) error {
+	query := `UPDATE users SET email = LOWER($1), updated_at = NOW() WHERE id = $2;`
+	_, err := r.db.ExecContext(ctx, query, strings.TrimSpace(newEmail), userID)
 	return err
 }
 

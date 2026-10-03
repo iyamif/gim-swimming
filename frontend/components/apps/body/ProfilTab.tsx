@@ -571,7 +571,7 @@ export default function ProfilTab({
       s.parent.toLowerCase().includes(sessionUser.toLowerCase())
   );
   const userPhone = matchedCoach?.phone || matchedStudent?.phone || "+62 812-3456-7890";
-  const userEmail = currentUserData?.email || matchedCoach?.email || `${sessionUser.toLowerCase().replace(/\s+/g, "")}@gimswimming.com`;
+  const userEmail = (isCoach && matchedCoach?.email) || currentUserData?.email || matchedCoach?.email || `${sessionUser.toLowerCase().replace(/\s+/g, "")}@gimswimming.com`;
   const userMemberId = `GIM-${isAdmin ? "ADM" : isCoach ? "CCH" : "STU"}-${currentUserData?.id ? String(currentUserData.id).padStart(3, "0") : "001"}`;
 
   // FAQ Items Data
