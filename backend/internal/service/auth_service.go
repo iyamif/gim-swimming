@@ -599,49 +599,127 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 		msgBuilder.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
 
 		msg := []byte(msgBuilder.String())
-		addr := net.JoinHostPort(smtpHost, smtpPort)
 
 		var auth smtp.Auth
 		if smtpUser != "" && smtpPass != "" {
 			auth = smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 		}
 
-		if smtpPort == "465" {
-			tlsconfig := &tls.Config{
+		sendViaSSL := func(port string) error {
+			dialer := &net.Dialer{Timeout: 8 * time.Second}
+			tlsConfig := &tls.Config{
 				InsecureSkipVerify: false,
 				ServerName:         smtpHost,
 			}
-			conn, err := tls.Dial("tcp", addr, tlsconfig)
-			if err == nil {
-				c, err := smtp.NewClient(conn, smtpHost)
-				if err == nil {
-					if auth != nil {
-						_ = c.Auth(auth)
-					}
-					if err = c.Mail(smtpFrom); err == nil {
-						if err = c.Rcpt(toEmail); err == nil {
-							w, err := c.Data()
-							if err == nil {
-								w.Write(msg)
-								w.Close()
-								c.Quit()
-								log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via SMTP (SSL 465) ke %s", toEmail)
-								return
-							}
-						}
-					}
-					c.Close()
+			conn, err := tls.DialWithDialer(dialer, "tcp", net.JoinHostPort(smtpHost, port), tlsConfig)
+			if err != nil {
+				return err
+			}
+			c, err := smtp.NewClient(conn, smtpHost)
+			if err != nil {
+				conn.Close()
+				return err
+			}
+			defer c.Close()
+
+			if auth != nil {
+				if err = c.Auth(auth); err != nil {
+					return fmt.Errorf("auth failed: %w", err)
 				}
 			}
-			log.Printf("⚠️ [EMAIL OTP SSL 465 WARNING] %v, mencoba smtp.SendMail...", err)
+			if err = c.Mail(smtpFrom); err != nil {
+				return fmt.Errorf("mail from failed: %w", err)
+			}
+			if err = c.Rcpt(toEmail); err != nil {
+				return fmt.Errorf("rcpt to failed: %w", err)
+			}
+			w, err := c.Data()
+			if err != nil {
+				return fmt.Errorf("data failed: %w", err)
+			}
+			if _, err = w.Write(msg); err != nil {
+				return fmt.Errorf("write body failed: %w", err)
+			}
+			if err = w.Close(); err != nil {
+				return fmt.Errorf("close data failed: %w", err)
+			}
+			_ = c.Quit()
+			return nil
 		}
 
-		err := smtp.SendMail(addr, auth, smtpFrom, []string{toEmail}, msg)
-		if err != nil {
-			log.Printf("⚠️ [EMAIL OTP SMTP WARNING] Gagal mengirim via SMTP (%v). OTP tetap tercatat di sistem: %s", err, otpCode)
-		} else {
-			log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via SMTP ke %s", toEmail)
+		sendViaSTARTTLS := func(port string) error {
+			dialer := &net.Dialer{Timeout: 8 * time.Second}
+			conn, err := dialer.Dial("tcp", net.JoinHostPort(smtpHost, port))
+			if err != nil {
+				return err
+			}
+			c, err := smtp.NewClient(conn, smtpHost)
+			if err != nil {
+				conn.Close()
+				return err
+			}
+			defer c.Close()
+
+			tlsConfig := &tls.Config{ServerName: smtpHost}
+			if err = c.StartTLS(tlsConfig); err != nil {
+				return fmt.Errorf("starttls failed: %w", err)
+			}
+			if auth != nil {
+				if err = c.Auth(auth); err != nil {
+					return fmt.Errorf("auth failed: %w", err)
+				}
+			}
+			if err = c.Mail(smtpFrom); err != nil {
+				return fmt.Errorf("mail from failed: %w", err)
+			}
+			if err = c.Rcpt(toEmail); err != nil {
+				return fmt.Errorf("rcpt to failed: %w", err)
+			}
+			w, err := c.Data()
+			if err != nil {
+				return fmt.Errorf("data failed: %w", err)
+			}
+			if _, err = w.Write(msg); err != nil {
+				return fmt.Errorf("write body failed: %w", err)
+			}
+			if err = w.Close(); err != nil {
+				return fmt.Errorf("close data failed: %w", err)
+			}
+			_ = c.Quit()
+			return nil
 		}
+
+		var sendErr error
+
+		// Jika port 465 dipilih, coba SSL 465 terlebih dahulu
+		if smtpPort == "465" {
+			sendErr = sendViaSSL("465")
+			if sendErr == nil {
+				log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via SSL (Port 465) ke %s", toEmail)
+				return
+			}
+			log.Printf("⚠️ [SMTP Port 465 Warning]: %v. Mencoba fallback ke STARTTLS Port 587...", sendErr)
+			sendErr = sendViaSTARTTLS("587")
+			if sendErr == nil {
+				log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via STARTTLS (Port 587) ke %s", toEmail)
+				return
+			}
+		} else {
+			// Default port 587: coba STARTTLS 587, jika timeout/gagal auto-fallback ke SSL 465
+			sendErr = sendViaSTARTTLS(smtpPort)
+			if sendErr == nil {
+				log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via STARTTLS (Port %s) ke %s", smtpPort, toEmail)
+				return
+			}
+			log.Printf("⚠️ [SMTP Port %s Timeout/Error]: %v. Mencoba auto-fallback ke Direct SSL Port 465...", smtpPort, sendErr)
+			sendErr = sendViaSSL("465")
+			if sendErr == nil {
+				log.Printf("✅ [EMAIL OTP SENT] Email reset password berhasil terkirim via SSL (Port 465 Fallback) ke %s", toEmail)
+				return
+			}
+		}
+
+		log.Printf("⚠️ [EMAIL OTP SMTP WARNING] Gagal mengirim via SMTP (%v). OTP tetap tercatat di sistem: %s", sendErr, otpCode)
 }
 
 // ResetPasswordWithOTP verifies OTP and sets new password
