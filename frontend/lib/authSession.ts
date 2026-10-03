@@ -45,12 +45,28 @@ export function getCookie(name: string): string | null {
 }
 
 /**
- * Remove a cookie by name
+ * Remove a cookie by name across all paths, domains, and secure flags
  */
 export function removeCookie(name: string): void {
   if (typeof document === "undefined") return;
   try {
-    document.cookie = `${encodeURIComponent(name)}=; max-age=0; path=/; SameSite=Lax`;
+    const encodedName = encodeURIComponent(name);
+    const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+    const secureVariants = isHttps ? ["", "; Secure"] : [""];
+
+    const paths = ["/", "/apps", ""];
+    const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    const domains = ["", hostname, `.${hostname}`].filter(Boolean);
+
+    for (const p of paths) {
+      const pathAttr = p ? `; path=${p}` : "";
+      for (const d of domains) {
+        const domainAttr = d ? `; domain=${d}` : "";
+        for (const sec of secureVariants) {
+          document.cookie = `${encodedName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0${pathAttr}${domainAttr}; SameSite=Lax${sec}`;
+        }
+      }
+    }
   } catch (err) {
     console.warn("Failed to remove cookie:", name, err);
   }
@@ -165,6 +181,10 @@ export function clearAuthSession(): void {
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(ROLE_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.clear();
   } catch (err) {
     console.warn("Failed to clear localStorage auth session:", err);
   }
@@ -173,9 +193,14 @@ export function clearAuthSession(): void {
     removeCookie(USER_KEY);
     removeCookie(ROLE_KEY);
     removeCookie(TOKEN_KEY);
+    removeCookie("gim_swimming_token");
+    removeCookie("gim_swimming_user");
+    removeCookie("gim_swimming_role");
   } catch (err) {
     console.warn("Failed to clear cookie auth session:", err);
   }
 
-  window.dispatchEvent(new Event("auth_session_changed"));
+  try {
+    window.dispatchEvent(new Event("auth_session_changed"));
+  } catch (_) {}
 }

@@ -142,7 +142,11 @@ export default function AppsPage() {
     clearCachedAppData();
     setSessionUser("");
     setSessionRole("");
-    router.replace("/");
+    if (typeof window !== "undefined") {
+      window.location.replace("/");
+    } else {
+      router.replace("/");
+    }
   };
 
   // Load all real data from PostgreSQL Backend in full parallel with background revalidation
