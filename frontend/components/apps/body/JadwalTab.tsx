@@ -26,6 +26,7 @@ import {
   XCircle,
   History,
   CheckCheck,
+  ArrowLeft,
 } from "lucide-react";
 import { ScheduleSession, Student, Coach, PoolVenue, ClassProgram, AttendanceRecord } from "../types";
 
@@ -1219,6 +1220,623 @@ export default function JadwalTab({
     };
   };
 
+  if (showAddModal) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12">
+        {/* ==========================================
+            1. TOP VIBRANT BLUE HERO HEADER
+            ========================================== */}
+        <div className="relative w-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 text-white pt-[max(2.5rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-14 sm:pb-16 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden">
+          {/* Subtle geometric & ambient water decoration */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
+            <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
+            <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25" />
+            <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl" />
+            <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
+          </div>
+
+          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold transition backdrop-blur-md cursor-pointer mb-2.5 active:scale-95"
+              >
+                <ArrowLeft size={14} />
+                <span>Kembali ke Jadwal</span>
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-xs font-bold tracking-wider uppercase">
+                  ADMINISTRASI • SESI RENANG
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-xs mt-1">
+                Buat Jadwal Sesi Renang Baru
+              </h1>
+              <p className="text-xs sm:text-sm text-blue-100 font-medium mt-0.5">
+                Tentukan tanggal pertemuan, jam les, pelatih, serta siswa yang bertugas
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ==========================================
+            2. FLOATING CLEAN CARD FORM
+            ========================================== */}
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20 animate-fadeIn">
+          {/* Real-time Coach Conflict Warning Banner */}
+          {conflictingSchedules.length > 0 && (
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1.5 shadow-sm animate-fadeIn">
+              <div className="flex items-center gap-2 font-black text-rose-700">
+                <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                <span>BENTROK JADWAL PELATIH ({conflictingSchedules.length} Sesi Terdeteksi)!</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-rose-700">
+                Pelatih <strong>{formCoachName}</strong> sudah memiliki jadwal di waktu yang sama:
+              </p>
+              <ul className="text-[11px] space-y-1 pl-2 list-disc list-inside text-rose-800 font-medium">
+                {conflictingSchedules.map((c, i) => (
+                  <li key={i}>
+                    <strong>Pertemuan {c.index + 1} ({formatShortDateIndo(c.date)})</strong>: {c.session.title} ({c.session.timeStart} - {c.session.timeEnd} WIB di {c.session.poolArea})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Clean White Card */}
+          <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-6">
+              {/* Section 1: Program Kelas & Kolam */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Program Kelas &amp; Lokasi Kolam
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-600">
+                        Program Kelas Renang <span className="text-rose-500">*</span>
+                      </label>
+                      {isSingleStudentClass(formClass) ? (
+                        <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                          Private (1 Siswa)
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                          Multi Siswa
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value={formClass}
+                      onChange={(e) => handleClassChange(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      {availablePrograms.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-600">
+                        Lokasi Kolam Renang <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5">
+                        <MapPin size={9} /> Area Kolam
+                      </span>
+                    </div>
+                    <select
+                      value={formPoolArea}
+                      onChange={(e) => setFormPoolArea(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    >
+                      {availablePools.map((pool) => (
+                        <option key={pool} value={pool}>
+                          {pool}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Pelatih / Instruktur */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Instruktur / Pelatih Penanggung Jawab
+                </h4>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-600">
+                    Pilih Pelatih <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formCoachId}
+                    onChange={(e) => handleCoachChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                  >
+                    {coaches.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.spec})
+                      </option>
+                    ))}
+                    <option value="custom">Masukkan Pelatih Lainnya / Custom...</option>
+                  </select>
+
+                  {formCoachId === "custom" && (
+                    <input
+                      type="text"
+                      required
+                      value={formCoachName}
+                      onChange={(e) => setFormCoachName(e.target.value)}
+                      placeholder="Ketik nama pelatih (misal: Coach Rendi)"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 mt-2"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Section 3: Tanggal & Waktu Sesi */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Tanggal &amp; Waktu Sesi Latihan
+                </h4>
+
+                {/* Tanggal Latihan Section */}
+                <div className="w-full space-y-2 relative" ref={calendarRef}>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-600">
+                      Tanggal Pertemuan Latihan <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                      {selectedDates.length === 0
+                        ? formClass === "Prestasi"
+                          ? "Pilih 1 s/d 12 Tanggal (Sen, Rab, Jum)"
+                          : "Pilih 1 s/d 4 Tanggal"
+                        : `${selectedDates.length} Tanggal Terpilih (Maks. ${getMaxDatesForClass(formClass)})`}
+                    </span>
+                  </div>
+
+                  {/* Clickable Input Trigger Button */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setIsCalendarOpen((prev) => !prev)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsCalendarOpen((prev) => !prev);
+                      }
+                    }}
+                    className={`w-full block box-border rounded-xl border transition min-h-[46px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
+                      isCalendarOpen
+                        ? "border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-sm"
+                        : "border-slate-200 bg-slate-50/60 hover:bg-slate-100/70"
+                    }`}
+                  >
+                    {selectedDates.length === 0 ? (
+                      <span className="text-xs text-slate-400 font-semibold">
+                        Klik di sini untuk membuka kalender dan memilih tanggal...
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {selectedDates.map((dateStr, idx) => (
+                          <span
+                            key={dateStr}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[11px] font-bold shadow-2xs"
+                          >
+                            <span>P-{idx + 1}:</span>
+                            <span>{formatShortDateIndo(dateStr)}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveDate(idx);
+                              }}
+                              className="ml-0.5 hover:bg-white/20 rounded-full h-3.5 w-3.5 flex items-center justify-center text-[10px] cursor-pointer"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Calendar Popover */}
+                  {isCalendarOpen && (
+                    <div className="absolute z-50 left-0 right-0 top-full mt-2 p-4 bg-white rounded-3xl border border-slate-200 shadow-2xl space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handlePrevCalMonth}
+                            className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          <h4 className="text-xs font-black text-slate-900 px-1">
+                            {MONTH_NAMES_INDO[calMonth]} {calYear}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={handleNextCalMonth}
+                            className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+
+                        {formClass === "Prestasi" ? (
+                          <button
+                            type="button"
+                            onClick={handleAutoAdd12Prestasi}
+                            className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1"
+                          >
+                            <Zap size={10} />
+                            <span>12x (Sen, Rab, Jum)</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleAutoAdd4Weekly}
+                            className="px-2.5 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-black border border-cyan-200 transition cursor-pointer flex items-center gap-1"
+                          >
+                            <Zap size={10} />
+                            <span>Paket 4 Pekan Rutin</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Day Headers */}
+                      <div className="grid grid-cols-7 gap-1 text-center">
+                        {DAY_NAMES_INDO.map((day, idx) => {
+                          const isPrestasiHeader = formClass === "Prestasi" && (idx === 1 || idx === 3 || idx === 5);
+                          return (
+                            <span
+                              key={day}
+                              className={`text-[10px] font-bold ${
+                                isPrestasiHeader
+                                  ? "text-blue-700 font-black underline decoration-blue-400"
+                                  : idx === 0 || idx === 6
+                                  ? "text-cyan-600"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {day}
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      {/* Month Matrix Grid */}
+                      <div className="grid grid-cols-7 gap-1">
+                        {(() => {
+                          const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
+                          const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                          const cells = [];
+
+                          for (let i = 0; i < firstDayOfMonth; i++) {
+                            cells.push(<div key={`empty-${i}`} className="h-8" />);
+                          }
+
+                          for (let day = 1; day <= daysInMonth; day++) {
+                            const mStr = String(calMonth + 1).padStart(2, "0");
+                            const dStr = String(day).padStart(2, "0");
+                            const fullDateStr = `${calYear}-${mStr}-${dStr}`;
+
+                            const isSelected = selectedDates.includes(fullDateStr);
+                            const isPast = fullDateStr < todayStr;
+                            const isToday = fullDateStr === todayStr;
+                            const selectedIdx = selectedDates.indexOf(fullDateStr);
+
+                            const dateObj = new Date(calYear, calMonth, day);
+                            const dayOfWeek = dateObj.getDay();
+                            const isPrestasiDay = formClass === "Prestasi" && (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5);
+
+                            cells.push(
+                              <button
+                                key={fullDateStr}
+                                type="button"
+                                disabled={isPast}
+                                onClick={() => handleToggleDate(fullDateStr)}
+                                className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${
+                                  isPast
+                                    ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
+                                    : isSelected
+                                    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
+                                    : isToday
+                                    ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                    : isPrestasiDay
+                                    ? "bg-blue-50/70 hover:bg-blue-100 text-blue-800 border border-blue-200/80 font-black"
+                                    : "hover:bg-slate-100 text-slate-700"
+                                }`}
+                              >
+                                <span>{day}</span>
+                                {isSelected && (
+                                  <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-amber-400 text-slate-900 rounded-full text-[8px] font-black flex items-center justify-center ring-1 ring-white">
+                                    {selectedIdx + 1}
+                                  </span>
+                                )}
+                                {!isSelected && isPrestasiDay && !isPast && (
+                                  <span className="absolute bottom-0.5 h-1 w-1 bg-blue-500 rounded-full" />
+                                )}
+                              </button>
+                            );
+                          }
+
+                          return cells;
+                        })()}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] text-slate-500">
+                        <span>
+                          {formClass === "Prestasi"
+                            ? "Pilih 1 s/d 12 tanggal (Senin, Rabu, Jumat)"
+                            : "Pilih 1 s/d 4 tanggal latihan"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCalendarOpen(false)}
+                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold cursor-pointer"
+                        >
+                          Selesai
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Jam Sesi Latihan */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-600">
+                      Jam Sesi Latihan (WIB) <span className="text-rose-500">*</span>
+                    </label>
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                        getRequiredDurationBadge(formClass).badgeClass
+                      }`}
+                    >
+                      <Clock size={11} />
+                      <span>{getRequiredDurationBadge(formClass).text}</span>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-bold block mb-1">
+                        Jam Masuk
+                      </span>
+                      <input
+                        type="time"
+                        required
+                        min={selectedDates.includes(todayStr) ? getCurrentHHMM() : undefined}
+                        value={formTimeStart}
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker?.();
+                          } catch {}
+                        }}
+                        onChange={(e) => handleFormTimeStartChange(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-bold block mb-1">
+                        Jam Keluar
+                      </span>
+                      <input
+                        type="time"
+                        required
+                        value={formTimeEnd}
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker?.();
+                          } catch {}
+                        }}
+                        onChange={(e) => setFormTimeEnd(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validation warning if time is in the past for today */}
+                  {selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2 animate-fadeIn">
+                      <AlertTriangle size={14} className="shrink-0 text-rose-600 mt-0.5" />
+                      <span>
+                        Jam mulai ({formTimeStart} WIB) pada hari ini sudah lewat dari waktu saat ini ({getCurrentHHMM()} WIB). Silakan pilih jam setelah waktu sekarang.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Validation message if duration mismatch */}
+                  {validateDurationForClass(formClass, formTimeStart, formTimeEnd) && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2 animate-fadeIn">
+                      <AlertTriangle size={14} className="shrink-0 text-rose-600 mt-0.5" />
+                      <span>{validateDurationForClass(formClass, formTimeStart, formTimeEnd)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 4: Siswa yang Mengikuti */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <span className="text-blue-600">●</span> Siswa yang Mengikuti Sesi
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    {formClass === "Prestasi" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filtered = students.filter((s) => {
+                            const q = studentSearchQuery.toLowerCase().trim();
+                            if (!q) return true;
+                            return (
+                              s.name.toLowerCase().includes(q) ||
+                              s.class.toLowerCase().includes(q)
+                            );
+                          });
+                          const allIds = filtered.map((s) => s.id);
+                          const allSelected =
+                            allIds.length > 0 &&
+                            allIds.every((id) => selectedStudentIds.includes(id));
+                          if (allSelected) {
+                            setSelectedStudentIds([]);
+                          } else {
+                            setSelectedStudentIds(allIds);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1"
+                      >
+                        <Check size={11} />
+                        <span>
+                          {(() => {
+                            const filtered = students.filter((s) => {
+                              const q = studentSearchQuery.toLowerCase().trim();
+                              if (!q) return true;
+                              return (
+                                s.name.toLowerCase().includes(q) ||
+                                s.class.toLowerCase().includes(q)
+                              );
+                            });
+                            const allIds = filtered.map((s) => s.id);
+                            const allSelected =
+                              allIds.length > 0 &&
+                              allIds.every((id) => selectedStudentIds.includes(id));
+                            return allSelected ? "Batal Pilih Semua" : "Pilih Semua";
+                          })()}
+                        </span>
+                      </button>
+                    )}
+                    <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                      {selectedStudentIds.length} Siswa Terpilih
+                    </span>
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
+                  placeholder="Cari nama siswa..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                />
+
+                <div className="max-h-48 overflow-y-auto rounded-2xl border border-slate-200 p-2 space-y-1 bg-slate-50/40">
+                  {students
+                    .filter((student) => {
+                      const q = studentSearchQuery.toLowerCase().trim();
+                      if (!q) return true;
+                      return (
+                        student.name.toLowerCase().includes(q) ||
+                        student.class.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((student) => {
+                      const isChecked = selectedStudentIds.includes(student.id);
+                      return (
+                        <label
+                          key={student.id}
+                          className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer text-xs ${
+                            isChecked
+                              ? "bg-blue-50/90 border border-blue-200 text-blue-950 font-bold shadow-2xs"
+                              : "hover:bg-white border border-transparent text-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type={isSingleStudentClass(formClass) ? "radio" : "checkbox"}
+                              name={isSingleStudentClass(formClass) ? "singleStudentRadio" : undefined}
+                              checked={isChecked}
+                              onChange={() => toggleStudentSelection(student.id)}
+                              className="text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer shrink-0"
+                            />
+                            <span className="truncate">{student.name}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                            {student.class}
+                          </span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Section 5: Catatan Sesi */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="text-blue-600">●</span> Catatan Tambahan (Opsional)
+                </h4>
+                <input
+                  type="text"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="Contoh: Fokus evaluasi teknik meluncur & gaya dada"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="py-2.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Batal / Kembali
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    conflictingSchedules.length > 0 ||
+                    selectedDates.length === 0 ||
+                    selectedDates.some((d) => !d || d < todayStr) ||
+                    (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
+                  }
+                  className={`py-2.5 px-6 rounded-xl font-bold text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-2 ${
+                    conflictingSchedules.length > 0 ||
+                    selectedDates.length === 0 ||
+                    selectedDates.some((d) => !d || d < todayStr) ||
+                    (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
+                      : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-blue-600/25 active:scale-95"
+                  }`}
+                >
+                  {conflictingSchedules.length > 0 ? (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <AlertTriangle size={14} className="shrink-0" />
+                      <span>Jadwal Bentrok (Perbaiki Waktu)</span>
+                    </span>
+                  ) : selectedDates.length === 0 ? (
+                    "Pilih Tanggal Pertemuan"
+                  ) : selectedDates.some((d) => !d || d < todayStr) ? (
+                    "Tanggal Sudah Lewat"
+                  ) : selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() ? (
+                    "Jam Sudah Lewat"
+                  ) : (
+                    <>
+                      <Plus size={14} />
+                      <span>Simpan &amp; Tambahkan Jadwal</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* ==========================================
@@ -2122,576 +2740,6 @@ export default function JadwalTab({
                 <button
                   type="button"
                   onClick={() => setEditingSchedule(null)}
-                  className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer"
-                >
-                  Batal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==========================================
-          MODAL: FORM BUAT JADWAL BARU
-          ========================================== */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
-          <div
-            onClick={() => setShowAddModal(false)}
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
-          />
-          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900">
-                  Buat Jadwal Sesi Renang Baru
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Tentukan tanggal, jam les, pelatih, serta siswa yang bertugas
-                </p>
-              </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleFormSubmit} className="space-y-4">
-              {/* Real-time Coach Conflict Warning Banner */}
-              {conflictingSchedules.length > 0 && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs space-y-1.5 animate-fadeIn">
-                  <div className="flex items-center gap-2 font-black text-rose-700">
-                    <AlertTriangle size={15} className="text-rose-600 shrink-0" />
-                    <span>BENTROK JADWAL PELATIH ({conflictingSchedules.length} Sesi Terdeteksi)!</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-rose-700">
-                    Pelatih <strong>{formCoachName}</strong> sudah memiliki jadwal di waktu yang sama:
-                  </p>
-                  <ul className="text-[11px] space-y-1 pl-2 list-disc list-inside text-rose-800 font-medium">
-                    {conflictingSchedules.map((c, i) => (
-                      <li key={i}>
-                        <strong>Pertemuan {c.index + 1} ({formatShortDateIndo(c.date)})</strong>: {c.session.title} ({c.session.timeStart} - {c.session.timeEnd} WIB di {c.session.poolArea})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* 1. Program Kelas & Kolam */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full items-start">
-                <div className="w-full min-w-0">
-                  <div className="flex items-center justify-between mb-1.5 h-6">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Program Kelas
-                    </label>
-                    {isSingleStudentClass(formClass) ? (
-                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                        -
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
-                        Multi Siswa
-                      </span>
-                    )}
-                  </div>
-                  <select
-                    value={formClass}
-                    onChange={(e) => handleClassChange(e.target.value)}
-                    className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
-                  >
-                    {availablePrograms.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="w-full min-w-0">
-                  <div className="flex items-center justify-between mb-1.5 h-6">
-                    <label className="block text-xs font-bold text-slate-700 truncate">
-                      Lokasi Kolam
-                    </label>
-                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5">
-                      <MapPin size={9} /> Area
-                    </span>
-                  </div>
-                  <select
-                    value={formPoolArea}
-                    onChange={(e) => setFormPoolArea(e.target.value)}
-                    className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white cursor-pointer transition"
-                  >
-                    {availablePools.map((pool) => (
-                      <option key={pool} value={pool}>
-                        {pool}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* 2. Coach Selection */}
-              <div className="w-full">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Pilih Pelatih / Instruktur
-                </label>
-                <select
-                  value={formCoachId}
-                  onChange={(e) => handleCoachChange(e.target.value)}
-                  className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white cursor-pointer mb-1.5 min-h-[46px]"
-                >
-                  {coaches.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.spec})
-                    </option>
-                  ))}
-                  <option value="custom">Masukkan Pelatih Lainnya / Custom...</option>
-                </select>
-
-                {formCoachId === "custom" && (
-                  <input
-                    type="text"
-                    required
-                    value={formCoachName}
-                    onChange={(e) => setFormCoachName(e.target.value)}
-                    placeholder="Ketik nama pelatih (misal: Coach Rendi)"
-                    className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 outline-none focus:border-cyan-500 focus:bg-white transition mt-1.5 min-h-[46px]"
-                  />
-                )}
-              </div>
-
-              {/* 3. Interactive Multi-Date Picker Calendar Section */}
-              <div className="w-full space-y-2 relative" ref={calendarRef}>
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Tanggal Latihan
-                  </label>
-                  <span className="text-[10px] text-cyan-600 font-bold bg-cyan-50 px-2 py-0.5 rounded">
-                    {selectedDates.length === 0
-                      ? formClass === "Prestasi"
-                        ? "Pilih 1 s/d 12 Tanggal (Sen, Rab, Jum)"
-                        : "Pilih 1 s/d 4 Tanggal"
-                      : `${selectedDates.length} Tanggal Terpilih (Maks. ${getMaxDatesForClass(formClass)})`}
-                  </span>
-                </div>
-
-                {/* Clickable Input Trigger Button */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setIsCalendarOpen((prev) => !prev)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setIsCalendarOpen((prev) => !prev);
-                    }
-                  }}
-                  className={`w-full block box-border rounded-2xl border transition min-h-[48px] px-3.5 py-2.5 text-left cursor-pointer select-none ${isCalendarOpen
-                    ? "border-cyan-500 bg-white ring-2 ring-cyan-100 shadow-sm"
-                    : "border-slate-200 bg-slate-50 hover:bg-slate-100/70"
-                    }`}
-                >
-                  {selectedDates.length === 0 ? (
-                    <span className="text-xs text-slate-400">
-                      Klik di sini untuk membuka kalender dan memilih tanggal...
-                    </span>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {selectedDates.map((dateStr, idx) => (
-                        <span
-                          key={dateStr}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[11px] font-bold shadow-2xs"
-                        >
-                          <span>P-{idx + 1}:</span>
-                          <span>{formatShortDateIndo(dateStr)}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveDate(idx);
-                            }}
-                            className="ml-0.5 hover:bg-white/20 rounded-full h-3.5 w-3.5 flex items-center justify-center text-[10px] cursor-pointer"
-                          >
-                            <X size={10} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Dropdown Calendar Popover */}
-                {isCalendarOpen && (
-                  <div className="absolute z-50 left-0 right-0 top-full mt-2 p-4 bg-white rounded-3xl border border-slate-200 shadow-2xl space-y-3 animate-fadeIn">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={handlePrevCalMonth}
-                          className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
-                        >
-                          <ChevronLeft size={14} />
-                        </button>
-                        <h4 className="text-xs font-black text-slate-900 px-1">
-                          {MONTH_NAMES_INDO[calMonth]} {calYear}
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={handleNextCalMonth}
-                          className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
-                        >
-                          <ChevronRight size={14} />
-                        </button>
-                      </div>
-
-                      {formClass === "Prestasi" ? (
-                        <button
-                          type="button"
-                          onClick={handleAutoAdd12Prestasi}
-                          className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1"
-                        >
-                          <Zap size={10} />
-                          <span>12x (Sen, Rab, Jum)</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleAutoAdd4Weekly}
-                          className="px-2.5 py-1 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[10px] font-black border border-cyan-200 transition cursor-pointer flex items-center gap-1"
-                        >
-                          <Zap size={10} />
-                          <span>Paket 4 Pekan Rutin</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Day Headers */}
-                    <div className="grid grid-cols-7 gap-1 text-center">
-                      {DAY_NAMES_INDO.map((day, idx) => {
-                        const isPrestasiHeader = formClass === "Prestasi" && (idx === 1 || idx === 3 || idx === 5);
-                        return (
-                          <span
-                            key={day}
-                            className={`text-[10px] font-bold ${isPrestasiHeader
-                              ? "text-blue-700 font-black underline decoration-blue-400"
-                              : idx === 0 || idx === 6
-                                ? "text-cyan-600"
-                                : "text-slate-400"
-                              }`}
-                          >
-                            {day}
-                          </span>
-                        );
-                      })}
-                    </div>
-
-                    {/* Month Matrix Grid */}
-                    <div className="grid grid-cols-7 gap-1">
-                      {(() => {
-                        const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
-                        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-                        const cells = [];
-
-                        for (let i = 0; i < firstDayOfMonth; i++) {
-                          cells.push(<div key={`empty-${i}`} className="h-8" />);
-                        }
-
-                        for (let day = 1; day <= daysInMonth; day++) {
-                          const mStr = String(calMonth + 1).padStart(2, "0");
-                          const dStr = String(day).padStart(2, "0");
-                          const fullDateStr = `${calYear}-${mStr}-${dStr}`;
-
-                          const isSelected = selectedDates.includes(fullDateStr);
-                          const isPast = fullDateStr < todayStr;
-                          const isToday = fullDateStr === todayStr;
-                          const selectedIdx = selectedDates.indexOf(fullDateStr);
-
-                          const dateObj = new Date(calYear, calMonth, day);
-                          const dayOfWeek = dateObj.getDay();
-                          const isPrestasiDay = formClass === "Prestasi" && (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5);
-
-                          cells.push(
-                            <button
-                              key={fullDateStr}
-                              type="button"
-                              disabled={isPast}
-                              onClick={() => handleToggleDate(fullDateStr)}
-                              className={`h-8 rounded-xl text-xs font-bold transition flex items-center justify-center relative cursor-pointer ${isPast
-                                ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
-                                : isSelected
-                                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
-                                  : isToday
-                                    ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                    : isPrestasiDay
-                                      ? "bg-blue-50/70 hover:bg-blue-100 text-blue-800 border border-blue-200/80 font-black"
-                                      : "hover:bg-slate-100 text-slate-700"
-                                }`}
-                            >
-                              <span>{day}</span>
-                              {isSelected && (
-                                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-amber-400 text-slate-900 rounded-full text-[8px] font-black flex items-center justify-center ring-1 ring-white">
-                                  {selectedIdx + 1}
-                                </span>
-                              )}
-                              {!isSelected && isPrestasiDay && !isPast && (
-                                <span className="absolute bottom-0.5 h-1 w-1 bg-blue-500 rounded-full" />
-                              )}
-                            </button>
-                          );
-                        }
-
-                        return cells;
-                      })()}
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] text-slate-500">
-                      <span>
-                        {formClass === "Prestasi"
-                          ? "Pilih 1 s/d 12 tanggal (Senin, Rabu, Jumat)"
-                          : "Pilih 1 s/d 4 tanggal latihan"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsCalendarOpen(false)}
-                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold cursor-pointer"
-                      >
-                        Selesai
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 4. Jam Latihan */}
-              <div className="w-full space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Jam Sesi Latihan (WIB)
-                  </label>
-                  <span
-                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${getRequiredDurationBadge(formClass).badgeClass
-                      }`}
-                  >
-                    <Clock size={11} />
-                    <span>{getRequiredDurationBadge(formClass).text}</span>
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 w-full">
-                  <div className="w-full min-w-0">
-                    <span className="text-[10px] text-slate-500 font-bold block mb-1">
-                      Jam Masuk
-                    </span>
-                    <input
-                      type="time"
-                      required
-                      min={selectedDates.includes(todayStr) ? getCurrentHHMM() : undefined}
-                      value={formTimeStart}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker?.();
-                        } catch {}
-                      }}
-                      onChange={(e) => handleFormTimeStartChange(e.target.value)}
-                      className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white min-w-0 cursor-pointer transition shadow-2xs"
-                    />
-                  </div>
-                  <div className="w-full min-w-0">
-                    <span className="text-[10px] text-slate-500 font-bold block mb-1">
-                      Jam Keluar
-                    </span>
-                    <input
-                      type="time"
-                      required
-                      value={formTimeEnd}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker?.();
-                        } catch {}
-                      }}
-                      onChange={(e) => setFormTimeEnd(e.target.value)}
-                      className="w-full h-12 block box-border rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-900 font-bold outline-none focus:border-cyan-500 focus:bg-white min-w-0 cursor-pointer transition shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Validation warning if time is in the past for today */}
-                {selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() && (
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
-                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
-                    <span>Jam mulai ({formTimeStart} WIB) pada hari ini sudah lewat dari waktu saat ini ({getCurrentHHMM()} WIB). Silakan pilih jam setelah waktu sekarang.</span>
-                  </div>
-                )}
-
-                {/* Validation message if duration mismatch */}
-                {validateDurationForClass(formClass, formTimeStart, formTimeEnd) && (
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold flex items-start gap-1.5 animate-fadeIn">
-                    <AlertTriangle size={13} className="shrink-0 text-rose-600 mt-0.5" />
-                    <span>{validateDurationForClass(formClass, formTimeStart, formTimeEnd)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* 5. Student Selection */}
-              <div className="w-full space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Pilih Siswa yang Mengikuti
-                  </label>
-                  <div className="flex items-center gap-2">
-                    {formClass === "Prestasi" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const filtered = students.filter((s) => {
-                            const q = studentSearchQuery.toLowerCase().trim();
-                            if (!q) return true;
-                            return (
-                              s.name.toLowerCase().includes(q) ||
-                              s.class.toLowerCase().includes(q)
-                            );
-                          });
-                          const allIds = filtered.map((s) => s.id);
-                          const allSelected =
-                            allIds.length > 0 &&
-                            allIds.every((id) => selectedStudentIds.includes(id));
-                          if (allSelected) {
-                            setSelectedStudentIds([]);
-                          } else {
-                            setSelectedStudentIds(allIds);
-                          }
-                        }}
-                        className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black border border-blue-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                      >
-                        <Check size={11} />
-                        <span>
-                          {(() => {
-                            const filtered = students.filter((s) => {
-                              const q = studentSearchQuery.toLowerCase().trim();
-                              if (!q) return true;
-                              return (
-                                s.name.toLowerCase().includes(q) ||
-                                s.class.toLowerCase().includes(q)
-                              );
-                            });
-                            const allIds = filtered.map((s) => s.id);
-                            const allSelected =
-                              allIds.length > 0 &&
-                              allIds.every((id) => selectedStudentIds.includes(id));
-                            return allSelected ? "Batal Pilih Semua" : "Pilih Semua (Select All)";
-                          })()}
-                        </span>
-                      </button>
-                    )}
-                    <span className="text-[10px] text-cyan-600 font-bold">
-                      {selectedStudentIds.length} Siswa Terpilih
-                    </span>
-                  </div>
-                </div>
-
-                <input
-                  type="text"
-                  value={studentSearchQuery}
-                  onChange={(e) => setStudentSearchQuery(e.target.value)}
-                  placeholder="Cari nama siswa..."
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white"
-                />
-
-                <div className="max-h-36 overflow-y-auto rounded-2xl border border-slate-200 p-2 space-y-1 bg-slate-50/50">
-                  {students
-                    .filter((student) => {
-                      const q = studentSearchQuery.toLowerCase().trim();
-                      if (!q) return true;
-                      return (
-                        student.name.toLowerCase().includes(q) ||
-                        student.class.toLowerCase().includes(q)
-                      );
-                    })
-                    .map((student) => {
-                      const isChecked = selectedStudentIds.includes(student.id);
-                      return (
-                        <label
-                          key={student.id}
-                          className={`flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-xs ${isChecked
-                            ? "bg-cyan-50 border border-cyan-300 text-cyan-950 font-bold shadow-2xs"
-                            : "hover:bg-white border border-transparent"
-                            }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <input
-                              type={isSingleStudentClass(formClass) ? "radio" : "checkbox"}
-                              name={isSingleStudentClass(formClass) ? "singleStudentRadio" : undefined}
-                              checked={isChecked}
-                              onChange={() => toggleStudentSelection(student.id)}
-                              className="text-cyan-600 focus:ring-cyan-500 h-4 w-4 cursor-pointer shrink-0"
-                            />
-                            <span className="truncate">{student.name}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
-                            {student.class}
-                          </span>
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* 6. Notes */}
-              <div className="w-full">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Catatan Sesi (Opsional)
-                </label>
-                <input
-                  type="text"
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Contoh: Fokus evaluasi teknik meluncur & gaya dada"
-                  className="w-full block box-border rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 focus:bg-white transition min-h-[46px]"
-                />
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="submit"
-                  disabled={
-                    conflictingSchedules.length > 0 ||
-                    selectedDates.length === 0 ||
-                    selectedDates.some((d) => !d || d < todayStr) ||
-                    (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
-                  }
-                  className={`flex-1 py-3 rounded-2xl text-white font-bold text-xs shadow-lg transition cursor-pointer ${conflictingSchedules.length > 0 ||
-                    selectedDates.length === 0 ||
-                    selectedDates.some((d) => !d || d < todayStr) ||
-                    (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
-                    ? "bg-slate-400 cursor-not-allowed opacity-75"
-                    : "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-cyan-500/25 active:scale-95"
-                    }`}
-                >
-                  {conflictingSchedules.length > 0 ? (
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <AlertTriangle size={14} className="shrink-0" />
-                      <span>{conflictingSchedules.length} Jadwal Bentrok (Perbaiki Waktu)</span>
-                    </span>
-                  ) : selectedDates.length === 0 ? (
-                    "Pilih Tanggal Pertemuan Terlebih Dahulu"
-                  ) : selectedDates.some((d) => !d || d < todayStr) ? (
-                    "Tanggal Sudah Lewat (Pilih Tanggal Lain)"
-                  ) : selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() ? (
-                    "Waktu Sudah Lewat (Ubah Jam Masuk)"
-                  ) : selectedDates.length > 1 ? (
-                    `Simpan`
-                  ) : (
-                    "Simpan & Tambahkan Jadwal"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
                   className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer"
                 >
                   Batal
