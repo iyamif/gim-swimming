@@ -332,6 +332,7 @@ export default function AppsBody({
           activeTab === "profile" ||
           activeTab === "daftar_hadir" ||
           activeTab === "pelatih" ||
+          activeTab === "jadwal" ||
           activeTab === "kehadiran" ||
           activeTab === "pengumuman" ||
           activeTab === "create" ||

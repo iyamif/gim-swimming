@@ -506,12 +506,12 @@ export default function DaftarHadirTab({
 
   if (studentToEdit) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12">
+      <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
         {/* ==========================================
-            1. TOP VIBRANT BLUE HERO HEADER
+            1. TOP VIBRANT BLUE HEADER (MATCHING APP THEME)
             ========================================== */}
-        <div className="relative w-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 text-white pt-[max(2.5rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-14 sm:pb-16 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden">
-          {/* Subtle geometric & ambient water decoration */}
+        <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+          {/* Subtle Decorative Background */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
             <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
@@ -520,49 +520,41 @@ export default function DaftarHadirTab({
             <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
           </div>
 
-          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+          <div className="max-w-2xl mx-auto flex items-center justify-between relative z-30">
             <div>
               <button
                 type="button"
                 onClick={() => !isSaving && setStudentToEdit(null)}
                 disabled={isSaving}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold transition backdrop-blur-md cursor-pointer mb-2.5 active:scale-95 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold transition backdrop-blur-md cursor-pointer mb-2 active:scale-95 disabled:opacity-50"
               >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={13} />
                 <span>Kembali ke Data Siswa</span>
               </button>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-                  ADMINISTRASI • SISWA
-                </span>
-                <span className="text-blue-100 text-xs font-medium">
-                  ID #{studentToEdit.id}
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-xs mt-1">
-                Edit Data Siswa
-              </h1>
-              <p className="text-xs sm:text-sm text-blue-100 font-medium mt-0.5">
-                Perbarui profil siswa, program kelas, orang tua &amp; pelatih penanggung jawab
+              <p className="text-xs font-medium text-cyan-100 leading-tight">
+                ADMINISTRATOR • GIM SWIMMING
               </p>
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug">
+                Edit Data Siswa
+              </h2>
             </div>
           </div>
         </div>
 
         {/* ==========================================
-            2. FLOATING CLEAN CARD FORM
+            2. FLOATING CLEAN WHITE CARD FORM
             ========================================== */}
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20 animate-fadeIn">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-4 relative z-10 -mt-8">
           {/* Error Alert */}
           {editError && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2.5 shadow-sm animate-fadeIn">
-              <AlertCircle size={16} className="shrink-0 text-rose-600" />
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2 animate-fadeIn">
+              <AlertCircle size={14} className="shrink-0 text-rose-600" />
               <span>{editError}</span>
             </div>
           )}
 
           {/* Clean White Card */}
-          <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
+          <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5">
             {/* Student Profile Quick Banner */}
             <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <div className="flex items-center gap-3.5">
@@ -623,13 +615,13 @@ export default function DaftarHadirTab({
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSaveStudentEdit} className="space-y-5">
+            <form onSubmit={handleSaveStudentEdit} className="space-y-4 pt-1">
               {/* Section 1: Informasi Dasar */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
                   <span className="text-blue-600">●</span> Informasi Dasar Siswa
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Nama Lengkap Siswa <span className="text-rose-500">*</span>
@@ -640,7 +632,7 @@ export default function DaftarHadirTab({
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       placeholder="Contoh: Muhammad Alif"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                     />
                   </div>
 
@@ -653,18 +645,18 @@ export default function DaftarHadirTab({
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value)}
                       placeholder="Contoh: alif123"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Section 2: Program & Status */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
                   <span className="text-blue-600">●</span> Program &amp; Keanggotaan
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Program Kelas Renang
@@ -672,7 +664,7 @@ export default function DaftarHadirTab({
                     <select
                       value={editClass}
                       onChange={(e) => setEditClass(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
                       {availablePrograms.map((p) => (
                         <option key={p} value={p}>
@@ -689,7 +681,7 @@ export default function DaftarHadirTab({
                     <select
                       value={editStatus}
                       onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
                       <option value="Active">Aktif (Masih Mengikuti Kelas)</option>
                       <option value="Inactive">Tidak Aktif (Tidak Melanjutkan)</option>
@@ -699,11 +691,11 @@ export default function DaftarHadirTab({
               </div>
 
               {/* Section 3: Kontak & Pembimbing */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
                   <span className="text-blue-600">●</span> Kontak &amp; Pembimbing
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Nama Orang Tua / Wali
@@ -713,7 +705,7 @@ export default function DaftarHadirTab({
                       value={editParent}
                       onChange={(e) => setEditParent(e.target.value)}
                       placeholder="Contoh: Bapak Hendra"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                     />
                   </div>
 
@@ -729,7 +721,7 @@ export default function DaftarHadirTab({
                         const c = (coaches || []).find((coach) => coach.name === val);
                         setEditCoachId(c ? String(c.id) : "");
                       }}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
                       {coaches && coaches.length > 0 ? (
                         coaches.map((c) => (
@@ -744,7 +736,7 @@ export default function DaftarHadirTab({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Nomor WhatsApp / HP Orang Tua
@@ -754,7 +746,7 @@ export default function DaftarHadirTab({
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
                       placeholder="Contoh: 081234567890"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                     />
                   </div>
 
@@ -767,7 +759,7 @@ export default function DaftarHadirTab({
                       value={editAge}
                       onChange={(e) => setEditAge(e.target.value)}
                       placeholder="Contoh: 8 thn"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -786,7 +778,7 @@ export default function DaftarHadirTab({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="py-2.5 px-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/25 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="py-2.5 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/25 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSaving ? (
                     <span>Menyimpan...</span>

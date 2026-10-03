@@ -1222,12 +1222,12 @@ export default function JadwalTab({
 
   if (showAddModal) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12">
+      <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
         {/* ==========================================
-            1. TOP VIBRANT BLUE HERO HEADER
+            1. TOP VIBRANT BLUE HEADER (MATCHING APP THEME)
             ========================================== */}
-        <div className="relative w-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-600 text-white pt-[max(2.5rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-14 sm:pb-16 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden">
-          {/* Subtle geometric & ambient water decoration */}
+        <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+          {/* Subtle Decorative Background */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
             <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
@@ -1236,40 +1236,35 @@ export default function JadwalTab({
             <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
           </div>
 
-          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+          <div className="max-w-2xl mx-auto flex items-center justify-between relative z-30">
             <div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold transition backdrop-blur-md cursor-pointer mb-2.5 active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold transition backdrop-blur-md cursor-pointer mb-2 active:scale-95"
               >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={13} />
                 <span>Kembali ke Jadwal</span>
               </button>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-                  ADMINISTRASI • SESI RENANG
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-xs mt-1">
-                Buat Jadwal Sesi Renang Baru
-              </h1>
-              <p className="text-xs sm:text-sm text-blue-100 font-medium mt-0.5">
-                Tentukan tanggal pertemuan, jam les, pelatih, serta siswa yang bertugas
+              <p className="text-xs font-medium text-cyan-100 leading-tight">
+                ADMINISTRATOR • GIM SWIMMING
               </p>
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug">
+                Buat Jadwal Sesi Renang Baru
+              </h2>
             </div>
           </div>
         </div>
 
         {/* ==========================================
-            2. FLOATING CLEAN CARD FORM
+            2. FLOATING CLEAN WHITE CARD FORM
             ========================================== */}
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20 animate-fadeIn">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-4 relative z-10 -mt-8">
           {/* Real-time Coach Conflict Warning Banner */}
           {conflictingSchedules.length > 0 && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1.5 shadow-sm animate-fadeIn">
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1.5 shadow-sm animate-fadeIn">
               <div className="flex items-center gap-2 font-black text-rose-700">
-                <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                 <span>BENTROK JADWAL PELATIH ({conflictingSchedules.length} Sesi Terdeteksi)!</span>
               </div>
               <p className="text-[11px] leading-relaxed text-rose-700">
@@ -1286,18 +1281,18 @@ export default function JadwalTab({
           )}
 
           {/* Clean White Card */}
-          <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
-            <form onSubmit={handleFormSubmit} className="space-y-6">
+          <div className="rounded-3xl bg-white p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5">
+            <form onSubmit={handleFormSubmit} className="space-y-4 pt-1">
               {/* Section 1: Program Kelas & Kolam */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
                   <span className="text-blue-600">●</span> Program Kelas &amp; Lokasi Kolam
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-[11px] font-bold text-slate-600">
-                        Program Kelas Renang <span className="text-rose-500">*</span>
+                        Program Kelas <span className="text-rose-500">*</span>
                       </label>
                       {isSingleStudentClass(formClass) ? (
                         <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
@@ -1312,7 +1307,7 @@ export default function JadwalTab({
                     <select
                       value={formClass}
                       onChange={(e) => handleClassChange(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
                       {availablePrograms.map((p) => (
                         <option key={p} value={p}>
@@ -1325,16 +1320,16 @@ export default function JadwalTab({
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-[11px] font-bold text-slate-600">
-                        Lokasi Kolam Renang <span className="text-rose-500">*</span>
+                        Lokasi Kolam <span className="text-rose-500">*</span>
                       </label>
                       <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5">
-                        <MapPin size={9} /> Area Kolam
+                        <MapPin size={9} /> Area
                       </span>
                     </div>
                     <select
                       value={formPoolArea}
                       onChange={(e) => setFormPoolArea(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                     >
                       {availablePools.map((pool) => (
                         <option key={pool} value={pool}>
@@ -1347,18 +1342,18 @@ export default function JadwalTab({
               </div>
 
               {/* Section 2: Pelatih / Instruktur */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                  <span className="text-blue-600">●</span> Instruktur / Pelatih Penanggung Jawab
+                  <span className="text-blue-600">●</span> Instruktur / Pelatih
                 </h4>
                 <div className="space-y-2">
-                  <label className="block text-[11px] font-bold text-slate-600">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
                     Pilih Pelatih <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={formCoachId}
                     onChange={(e) => handleCoachChange(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                   >
                     {coaches.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -1375,23 +1370,22 @@ export default function JadwalTab({
                       value={formCoachName}
                       onChange={(e) => setFormCoachName(e.target.value)}
                       placeholder="Ketik nama pelatih (misal: Coach Rendi)"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 mt-2"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white mt-1.5"
                     />
                   )}
                 </div>
               </div>
 
-              {/* Section 3: Tanggal & Waktu Sesi */}
-              <div className="space-y-3">
+              {/* Section 3: Tanggal & Waktu Pertemuan */}
+              <div className="space-y-3 pt-1">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                  <span className="text-blue-600">●</span> Tanggal &amp; Waktu Sesi Latihan
+                  <span className="text-blue-600">●</span> Tanggal &amp; Waktu Latihan
                 </h4>
 
-                {/* Tanggal Latihan Section */}
                 <div className="w-full space-y-2 relative" ref={calendarRef}>
                   <div className="flex items-center justify-between">
                     <label className="block text-[11px] font-bold text-slate-600">
-                      Tanggal Pertemuan Latihan <span className="text-rose-500">*</span>
+                      Tanggal Pertemuan <span className="text-rose-500">*</span>
                     </label>
                     <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
                       {selectedDates.length === 0
@@ -1413,22 +1407,22 @@ export default function JadwalTab({
                         setIsCalendarOpen((prev) => !prev);
                       }
                     }}
-                    className={`w-full block box-border rounded-xl border transition min-h-[46px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
+                    className={`w-full block box-border rounded-xl border transition min-h-[44px] px-3.5 py-2.5 text-left cursor-pointer select-none ${
                       isCalendarOpen
                         ? "border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-sm"
                         : "border-slate-200 bg-slate-50/60 hover:bg-slate-100/70"
                     }`}
                   >
                     {selectedDates.length === 0 ? (
-                      <span className="text-xs text-slate-400 font-semibold">
-                        Klik di sini untuk membuka kalender dan memilih tanggal...
+                      <span className="text-xs text-slate-400 font-medium">
+                        Klik untuk memilih tanggal di kalender...
                       </span>
                     ) : (
                       <div className="flex flex-wrap items-center gap-1.5">
                         {selectedDates.map((dateStr, idx) => (
                           <span
                             key={dateStr}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[11px] font-bold shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-bold shadow-2xs"
                           >
                             <span>P-{idx + 1}:</span>
                             <span>{formatShortDateIndo(dateStr)}</span>
@@ -1549,9 +1543,9 @@ export default function JadwalTab({
                                   isPast
                                     ? "text-slate-300 cursor-not-allowed bg-slate-50/50"
                                     : isSelected
-                                    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black shadow-sm"
+                                    ? "bg-blue-600 text-white font-black shadow-sm"
                                     : isToday
-                                    ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
                                     : isPrestasiDay
                                     ? "bg-blue-50/70 hover:bg-blue-100 text-blue-800 border border-blue-200/80 font-black"
                                     : "hover:bg-slate-100 text-slate-700"
@@ -1608,7 +1602,7 @@ export default function JadwalTab({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3.5">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <span className="text-[10px] text-slate-500 font-bold block mb-1">
                         Jam Masuk
@@ -1624,7 +1618,7 @@ export default function JadwalTab({
                           } catch {}
                         }}
                         onChange={(e) => handleFormTimeStartChange(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                       />
                     </div>
                     <div>
@@ -1641,22 +1635,20 @@ export default function JadwalTab({
                           } catch {}
                         }}
                         onChange={(e) => setFormTimeEnd(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white cursor-pointer"
                       />
                     </div>
                   </div>
 
-                  {/* Validation warning if time is in the past for today */}
                   {selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() && (
                     <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2 animate-fadeIn">
                       <AlertTriangle size={14} className="shrink-0 text-rose-600 mt-0.5" />
                       <span>
-                        Jam mulai ({formTimeStart} WIB) pada hari ini sudah lewat dari waktu saat ini ({getCurrentHHMM()} WIB). Silakan pilih jam setelah waktu sekarang.
+                        Jam mulai ({formTimeStart} WIB) pada hari ini sudah lewat dari waktu saat ini ({getCurrentHHMM()} WIB).
                       </span>
                     </div>
                   )}
 
-                  {/* Validation message if duration mismatch */}
                   {validateDurationForClass(formClass, formTimeStart, formTimeEnd) && (
                     <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2 animate-fadeIn">
                       <AlertTriangle size={14} className="shrink-0 text-rose-600 mt-0.5" />
@@ -1667,7 +1659,7 @@ export default function JadwalTab({
               </div>
 
               {/* Section 4: Siswa yang Mengikuti */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <span className="text-blue-600">●</span> Siswa yang Mengikuti Sesi
@@ -1728,7 +1720,7 @@ export default function JadwalTab({
                   value={studentSearchQuery}
                   onChange={(e) => setStudentSearchQuery(e.target.value)}
                   placeholder="Cari nama siswa..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                 />
 
                 <div className="max-h-48 overflow-y-auto rounded-2xl border border-slate-200 p-2 space-y-1 bg-slate-50/40">
@@ -1748,7 +1740,7 @@ export default function JadwalTab({
                           key={student.id}
                           className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer text-xs ${
                             isChecked
-                              ? "bg-blue-50/90 border border-blue-200 text-blue-950 font-bold shadow-2xs"
+                              ? "bg-blue-50 border border-blue-200 text-blue-950 font-bold shadow-2xs"
                               : "hover:bg-white border border-transparent text-slate-700"
                           }`}
                         >
@@ -1772,7 +1764,7 @@ export default function JadwalTab({
               </div>
 
               {/* Section 5: Catatan Sesi */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
                   <span className="text-blue-600">●</span> Catatan Tambahan (Opsional)
                 </h4>
@@ -1781,7 +1773,7 @@ export default function JadwalTab({
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
                   placeholder="Contoh: Fokus evaluasi teknik meluncur & gaya dada"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 font-semibold placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:bg-white"
                 />
               </div>
 
@@ -1808,20 +1800,16 @@ export default function JadwalTab({
                     selectedDates.some((d) => !d || d < todayStr) ||
                     (selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM())
                       ? "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
-                      : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-blue-600/25 active:scale-95"
+                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/25 active:scale-95"
                   }`}
                 >
                   {conflictingSchedules.length > 0 ? (
                     <span className="inline-flex items-center justify-center gap-1.5">
                       <AlertTriangle size={14} className="shrink-0" />
-                      <span>Jadwal Bentrok (Perbaiki Waktu)</span>
+                      <span>Jadwal Bentrok</span>
                     </span>
                   ) : selectedDates.length === 0 ? (
                     "Pilih Tanggal Pertemuan"
-                  ) : selectedDates.some((d) => !d || d < todayStr) ? (
-                    "Tanggal Sudah Lewat"
-                  ) : selectedDates.includes(todayStr) && formTimeStart <= getCurrentHHMM() ? (
-                    "Jam Sudah Lewat"
                   ) : (
                     <>
                       <Plus size={14} />
@@ -1838,50 +1826,65 @@ export default function JadwalTab({
   }
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
       {/* ==========================================
-          HEADER & ACTION BAR
+          1. TOP VIBRANT BLUE HEADER (MATCHING APP THEME)
           ========================================== */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Calendar size={20} className="text-blue-600" />
-            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
-              {isCoachRole ? "Jadwal Mengajar Saya" : "Manajemen Jadwal Les Renang"}
-            </h2>
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {isCoachRole
-              ? "Daftar sesi mengajar Anda. Klik tombol 'Req Reschedule' bila berhalangan atau ingin mengajukan perubahan waktu."
-              : "Klik pada kartu jadwal untuk mengubah tanggal, jam, atau pelatih"}
-          </p>
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+        {/* Subtle Decorative Background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
+          <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20" />
+          <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25" />
+          <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl" />
+          <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
         </div>
 
-        {!isCoachRole && (
-          <button
-            onClick={() => {
-              const currentHHMM = getCurrentHHMM();
-              let initialStart = formTimeStart;
-              if (initialStart <= currentHHMM) {
-                initialStart = getNextRecommendedFutureTime();
-              }
-              setFormTimeStart(initialStart);
-              setFormTimeEnd(calculateEndTimeForClass(initialStart, formClass));
-              setSelectedDates([todayStr]);
-              setShowAddModal(true);
-            }}
-            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2"
-          >
-            <Plus size={15} />
-            <span>Buat Jadwal Baru</span>
-          </button>
-        )}
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-30">
+          <div>
+            <p className="text-xs font-medium text-cyan-100 leading-tight">
+              ADMINISTRATOR • GIM SWIMMING
+            </p>
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-snug">
+              {isCoachRole ? "Jadwal Mengajar Saya" : "Manajemen Jadwal Les Renang"}
+            </h2>
+            <p className="text-xs text-blue-100 font-medium mt-0.5">
+              {isCoachRole
+                ? "Daftar sesi mengajar Anda. Klik 'Req Reschedule' bila berhalangan atau ingin mengajukan perubahan waktu."
+                : "Kelola sesi jadwal latihan renang, pelatih & siswa"}
+            </p>
+          </div>
+
+          {!isCoachRole && (
+            <button
+              onClick={() => {
+                const currentHHMM = getCurrentHHMM();
+                let initialStart = formTimeStart;
+                if (initialStart <= currentHHMM) {
+                  initialStart = getNextRecommendedFutureTime();
+                }
+                setFormTimeStart(initialStart);
+                setFormTimeEnd(calculateEndTimeForClass(initialStart, formClass));
+                setSelectedDates([todayStr]);
+                setShowAddModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white text-blue-700 font-bold text-xs shadow-lg hover:bg-blue-50 active:scale-95 transition cursor-pointer shrink-0 self-start sm:self-auto"
+            >
+              <Plus size={15} />
+              <span>Buat Jadwal Baru</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ==========================================
-          SCHEDULE VIEW MODE TABS: UPCOMING VS HISTORY
+          2. MAIN CONTENT AREA
           ========================================== */}
-      <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/70">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-4 relative z-10 -mt-8">
+        {/* ==========================================
+            SCHEDULE VIEW MODE TABS: UPCOMING VS HISTORY
+            ========================================== */}
+        <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/70">
         <button
           type="button"
           onClick={() => setScheduleTab("upcoming")}
@@ -3145,6 +3148,7 @@ export default function JadwalTab({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
