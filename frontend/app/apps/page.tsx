@@ -72,8 +72,19 @@ import { getAuthSession, saveAuthSession, clearAuthSession } from "../../lib/aut
 export default function AppsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [sessionUser, setSessionUser] = useState("");
-  const [sessionRole, setSessionRole] = useState("");
+  const [sessionUser, setSessionUser] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return getAuthSession().user || "";
+    }
+    return "";
+  });
+  const [sessionRole, setSessionRole] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const r = getAuthSession().role || "";
+      return r.toLowerCase().trim();
+    }
+    return "";
+  });
 
   // Navigation tab state (for Admin & Pelatih only)
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -1065,26 +1076,6 @@ export default function AppsPage() {
     }
   };
 
-  if (!mounted || !sessionUser || loadingData) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-sm text-white">
-        <div className="flex flex-col items-center space-y-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icon.png"
-            alt="GIM Swimming"
-            className="h-20 w-20 sm:h-24 sm:w-24 object-contain drop-shadow-2xl animate-float-movement"
-          />
-          <div className="flex flex-col items-center space-y-2">
-            <div className="h-1.5 w-36 rounded-full bg-slate-800/80 overflow-hidden shadow-inner">
-              <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ==========================================
   // ORANG TUA (PARENT) VIEW: All-in-One Dashboard Page
   // ==========================================
@@ -1188,8 +1179,8 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Floating Loading Screen Overlay during Resume / Refresh */}
-        {isRefreshing && (
+        {/* Centered Floating Loading Screen Overlay during Initial Load / Resume / Refresh */}
+        {(loadingData || isRefreshing) && (
           <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
             <div className="flex flex-col items-center justify-center space-y-3 p-6 rounded-3xl bg-slate-900/85 border border-white/10 shadow-2xl scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1341,8 +1332,8 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      {/* Centered Floating Loading Screen Overlay during Resume / Refresh */}
-      {isRefreshing && (
+      {/* Centered Floating Loading Screen Overlay during Initial Load / Resume / Refresh */}
+      {(loadingData || isRefreshing) && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
           <div className="flex flex-col items-center justify-center space-y-3 p-6 rounded-3xl bg-slate-900/85 border border-white/10 shadow-2xl scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
