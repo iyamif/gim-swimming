@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"os"
 	"strings"
 
@@ -36,11 +35,8 @@ type Config struct {
 
 // LoadConfig loads the configuration from environment variables with sensible defaults
 func LoadConfig() *Config {
-	// Attempt to load .env file. We ignore the error so that if it doesn't exist 
-	// (e.g. in staging/production), the app will read directly from OS environment variables.
-	if err := godotenv.Load(); err != nil {
-		log.Println("Note: .env file not found, using system environment variables")
-	}
+	// Attempt to load .env file from common locations
+	_ = godotenv.Load(".env", "backend/.env", "../backend/.env", "../.env")
 
 	return &Config{
 		Port:                    getEnv("PORT", "8080"),

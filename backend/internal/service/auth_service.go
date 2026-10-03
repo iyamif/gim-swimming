@@ -541,14 +541,26 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 
 	log.Printf("📧 [EMAIL OTP GIM SWIMMING] Target: %s (User: %s) | Kode OTP: [%s]", toEmail, username, otpCode)
 
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
-	smtpUser := os.Getenv("SMTP_USER")
-	smtpPass := os.Getenv("SMTP_PASSWORD")
-	smtpFrom := os.Getenv("SMTP_FROM")
+	cleanStr := func(s string) string {
+		s = strings.TrimSpace(s)
+		s = strings.Trim(s, "\"")
+		s = strings.Trim(s, "'")
+		return strings.TrimSpace(s)
+	}
+
+	smtpHost := cleanStr(os.Getenv("SMTP_HOST"))
+	smtpPort := cleanStr(os.Getenv("SMTP_PORT"))
+	smtpUser := cleanStr(os.Getenv("SMTP_USER"))
+	smtpPass := cleanStr(os.Getenv("SMTP_PASSWORD"))
+	smtpFrom := cleanStr(os.Getenv("SMTP_FROM"))
+
+	// Strip spaces from App Passwords if Gmail (e.g. "abcd efgh ijkl mnop" -> "abcdefghijklmnop")
+	if strings.Contains(strings.ToLower(smtpHost), "gmail") || strings.Contains(strings.ToLower(smtpUser), "gmail") {
+		smtpPass = strings.ReplaceAll(smtpPass, " ", "")
+	}
 
 	if smtpHost == "" {
-		log.Printf("ℹ️ [SMTP INFO] SMTP_HOST belum diset di .env. Kode OTP untuk [%s] adalah: %s (Berlaku 15 menit). Untuk pengiriman email fisik ke inbox, atur SMTP_HOST, SMTP_USER, & SMTP_PASSWORD di .env", toEmail, otpCode)
+		log.Printf("ℹ️ [SMTP INFO] SMTP_HOST belum diset di .env. Kode OTP untuk [%s] adalah: %s (Berlaku 15 menit). Untuk pengiriman email fisik ke inbox, atur SMTP_HOST, SMTP_USER, & SMTP_PASSWORD di backend/.env", toEmail, otpCode)
 		return
 	}
 
@@ -558,9 +570,9 @@ func (s *authService) sendEmailOTP(toEmail, username, otpCode string) {
 			smtpFrom = "noreply@gimswimming.com"
 		}
 	}
-		if smtpPort == "" {
-			smtpPort = "587"
-		}
+	if smtpPort == "" {
+		smtpPort = "587"
+	}
 
 		boundary := "===GIM_SWIMMING_EMAIL_BOUNDARY==="
 		var msgBuilder strings.Builder
