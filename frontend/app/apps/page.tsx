@@ -597,12 +597,12 @@ export default function AppsPage() {
   // Authenticate user session on mount & fetch real DB data
   useEffect(() => {
     setMounted(true);
-    const { user, role, token } = getAuthSession();
+    const { user, role, token, must_change_password } = getAuthSession();
 
-    if (!user || !role) {
-      // If cache/session is null (e.g. after logout or fresh device),
-      // redirect immediately to the main homepage "/"
-      router.replace("/");
+    if (!user || !role || must_change_password) {
+      // If cache/session is null or default password not changed yet,
+      // redirect immediately to the main homepage "/" to enforce password update
+      router.replace("/?must_change_password=true");
       return;
     }
 
@@ -633,6 +633,16 @@ export default function AppsPage() {
           if (!resp) return;
           const userData = resp?.data?.user || resp?.data;
           if (userData) {
+            if (userData.must_change_password) {
+              saveAuthSession({
+                user: userData.username || user,
+                role: userData.role || role,
+                token: token,
+                must_change_password: true,
+              });
+              router.replace("/?must_change_password=true");
+              return;
+            }
             const uname = userData.username || user;
             const urole = userData.role || role;
             saveAuthSession({
@@ -640,6 +650,7 @@ export default function AppsPage() {
               role: urole,
               token: token,
               avatar: userData.avatar,
+              must_change_password: false,
             });
             if (userData.avatar !== undefined) {
               window.dispatchEvent(new Event("avatar_updated"));
@@ -650,7 +661,7 @@ export default function AppsPage() {
           console.warn("Backend auth token check warning:", err);
         });
     }
-  }, [loadAllData, router]);
+  }, [loadAllData, router, handleLogout]);
 
   // RBAC Access Helper
   const hasAccess = (tabName: string): boolean => {

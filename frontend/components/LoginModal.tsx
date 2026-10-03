@@ -27,7 +27,7 @@ import {
   requestPasswordResetOTP,
   resetPasswordWithOTP,
 } from "../lib/api";
-import { saveAuthSession } from "../lib/authSession";
+import { saveAuthSession, getAuthSession, clearAuthSession } from "../lib/authSession";
 import {
   isFaceIdEnabledForUser,
   getFaceIdCredential,
@@ -108,8 +108,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   // Reset states when modal is opened/closed
   useEffect(() => {
     if (isOpen) {
-      setStep("login");
-      setUsernameOrEmail("");
+      const session = getAuthSession();
+      if (session.must_change_password) {
+        setStep("setup-password");
+        if (session.user) setUsernameOrEmail(session.user);
+      } else {
+        setStep("login");
+      }
       setPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -199,6 +204,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         role: user?.role || getRoleFromUsername(usernameOrEmail),
         token: result.data.token,
         avatar: user?.avatar,
+        must_change_password: !!user?.must_change_password,
       });
       setCurrentUserData(user);
 
@@ -240,14 +246,22 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     try {
       await setupInitialPassword(newPassword);
       setSetupLoading(false);
+
+      const session = getAuthSession();
+      const finalUser = currentUserData?.username || session.user || usernameOrEmail;
+      const finalRole = currentUserData?.role || session.role || getRoleFromUsername(usernameOrEmail);
+
+      saveAuthSession({
+        user: finalUser,
+        role: finalRole,
+        token: session.token || undefined,
+        must_change_password: false,
+      });
+
       setStep("success");
 
       setTimeout(() => {
-        if (currentUserData) {
-          onLoginSuccess(currentUserData.username, currentUserData.role);
-        } else {
-          onLoginSuccess(usernameOrEmail, getRoleFromUsername(usernameOrEmail));
-        }
+        onLoginSuccess(finalUser, finalRole);
       }, 1500);
     } catch (err: any) {
       setSetupLoading(false);
@@ -548,6 +562,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           role: user?.role || credential?.role || getRoleFromUsername(targetAccount),
           token: result.data.token,
           avatar: user?.avatar || credential?.avatar,
+          must_change_password: !!user?.must_change_password,
         });
         setCurrentUserData(user);
 
@@ -578,6 +593,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           setError(err.message || "Autentikasi biometrik gagal. Silakan masuk menggunakan kata sandi.");
         }
       });
+  };
+
+  const handleModalClose = () => {
+    const session = getAuthSession();
+    if (step === "setup-password" || session.must_change_password) {
+      clearAuthSession();
+    }
+    onClose();
   };
 
   if (!mounted || !isOpen) return null;
@@ -616,7 +639,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       {/* Modal Backdrop Overlay (Covers the complete screen) */}
       <div
         className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity duration-300 z-[999]"
-        onClick={onClose}
+        onClick={handleModalClose}
       />
 
       {/* Modal Dialog Box (Centered layout, pure white background) */}
@@ -627,7 +650,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
         {/* Close Button */}
         <button
-          onClick={onClose}
+          onClick={handleModalClose}
           className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full border border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition duration-200"
           aria-label="Close modal"
         >

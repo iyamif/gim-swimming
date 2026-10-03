@@ -15,7 +15,7 @@ export default function Navbar() {
 
   const syncAuth = () => {
     const session = getAuthSession();
-    if (session.user && session.role) {
+    if (session.user && session.role && !session.must_change_password) {
       setIsLoggedIn(true);
       setUsername(session.user);
     } else {
@@ -27,13 +27,26 @@ export default function Navbar() {
   useEffect(() => {
     syncAuth();
     window.addEventListener("auth_session_changed", syncAuth);
+
+    const session = getAuthSession();
+    const queryHasMustChange = typeof window !== "undefined" && window.location.search.includes("must_change_password");
+    if (session.must_change_password || queryHasMustChange) {
+      setIsLoginModalOpen(true);
+    }
+
     return () => window.removeEventListener("auth_session_changed", syncAuth);
   }, []);
 
   const handleLoginSuccess = (name: string, role: string) => {
+    const session = getAuthSession();
     setIsLoggedIn(true);
     setUsername(name);
-    saveAuthSession({ user: name, role });
+    saveAuthSession({
+      user: name,
+      role,
+      token: session.token || undefined,
+      must_change_password: false,
+    });
     setIsLoginModalOpen(false);
     router.push("/apps");
   };

@@ -7,6 +7,7 @@
 const TOKEN_KEY = "gim_swimming_token";
 const USER_KEY = "gim_swimming_user";
 const ROLE_KEY = "gim_swimming_role";
+const MUST_CHANGE_PASSWORD_KEY = "gim_swimming_must_change_password";
 const COOKIE_MAX_AGE_DAYS = 365;
 
 /**
@@ -61,6 +62,7 @@ export interface AuthSessionData {
   role: string;
   token?: string;
   avatar?: string;
+  must_change_password?: boolean;
 }
 
 /**
@@ -69,13 +71,18 @@ export interface AuthSessionData {
 export function saveAuthSession(data: AuthSessionData): void {
   if (typeof window === "undefined") return;
 
-  const { user, role, token, avatar } = data;
+  const { user, role, token, avatar, must_change_password } = data;
 
   // 1. Save to LocalStorage
   try {
     if (user) localStorage.setItem(USER_KEY, user);
     if (role) localStorage.setItem(ROLE_KEY, role);
     if (token) localStorage.setItem(TOKEN_KEY, token);
+    if (must_change_password) {
+      localStorage.setItem(MUST_CHANGE_PASSWORD_KEY, "true");
+    } else {
+      localStorage.removeItem(MUST_CHANGE_PASSWORD_KEY);
+    }
     if (avatar && user) {
       localStorage.setItem(`gim_avatar_${user}`, avatar);
     }
@@ -88,6 +95,11 @@ export function saveAuthSession(data: AuthSessionData): void {
     if (user) setCookie(USER_KEY, user, COOKIE_MAX_AGE_DAYS);
     if (role) setCookie(ROLE_KEY, role, COOKIE_MAX_AGE_DAYS);
     if (token) setCookie(TOKEN_KEY, token, COOKIE_MAX_AGE_DAYS);
+    if (must_change_password) {
+      setCookie(MUST_CHANGE_PASSWORD_KEY, "true", COOKIE_MAX_AGE_DAYS);
+    } else {
+      removeCookie(MUST_CHANGE_PASSWORD_KEY);
+    }
   } catch (err) {
     console.warn("Failed to save session to cookies:", err);
   }
@@ -103,20 +115,23 @@ export function getAuthSession(): {
   user: string | null;
   role: string | null;
   token: string | null;
+  must_change_password: boolean;
 } {
   if (typeof window === "undefined") {
-    return { user: null, role: null, token: null };
+    return { user: null, role: null, token: null, must_change_password: false };
   }
 
   // Try reading from LocalStorage first
   let user: string | null = null;
   let role: string | null = null;
   let token: string | null = null;
+  let mustChangePasswordStr: string | null = null;
 
   try {
     user = localStorage.getItem(USER_KEY);
     role = localStorage.getItem(ROLE_KEY);
     token = localStorage.getItem(TOKEN_KEY);
+    mustChangePasswordStr = localStorage.getItem(MUST_CHANGE_PASSWORD_KEY);
   } catch (err) {
     console.warn("Failed to read from localStorage:", err);
   }
@@ -125,12 +140,16 @@ export function getAuthSession(): {
   if (!user) user = getCookie(USER_KEY);
   if (!role) role = getCookie(ROLE_KEY);
   if (!token) token = getCookie(TOKEN_KEY);
+  if (!mustChangePasswordStr) mustChangePasswordStr = getCookie(MUST_CHANGE_PASSWORD_KEY);
+
+  const must_change_password = mustChangePasswordStr === "true";
 
   // Cross-synchronize: if found in cookies but not localStorage, restore to localStorage
   try {
     if (user && !localStorage.getItem(USER_KEY)) localStorage.setItem(USER_KEY, user);
     if (role && !localStorage.getItem(ROLE_KEY)) localStorage.setItem(ROLE_KEY, role);
     if (token && !localStorage.getItem(TOKEN_KEY)) localStorage.setItem(TOKEN_KEY, token);
+    if (must_change_password) localStorage.setItem(MUST_CHANGE_PASSWORD_KEY, "true");
   } catch (_) {}
 
   // Cross-synchronize: if found in localStorage but not cookies, restore to cookies
@@ -138,9 +157,10 @@ export function getAuthSession(): {
     if (user && !getCookie(USER_KEY)) setCookie(USER_KEY, user, COOKIE_MAX_AGE_DAYS);
     if (role && !getCookie(ROLE_KEY)) setCookie(ROLE_KEY, role, COOKIE_MAX_AGE_DAYS);
     if (token && !getCookie(TOKEN_KEY)) setCookie(TOKEN_KEY, token, COOKIE_MAX_AGE_DAYS);
+    if (must_change_password) setCookie(MUST_CHANGE_PASSWORD_KEY, "true", COOKIE_MAX_AGE_DAYS);
   } catch (_) {}
 
-  return { user, role, token };
+  return { user, role, token, must_change_password };
 }
 
 /**
@@ -165,6 +185,7 @@ export function clearAuthSession(): void {
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(MUST_CHANGE_PASSWORD_KEY);
   } catch (err) {
     console.warn("Failed to clear localStorage auth session:", err);
   }
@@ -173,6 +194,7 @@ export function clearAuthSession(): void {
     removeCookie(USER_KEY);
     removeCookie(ROLE_KEY);
     removeCookie(TOKEN_KEY);
+    removeCookie(MUST_CHANGE_PASSWORD_KEY);
   } catch (err) {
     console.warn("Failed to clear cookie auth session:", err);
   }
