@@ -1181,22 +1181,14 @@ export default function AppsPage() {
 
         {/* Centered Floating Loading Screen Overlay during Initial Load / Resume / Refresh */}
         {(loadingData || isRefreshing) && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
-            <div className="flex flex-col items-center justify-center space-y-3 p-6 rounded-3xl bg-slate-900/85 border border-white/10 shadow-2xl scale-100">
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+            <div className="flex flex-col items-center justify-center space-y-3 scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/icon.png"
                 alt="Loading"
-                className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-float-movement drop-shadow-2xl"
+                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
               />
-              {/* <div className="flex flex-col items-center space-y-1.5">
-                <div className="h-1 w-28 rounded-full bg-slate-800 overflow-hidden">
-                  <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
-                </div>
-                <p className="text-xs font-bold text-white tracking-wide drop-shadow-md">
-                  Memperbarui data terbaru...
-                </p>
-              </div> */}
             </div>
           </div>
         )}
@@ -1334,22 +1326,14 @@ export default function AppsPage() {
 
       {/* Centered Floating Loading Screen Overlay during Initial Load / Resume / Refresh */}
       {(loadingData || isRefreshing) && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
-          <div className="flex flex-col items-center justify-center space-y-3 p-6 rounded-3xl bg-slate-900/85 border border-white/10 shadow-2xl scale-100">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-16 w-16 sm:h-20 sm:w-20 object-contain animate-float-movement drop-shadow-2xl"
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
             />
-            {/* <div className="flex flex-col items-center space-y-1.5">
-              <div className="h-1 w-28 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full w-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 animate-pulse" />
-              </div>
-              <p className="text-xs font-bold text-white tracking-wide drop-shadow-md">
-                Memperbarui data terbaru...
-              </p>
-            </div> */}
           </div>
         </div>
       )}
