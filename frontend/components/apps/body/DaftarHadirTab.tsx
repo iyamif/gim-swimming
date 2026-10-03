@@ -485,7 +485,7 @@ export default function DaftarHadirTab({
       setTimeout(() => setFeedbackMsg(null), 3500);
     } catch (err: any) {
       console.error("Gagal menyimpan data siswa:", err);
-      setFeedbackMsg("Gagal menyimpan perubahan. Silakan coba lagi.");
+      setFeedbackMsg(err?.message || "Gagal menyimpan perubahan. Silakan coba lagi.");
     } finally {
       setIsSaving(false);
     }
