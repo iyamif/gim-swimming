@@ -89,6 +89,7 @@ export function saveAuthSession(data: AuthSessionData): void {
 
   // 1. Save to LocalStorage
   try {
+    localStorage.removeItem("gim_swimming_logged_out");
     if (user) localStorage.setItem(USER_KEY, user);
     if (role) localStorage.setItem(ROLE_KEY, role);
     if (token) localStorage.setItem(TOKEN_KEY, token);
@@ -109,11 +110,13 @@ export function saveAuthSession(data: AuthSessionData): void {
   }
 
   // Dispatch event for UI reactivity
-  window.dispatchEvent(new Event("auth_session_changed"));
+  try {
+    window.dispatchEvent(new Event("auth_session_changed"));
+  } catch (_) {}
 }
 
 /**
- * Retrieve current user auth session, automatically synchronizing localStorage and Cookies
+ * Retrieve current user auth session
  */
 export function getAuthSession(): {
   user: string | null;
@@ -124,7 +127,13 @@ export function getAuthSession(): {
     return { user: null, role: null, token: null };
   }
 
-  // Try reading from LocalStorage first
+  try {
+    if (localStorage.getItem("gim_swimming_logged_out") === "true") {
+      return { user: null, role: null, token: null };
+    }
+  } catch (_) {}
+
+  // Read from LocalStorage
   let user: string | null = null;
   let role: string | null = null;
   let token: string | null = null;
@@ -137,24 +146,14 @@ export function getAuthSession(): {
     console.warn("Failed to read from localStorage:", err);
   }
 
-  // Fallback to Cookies if missing from LocalStorage
-  if (!user) user = getCookie(USER_KEY);
-  if (!role) role = getCookie(ROLE_KEY);
-  if (!token) token = getCookie(TOKEN_KEY);
+  // Validate values (ignore "null", "undefined", or empty string)
+  if (!user || user === "null" || user === "undefined" || user.trim() === "") user = null;
+  if (!role || role === "null" || role === "undefined" || role.trim() === "") role = null;
+  if (!token || token === "null" || token === "undefined" || token.trim() === "") token = null;
 
-  // Cross-synchronize: if found in cookies but not localStorage, restore to localStorage
-  try {
-    if (user && !localStorage.getItem(USER_KEY)) localStorage.setItem(USER_KEY, user);
-    if (role && !localStorage.getItem(ROLE_KEY)) localStorage.setItem(ROLE_KEY, role);
-    if (token && !localStorage.getItem(TOKEN_KEY)) localStorage.setItem(TOKEN_KEY, token);
-  } catch (_) {}
-
-  // Cross-synchronize: if found in localStorage but not cookies, restore to cookies
-  try {
-    if (user && !getCookie(USER_KEY)) setCookie(USER_KEY, user, COOKIE_MAX_AGE_DAYS);
-    if (role && !getCookie(ROLE_KEY)) setCookie(ROLE_KEY, role, COOKIE_MAX_AGE_DAYS);
-    if (token && !getCookie(TOKEN_KEY)) setCookie(TOKEN_KEY, token, COOKIE_MAX_AGE_DAYS);
-  } catch (_) {}
+  if (!user || !role) {
+    return { user: null, role: null, token: null };
+  }
 
   return { user, role, token };
 }
@@ -165,10 +164,11 @@ export function getAuthSession(): {
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
+    if (localStorage.getItem("gim_swimming_logged_out") === "true") return null;
     const lsToken = localStorage.getItem(TOKEN_KEY);
-    if (lsToken) return lsToken;
+    if (lsToken && lsToken !== "null" && lsToken !== "undefined" && lsToken.trim() !== "") return lsToken;
   } catch (_) {}
-  return getCookie(TOKEN_KEY);
+  return null;
 }
 
 /**
@@ -178,6 +178,7 @@ export function clearAuthSession(): void {
   if (typeof window === "undefined") return;
 
   try {
+    localStorage.setItem("gim_swimming_logged_out", "true");
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(TOKEN_KEY);
@@ -196,6 +197,19 @@ export function clearAuthSession(): void {
     removeCookie("gim_swimming_token");
     removeCookie("gim_swimming_user");
     removeCookie("gim_swimming_role");
+
+    // Also remove any cookie starting with gim_
+    if (typeof document !== "undefined" && document.cookie) {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+        if (name.toLowerCase().startsWith("gim_")) {
+          removeCookie(name);
+        }
+      }
+    }
   } catch (err) {
     console.warn("Failed to clear cookie auth session:", err);
   }
