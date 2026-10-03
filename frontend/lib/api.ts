@@ -776,10 +776,18 @@ export async function updateAvatarPreset(avatar: string): Promise<string> {
   return data.avatar;
 }
 
-export async function setupInitialPassword(newPassword: string): Promise<{ success: boolean; message: string; data?: any }> {
+export async function setupInitialPassword(newPassword: string, customToken?: string): Promise<{ success: boolean; message: string; data?: any }> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+  const token = customToken || getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/setup-password`, {
     method: "POST",
-    headers: getHeaders(),
+    headers,
     body: JSON.stringify({ new_password: newPassword }),
   });
 

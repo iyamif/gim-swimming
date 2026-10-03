@@ -53,7 +53,8 @@ const getRoleFromUsername = (nameOrEmail: string): string => {
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps) {
   const [step, setStep] = useState<"login" | "face-scan" | "setup-password" | "forgot-password" | "success">("login");
   const [mounted, setMounted] = useState(false);
-  const [currentUserData, setCurrentUserData] = useState<{ username: string; role: string; must_change_password?: boolean } | null>(null);
+  const [currentUserData, setCurrentUserData] = useState<{ username: string; role: string; avatar?: string; must_change_password?: boolean } | null>(null);
+  const [tempToken, setTempToken] = useState<string>("");
 
   useEffect(() => {
     setMounted(true);
@@ -108,13 +109,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   // Reset states when modal is opened/closed
   useEffect(() => {
     if (isOpen) {
-      const session = getAuthSession();
-      if (session.must_change_password) {
-        setStep("setup-password");
-        if (session.user) setUsernameOrEmail(session.user);
-      } else {
-        setStep("login");
-      }
+      setStep("login");
+      setTempToken("");
       setPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -197,20 +193,21 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
       setLoading(false);
 
-      // Save session credentials persistently (both localStorage and persistent Cookies)
       const user = result.data.user;
-      saveAuthSession({
-        user: user?.username || usernameOrEmail,
-        role: user?.role || getRoleFromUsername(usernameOrEmail),
-        token: result.data.token,
-        avatar: user?.avatar,
-        must_change_password: !!user?.must_change_password,
-      });
+      const token = result.data.token;
       setCurrentUserData(user);
+      setTempToken(token || "");
 
       if (user?.must_change_password) {
+        clearAuthSession();
         setStep("setup-password");
       } else {
+        saveAuthSession({
+          user: user?.username || usernameOrEmail,
+          role: user?.role || getRoleFromUsername(usernameOrEmail),
+          token: token,
+          avatar: user?.avatar,
+        });
         setStep("success");
         setTimeout(() => {
           onLoginSuccess(user.username, user.role);
@@ -244,18 +241,17 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
     setSetupLoading(true);
     try {
-      await setupInitialPassword(newPassword);
+      await setupInitialPassword(newPassword, tempToken);
       setSetupLoading(false);
 
-      const session = getAuthSession();
-      const finalUser = currentUserData?.username || session.user || usernameOrEmail;
-      const finalRole = currentUserData?.role || session.role || getRoleFromUsername(usernameOrEmail);
+      const finalUser = currentUserData?.username || usernameOrEmail;
+      const finalRole = currentUserData?.role || getRoleFromUsername(usernameOrEmail);
 
       saveAuthSession({
         user: finalUser,
         role: finalRole,
-        token: session.token || undefined,
-        must_change_password: false,
+        token: tempToken || undefined,
+        avatar: currentUserData?.avatar,
       });
 
       setStep("success");
@@ -557,18 +553,20 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       })
       .then((result) => {
         const user = result.data.user;
-        saveAuthSession({
-          user: user?.username || targetAccount,
-          role: user?.role || credential?.role || getRoleFromUsername(targetAccount),
-          token: result.data.token,
-          avatar: user?.avatar || credential?.avatar,
-          must_change_password: !!user?.must_change_password,
-        });
+        const token = result.data.token;
         setCurrentUserData(user);
+        setTempToken(token || "");
 
         if (user?.must_change_password) {
+          clearAuthSession();
           setStep("setup-password");
         } else {
+          saveAuthSession({
+            user: user?.username || targetAccount,
+            role: user?.role || credential?.role || getRoleFromUsername(targetAccount),
+            token: token,
+            avatar: user?.avatar || credential?.avatar,
+          });
           setStep("success");
           setTimeout(() => {
             onLoginSuccess(user.username, user.role);
@@ -596,10 +594,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   };
 
   const handleModalClose = () => {
-    const session = getAuthSession();
-    if (step === "setup-password" || session.must_change_password) {
-      clearAuthSession();
-    }
+    setTempToken("");
     onClose();
   };
 
