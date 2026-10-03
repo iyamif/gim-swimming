@@ -67,6 +67,14 @@ import { DesktopSidebar, MobileBottomNav } from "../../components/apps/Navigatio
 import ParentBody from "../../components/apps/body/ParentBody";
 import AppsBody from "../../components/apps/body/AppsBody";
 import PullToRefresh from "../../components/apps/PullToRefresh";
+import Navbar from "../../components/Navbar";
+import Hero from "../../components/Hero";
+import About from "../../components/About";
+import Programs from "../../components/Programs";
+import Benefits from "../../components/Benefits";
+import Testimonials from "../../components/Testimonials";
+import CTA from "../../components/CTA";
+import Footer from "../../components/Footer";
 import { getAuthSession, saveAuthSession, clearAuthSession } from "../../lib/authSession";
 import { getCachedAppData, saveCachedAppData, clearCachedAppData } from "../../lib/apiCache";
 
@@ -1134,6 +1142,38 @@ export default function AppsPage() {
       console.error("Clear notifications error:", err);
     }
   };
+
+  // ==========================================
+  // LOGGED OUT / NO SESSION VIEW: Landing Page Background
+  // ==========================================
+  if (!mounted || !sessionUser || !sessionRole) {
+    return (
+      <div className="relative min-h-screen bg-[#061827] overflow-hidden">
+        <main className="overflow-hidden bg-[#061827]">
+          <Navbar />
+          <Hero />
+          <About />
+          <Programs />
+          <Benefits />
+          <Testimonials />
+          <CTA />
+          <Footer />
+        </main>
+
+        {/* Floating Loading Overlay */}
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon.png"
+              alt="Loading"
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ==========================================
   // ORANG TUA (PARENT) VIEW: All-in-One Dashboard Page
