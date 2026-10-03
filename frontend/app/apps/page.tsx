@@ -68,6 +68,7 @@ import ParentBody from "../../components/apps/body/ParentBody";
 import AppsBody from "../../components/apps/body/AppsBody";
 import PullToRefresh from "../../components/apps/PullToRefresh";
 import { getAuthSession, saveAuthSession, clearAuthSession } from "../../lib/authSession";
+import { getCachedAppData, saveCachedAppData, clearCachedAppData } from "../../lib/apiCache";
 
 export default function AppsPage() {
   const router = useRouter();
@@ -89,17 +90,32 @@ export default function AppsPage() {
   // Navigation tab state (for Admin & Pelatih only)
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // REAL DATABASE STATES (Loaded from PostgreSQL Backend)
-  const [students, setStudents] = useState<Student[]>([]);
-  const [coaches, setCoaches] = useState<Coach[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleSession[]>([]);
-  const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
-  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
-  const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>([]);
-  const [pools, setPools] = useState<PoolVenue[]>([]);
-  const [classPrograms, setClassPrograms] = useState<ClassProgram[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
+  // REAL DATABASE STATES (Loaded from instant local cache so UI opens in <0.05s)
+  const initialCache = useRef(
+    typeof window !== "undefined"
+      ? getCachedAppData(getAuthSession().user || "global") || getCachedAppData("global")
+      : null
+  ).current;
+
+  const [students, setStudents] = useState<Student[]>(() => initialCache?.students || []);
+  const [coaches, setCoaches] = useState<Coach[]>(() => initialCache?.coaches || []);
+  const [invoices, setInvoices] = useState<Invoice[]>(() => initialCache?.invoices || []);
+  const [schedules, setSchedules] = useState<ScheduleSession[]>(() => initialCache?.schedules || []);
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>(() => initialCache?.attendances || []);
+  const [notifications, setNotifications] = useState<AdminNotification[]>(() => initialCache?.notifications || []);
+  const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>(
+    () => initialCache?.financialTransactions || []
+  );
+  const [pools, setPools] = useState<PoolVenue[]>(() => initialCache?.pools || []);
+  const [classPrograms, setClassPrograms] = useState<ClassProgram[]>(() => initialCache?.classPrograms || []);
+  const [loadingData, setLoadingData] = useState<boolean>(() => {
+    const hasData =
+      initialCache &&
+      ((initialCache.students && initialCache.students.length > 0) ||
+        (initialCache.coaches && initialCache.coaches.length > 0) ||
+        (initialCache.schedules && initialCache.schedules.length > 0));
+    return !hasData;
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Real-time Notification State & Tracking Refs
@@ -115,52 +131,25 @@ export default function AppsPage() {
 
   const handleLogout = () => {
     clearAuthSession();
+    clearCachedAppData();
     setSessionUser("");
     setSessionRole("");
     router.replace("/");
   };
 
-  // Load all real data from PostgreSQL Backend
+  // Load all real data from PostgreSQL Backend in full parallel with background revalidation
   const loadAllData = useCallback(async (roleParam?: string, userParam?: string) => {
     try {
       const session = getAuthSession();
       const role = roleParam || sessionRole || session.role || "";
       const user = userParam || sessionUser || session.user || "";
-
-      const [
-        fetchedStudents,
-        fetchedCoaches,
-        fetchedSchedules,
-        fetchedInvoices,
-        fetchedAttendances,
-        fetchedFinancialTransactions,
-        fetchedPools,
-        fetchedClassPrograms,
-      ] = await Promise.all([
-        fetchStudents(),
-        fetchCoaches(),
-        fetchSchedules(),
-        fetchInvoices(),
-        fetchAttendances(),
-        fetchFinancialTransactions(),
-        fetchPools(),
-        fetchClassPrograms(),
-      ]);
-
-      setStudents(fetchedStudents);
-      setCoaches(fetchedCoaches);
-      setSchedules(fetchedSchedules);
-      setInvoices(fetchedInvoices);
-      setAttendances(fetchedAttendances);
-      setFinancialTransactions(fetchedFinancialTransactions);
-      setPools(fetchedPools);
-      setClassPrograms(fetchedClassPrograms);
+      const userKey = user || "global";
 
       // If role is Orang Tua, find corresponding student name to accurately query notifications
       let queryName = user;
       if (role.toLowerCase().trim() === "orang tua") {
         const normalizedUser = user.toLowerCase();
-        const matched = fetchedStudents.find(
+        const matched = (students.length > 0 ? students : initialCache?.students || []).find(
           (s) =>
             s.name.toLowerCase().includes(normalizedUser) ||
             s.parent.toLowerCase().includes(normalizedUser) ||
@@ -171,25 +160,64 @@ export default function AppsPage() {
         }
       }
 
-      const fetchedNotifications = await fetchNotifications(role, queryName);
-
-      // Seed known notifications set on initial load so we don't trigger toast for existing notifications
-      fetchedNotifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
-      initialLoadDoneRef.current = true;
+      // Parallel fetch all 9 endpoints at once (Zero waterfall delay)
+      const [
+        fetchedStudents,
+        fetchedCoaches,
+        fetchedSchedules,
+        fetchedInvoices,
+        fetchedAttendances,
+        fetchedFinancialTransactions,
+        fetchedPools,
+        fetchedClassPrograms,
+        fetchedNotifications,
+      ] = await Promise.all([
+        fetchStudents(),
+        fetchCoaches(),
+        fetchSchedules(),
+        fetchInvoices(),
+        fetchAttendances(),
+        fetchFinancialTransactions(),
+        fetchPools(),
+        fetchClassPrograms(),
+        fetchNotifications(role, queryName),
+      ]);
 
       setStudents(fetchedStudents);
       setCoaches(fetchedCoaches);
       setSchedules(fetchedSchedules);
       setInvoices(fetchedInvoices);
       setAttendances(fetchedAttendances);
-      setNotifications(fetchedNotifications);
       setFinancialTransactions(fetchedFinancialTransactions);
+      setPools(fetchedPools);
+      setClassPrograms(fetchedClassPrograms);
+      setNotifications(fetchedNotifications);
+
+      // Seed known notifications set on initial load so we don't trigger toast for existing notifications
+      fetchedNotifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+      initialLoadDoneRef.current = true;
+
+      // Save to local cache for instant zero-delay load on future opens / force-closes
+      saveCachedAppData(
+        {
+          students: fetchedStudents,
+          coaches: fetchedCoaches,
+          schedules: fetchedSchedules,
+          invoices: fetchedInvoices,
+          attendances: fetchedAttendances,
+          financialTransactions: fetchedFinancialTransactions,
+          pools: fetchedPools,
+          classPrograms: fetchedClassPrograms,
+          notifications: fetchedNotifications,
+        },
+        userKey
+      );
     } catch (err) {
       console.error("Error fetching database data:", err);
     } finally {
       setLoadingData(false);
     }
-  }, [sessionRole, sessionUser]);
+  }, [initialCache?.students, sessionRole, sessionUser, students]);
 
   // Pull-to-refresh and background resume handler: reloads all database data and profile avatar + checks SW updates
   const handlePullRefresh = useCallback(async () => {
@@ -222,6 +250,37 @@ export default function AppsPage() {
       }
     }
   }, []);
+
+  // Automatically keep local persistent cache in sync with latest state
+  useEffect(() => {
+    if (students.length > 0 || coaches.length > 0 || schedules.length > 0) {
+      saveCachedAppData(
+        {
+          students,
+          coaches,
+          schedules,
+          invoices,
+          attendances,
+          financialTransactions,
+          pools,
+          classPrograms,
+          notifications,
+        },
+        sessionUser || "global"
+      );
+    }
+  }, [
+    attendances,
+    classPrograms,
+    coaches,
+    financialTransactions,
+    invoices,
+    notifications,
+    pools,
+    schedules,
+    sessionUser,
+    students,
+  ]);
 
   // Proactively register Web Push subscription with VAPID on login/mount
   useEffect(() => {
