@@ -823,8 +823,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               <h3 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
                 Lupa Kata Sandi?
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-[300px] mx-auto">
-                Masukkan email atau username terdaftar Anda. Kami akan mengirimkan 6-digit kode verifikasi OTP.
+              <p className="text-xs text-slate-500 mt-1 max-w-[320px] mx-auto">
+                Masukkan alamat email akun Anda. Sistem akan memeriksa email terdaftar dan mengirimkan 6-digit kode verifikasi (OTP).
               </p>
             </div>
 
@@ -845,16 +845,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             <form onSubmit={handleForgotResetSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Email / Username Terdaftar
+                  Alamat Email Terdaftar
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
-                      type="text"
+                      type="email"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
-                      placeholder="nama@email.com atau username"
+                      placeholder="nama@email.com"
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:bg-white"
                     />
                   </div>

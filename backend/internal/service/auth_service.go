@@ -331,55 +331,48 @@ func maskEmail(email string) string {
 	return string(name[0]) + "***" + string(name[len(name)-1]) + "@" + domain
 }
 
-// SendResetPasswordOTP generates a 6-digit OTP, saves it in cache for 15 minutes, and dispatches email
+// SendResetPasswordOTP checks if the email is registered, generates a 6-digit OTP, and dispatches it to that email
 func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername string) (string, string, error) {
 	cleanInput := strings.TrimSpace(strings.ToLower(emailOrUsername))
 	if cleanInput == "" {
-		return "", "", errors.New("silakan masukkan email atau username terdaftar")
+		return "", "", errors.New("silakan masukkan alamat email akun Anda")
 	}
 
 	var user *model.User
-	var err error
+	var targetEmail string
 
+	// 1. Cek langsung apakah email terdaftar di tabel users
 	if strings.Contains(cleanInput, "@") {
-		user, err = s.userRepo.FindByEmail(ctx, cleanInput)
-	} else {
-		user, err = s.userRepo.FindByUsername(ctx, cleanInput)
+		user, _ = s.userRepo.FindByEmail(ctx, cleanInput)
+		if user != nil {
+			targetEmail = cleanInput
+		}
 	}
 
-	if err != nil || user == nil {
-		// Fallback check by phone or identifier
-		user, _ = s.userRepo.FindByPhoneOrIdentifier(ctx, cleanInput)
-	}
-
-	// Lookup via Coach repository to match coach or find most up-to-date coach email
-	var matchedCoach *model.Coach
-	if s.coachRepo != nil {
+	// 2. Jika belum ditemukan di tabel users, cek apakah email terdaftar di data pelatih (coaches)
+	if user == nil && s.coachRepo != nil {
 		coaches, _ := s.coachRepo.FindAll(ctx)
 		for _, c := range coaches {
-			isMatch := strings.EqualFold(c.Email, cleanInput) ||
-				strings.EqualFold(c.Name, cleanInput) ||
-				strings.EqualFold(c.Phone, cleanInput) ||
-				(user != nil && c.UserID != nil && *c.UserID == user.ID) ||
-				(user != nil && (strings.EqualFold(c.Email, user.Email) || strings.EqualFold(c.Name, user.Username) || strings.Contains(strings.ToLower(c.Name), strings.ToLower(user.Username)))) ||
-				(cleanInput != "" && strings.Contains(strings.ToLower(c.Name), cleanInput))
-
-			if isMatch {
-				matchedCoach = &c
+			if strings.EqualFold(c.Email, cleanInput) {
+				targetEmail = strings.ToLower(strings.TrimSpace(c.Email))
+				// Temukan akun user yang terhubung dengan pelatih ini
+				if c.UserID != nil && *c.UserID > 0 {
+					user, _ = s.userRepo.FindByID(ctx, *c.UserID)
+				}
 				if user == nil {
-					if c.UserID != nil && *c.UserID > 0 {
-						user, _ = s.userRepo.FindByID(ctx, *c.UserID)
+					nameParts := strings.Fields(c.Name)
+					rawUser := strings.ToLower(nameParts[0])
+					if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
+						rawUser = strings.ToLower(nameParts[1])
 					}
-					if user == nil && c.Email != "" {
-						user, _ = s.userRepo.FindByEmail(ctx, c.Email)
-					}
-					if user == nil {
-						nameParts := strings.Fields(c.Name)
-						rawUser := strings.ToLower(nameParts[0])
-						if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
-							rawUser = strings.ToLower(nameParts[1])
-						}
-						user, _ = s.userRepo.FindByUsername(ctx, rawUser)
+					user, _ = s.userRepo.FindByUsername(ctx, rawUser)
+				}
+				if user != nil {
+					// Sinkronkan email user di tabel users agar selalu sama dengan email pelatih
+					user.Email = targetEmail
+					_ = s.userRepo.UpdateEmail(ctx, user.ID, targetEmail)
+					if c.UserID == nil || *c.UserID == 0 {
+						_ = s.coachRepo.LinkUser(ctx, c.ID, user.ID)
 					}
 				}
 				break
@@ -387,7 +380,7 @@ func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername 
 		}
 	}
 
-	// Fallback lookup via Student repository
+	// 3. Jika belum ditemukan, cek apakah email terdaftar di data siswa (students) melalui username / user terhubung
 	if user == nil && s.studentRepo != nil {
 		students, _ := s.studentRepo.FindAll(ctx)
 		for _, st := range students {
@@ -402,45 +395,46 @@ func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername 
 					user, _ = s.userRepo.FindByUsername(ctx, st.Username)
 				}
 				if user != nil {
+					targetEmail = strings.ToLower(strings.TrimSpace(user.Email))
 					break
 				}
 			}
 		}
 	}
 
-	if user == nil {
-		return "", "", errors.New("akun dengan email atau username tersebut tidak ditemukan")
-	}
-
-	// CRITICAL FIX: If coach has an updated email, ALWAYS prioritize coach.Email and sync user.Email!
-	if matchedCoach != nil && matchedCoach.Email != "" {
-		coachEmail := strings.TrimSpace(strings.ToLower(matchedCoach.Email))
-		if coachEmail != "" && !strings.EqualFold(user.Email, coachEmail) {
-			user.Email = coachEmail
-			_ = s.userRepo.UpdateEmail(ctx, user.ID, coachEmail)
-			if matchedCoach.UserID == nil || *matchedCoach.UserID == 0 {
-				_ = s.coachRepo.LinkUser(ctx, matchedCoach.ID, user.ID)
-			}
+	// 4. Jika user memasukkan username, cari user lalu ambil email terdaftarnya
+	if user == nil && !strings.Contains(cleanInput, "@") {
+		user, _ = s.userRepo.FindByUsername(ctx, cleanInput)
+		if user == nil {
+			user, _ = s.userRepo.FindByPhoneOrIdentifier(ctx, cleanInput)
 		}
-	} else if user != nil && s.coachRepo != nil {
-		// Double check if this user is a coach with different email
-		coaches, _ := s.coachRepo.FindAll(ctx)
-		for _, c := range coaches {
-			if (c.UserID != nil && *c.UserID == user.ID) ||
-				strings.EqualFold(c.Email, user.Email) ||
-				strings.EqualFold(c.Name, user.Username) ||
-				strings.Contains(strings.ToLower(c.Name), strings.ToLower(user.Username)) {
-				if c.Email != "" && !strings.EqualFold(user.Email, c.Email) {
-					user.Email = strings.TrimSpace(strings.ToLower(c.Email))
-					_ = s.userRepo.UpdateEmail(ctx, user.ID, user.Email)
+
+		if user != nil {
+			// Cek apakah user ini pelatih yang memiliki email terupdate di coaches
+			if s.coachRepo != nil {
+				coaches, _ := s.coachRepo.FindAll(ctx)
+				for _, c := range coaches {
+					if (c.UserID != nil && *c.UserID == user.ID) ||
+						strings.EqualFold(c.Name, user.Username) ||
+						strings.Contains(strings.ToLower(c.Name), strings.ToLower(user.Username)) {
+						if c.Email != "" {
+							targetEmail = strings.ToLower(strings.TrimSpace(c.Email))
+							user.Email = targetEmail
+							_ = s.userRepo.UpdateEmail(ctx, user.ID, targetEmail)
+						}
+						break
+					}
 				}
-				break
+			}
+			if targetEmail == "" {
+				targetEmail = strings.ToLower(strings.TrimSpace(user.Email))
 			}
 		}
 	}
 
-	if user.Email == "" {
-		return "", "", errors.New("akun ini belum memiliki alamat email resmi yang terdaftar. Hubungi Administrator.")
+	// Jika email tidak ditemukan di manapun dalam sistem
+	if user == nil || targetEmail == "" {
+		return "", "", errors.New("email tidak terdaftar di sistem. Pastikan Anda memasukkan alamat email yang benar.")
 	}
 
 	// Generate 6-digit OTP
@@ -450,12 +444,15 @@ func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername 
 	entry := &resetOTPEntry{
 		OTP:       otpCode,
 		UserID:    user.ID,
-		Email:     user.Email,
+		Email:     targetEmail,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 	}
 
 	s.otpMu.Lock()
-	s.otpStore[strings.ToLower(user.Email)] = entry
+	s.otpStore[targetEmail] = entry
+	if user.Email != "" {
+		s.otpStore[strings.ToLower(user.Email)] = entry
+	}
 	if user.Username != "" {
 		s.otpStore[strings.ToLower(user.Username)] = entry
 	}
@@ -464,10 +461,10 @@ func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername 
 	}
 	s.otpMu.Unlock()
 
-	// Send Email Async
-	go s.sendEmailOTP(user.Email, user.Username, otpCode)
+	// Kirimkan OTP ke target email terdaftar
+	go s.sendEmailOTP(targetEmail, user.Username, otpCode)
 
-	masked := maskEmail(user.Email)
+	masked := maskEmail(targetEmail)
 	msg := fmt.Sprintf("Kode verifikasi OTP 6-digit telah dikirim ke %s (berlaku 15 menit)", masked)
 	return masked, msg, nil
 }
