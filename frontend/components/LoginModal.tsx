@@ -761,7 +761,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 rounded-xl bg-cyan-400 hover:bg-cyan-500 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full rounded-xl bg-cyan-400 hover:bg-cyan-500 py-3 text-sm font-bold text-white transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -773,21 +773,20 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   )}
                 </button>
 
-                {/* Face ID Icon Button (Only Icon, Aligned Side-by-Side) */}
-                <button
+                {/* Face ID Login Button (Dinonaktifkan sementara) */}
+                {/* <button
                   type="button"
                   onClick={startFaceIdScan}
                   className="h-12 w-12 shrink-0 rounded-xl border border-cyan-100 bg-cyan-50/40 hover:bg-cyan-50 text-cyan-500 transition-all duration-200 flex items-center justify-center group cursor-pointer"
                   title="Login dengan Face ID"
                   aria-label="Login dengan Face ID"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/logo/face.png"
                     alt="Face ID Login"
                     className="h-6 w-6 object-contain transition duration-200 group-hover:scale-110"
                   />
-                </button>
+                </button> */}
               </div>
             </form>
           </div>
