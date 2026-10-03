@@ -3301,7 +3301,7 @@ export default function ParentBody({
                           <div className="relative flex-1">
                             <input
                               type="email"
-                              value={profileResetEmail || student.email || currentUserData?.email || ""}
+                              value={profileResetEmail}
                               onChange={(e) => setProfileResetEmail(e.target.value)}
                               placeholder="Masukkan email terdaftar"
                               className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-xs font-medium focus:border-blue-600 outline-none transition"

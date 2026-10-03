@@ -276,10 +276,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setIsForgotSendingOtp(true);
       const res = await requestPasswordResetOTP(forgotEmail.trim());
       setForgotOtpSent(true);
-      setForgotMaskedEmail(res.data?.masked_email || forgotEmail.trim());
+      const masked = res.data?.masked_email || (res as any).email || (res as any).masked_email || forgotEmail.trim();
+      setForgotMaskedEmail(masked);
       setForgotOtpCountdown(60);
     } catch (err: any) {
-      setForgotError(err.message || "Gagal mengirim kode verifikasi. Pastikan email terdaftar.");
+      setForgotError(err.message || "Gagal mengirim kode verifikasi. Pastikan email atau username terdaftar.");
     } finally {
       setIsForgotSendingOtp(false);
     }
@@ -292,11 +293,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     setForgotSuccess("");
 
     if (!forgotEmail.trim()) {
-      setForgotError("Silakan masukkan email akun Anda.");
+      setForgotError("Silakan masukkan email atau username akun Anda.");
       return;
     }
     if (!forgotOtp.trim() || forgotOtp.trim().length !== 6) {
-      setForgotError("Silakan masukkan 6-digit kode verifikasi yang dikirim ke email.");
+      setForgotError("Silakan masukkan 6-digit kode verifikasi OTP yang dikirim ke email.");
       return;
     }
     if (forgotNewPassword.length < 6) {
@@ -312,15 +313,17 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setIsForgotResetting(true);
       await resetPasswordWithOTP(forgotEmail.trim(), forgotOtp.trim(), forgotNewPassword);
       setForgotSuccess("Kata sandi berhasil diperbarui! Mengalihkan ke menu masuk...");
+      const savedUserOrEmail = forgotEmail.trim();
+      const savedNewPassword = forgotNewPassword;
       setForgotOtp("");
       setForgotNewPassword("");
       setForgotConfirmPassword("");
       setTimeout(() => {
-        setUsernameOrEmail(forgotEmail.trim());
-        setPassword("");
+        setUsernameOrEmail(savedUserOrEmail);
+        setPassword(savedNewPassword);
         setStep("login");
         setForgotSuccess("");
-      }, 2000);
+      }, 1800);
     } catch (err: any) {
       setForgotError(err.message || "Gagal mereset kata sandi. Pastikan kode verifikasi benar.");
     } finally {
@@ -723,7 +726,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   <button
                     type="button"
                     onClick={() => {
-                      setForgotEmail(usernameOrEmail.includes("@") ? usernameOrEmail : "");
+                      setForgotEmail(usernameOrEmail.trim());
                       setForgotOtp("");
                       setForgotNewPassword("");
                       setForgotConfirmPassword("");
@@ -910,9 +913,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Kata Sandi Baru
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Kata Sandi Baru
+                  </label>
+                  {forgotNewPassword && (
+                    <span className={`text-[10px] font-bold ${forgotNewPassword.length >= 6 ? "text-emerald-600" : "text-amber-600"}`}>
+                      {forgotNewPassword.length >= 6 ? "✓ Minimal 6 karakter" : `${forgotNewPassword.length}/6 karakter`}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
@@ -933,9 +943,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Konfirmasi Kata Sandi Baru
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Konfirmasi Kata Sandi Baru
+                  </label>
+                  {forgotConfirmPassword && (
+                    <span className={`text-[10px] font-bold ${forgotNewPassword === forgotConfirmPassword ? "text-emerald-600" : "text-rose-600"}`}>
+                      {forgotNewPassword === forgotConfirmPassword ? "✓ Kata sandi cocok" : "✗ Belum sesuai"}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input

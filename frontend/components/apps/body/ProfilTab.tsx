@@ -1258,7 +1258,7 @@ export default function ProfilTab({
                     <div className="relative flex-1">
                       <input
                         type="email"
-                        value={resetEmail || currentUserData?.email || userEmail}
+                        value={resetEmail}
                         onChange={(e) => setResetEmail(e.target.value)}
                         placeholder="Masukkan email terdaftar"
                         className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-xs font-medium focus:border-blue-600 outline-none transition"
