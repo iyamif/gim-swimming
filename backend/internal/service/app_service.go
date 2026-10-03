@@ -1925,13 +1925,17 @@ func (s *appService) ApproveCoachPayroll(ctx context.Context, id string, notes s
 	return payroll, nil
 }
 
-// BackfillUserLinks ensures existing coaches and students are associated with user accounts
+// BackfillUserLinks ensures existing coaches and students are associated with user accounts and synced
 func (s *appService) BackfillUserLinks(ctx context.Context) error {
-	// 1. Link coaches
+	// 1. Link & Sync coaches
 	coaches, err := s.coachRepo.FindAll(ctx)
 	if err == nil {
 		for _, c := range coaches {
-			if c.UserID == nil || *c.UserID == 0 {
+			var u *model.User
+			if c.UserID != nil && *c.UserID > 0 {
+				u, _ = s.userRepo.FindByID(ctx, *c.UserID)
+			}
+			if u == nil {
 				nameParts := strings.Fields(c.Name)
 				rawUsername := strings.ToLower(nameParts[0])
 				if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
@@ -1942,13 +1946,17 @@ func (s *appService) BackfillUserLinks(ctx context.Context) error {
 				if username == "" {
 					username = "coach"
 				}
-				u, _ := s.userRepo.FindByUsername(ctx, username)
+				u, _ = s.userRepo.FindByUsername(ctx, username)
 				if u == nil && c.Email != "" {
 					u, _ = s.userRepo.FindByEmail(ctx, c.Email)
 				}
 				if u != nil {
 					_ = s.coachRepo.LinkUser(ctx, c.ID, u.ID)
 				}
+			}
+			// Sync email if coach has email and differs from user.email
+			if u != nil && c.Email != "" && !strings.EqualFold(u.Email, c.Email) {
+				_ = s.userRepo.UpdateEmail(ctx, u.ID, strings.ToLower(c.Email))
 			}
 		}
 	}

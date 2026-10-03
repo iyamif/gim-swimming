@@ -338,7 +338,16 @@ func runMigrations() error {
 	    OR LOWER(REPLACE(REPLACE(c.name, 'coach', ''), ' ', '')) = LOWER(REPLACE(u.username, ' ', ''))
 	    OR LOWER(c.email) = LOWER(u.email)
 	    OR (LOWER(u.username) = 'adi' AND LOWER(c.name) LIKE '%adi%')
+	    OR (LOWER(u.username) = 'ilham' AND LOWER(c.name) LIKE '%ilham%')
 	  );
+
+	-- Automatically sync users.email to match updated coaches.email
+	UPDATE users u
+	SET email = LOWER(c.email), updated_at = NOW()
+	FROM coaches c
+	WHERE (c.user_id = u.id OR LOWER(REPLACE(c.name, ' ', '')) = LOWER(REPLACE(u.username, ' ', '')) OR (LOWER(u.username) = 'ilham' AND LOWER(c.name) LIKE '%ilham%'))
+	  AND c.email IS NOT NULL AND c.email != ''
+	  AND LOWER(u.email) != LOWER(c.email);
 
 	-- Automatically link existing students to users by user_id/parent/student name
 	UPDATE students s

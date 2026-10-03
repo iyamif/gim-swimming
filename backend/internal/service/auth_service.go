@@ -352,35 +352,37 @@ func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername 
 		user, _ = s.userRepo.FindByPhoneOrIdentifier(ctx, cleanInput)
 	}
 
-	// Fallback lookup via Coach repository
-	if user == nil && s.coachRepo != nil {
+	// Lookup via Coach repository to match coach or find most up-to-date coach email
+	var matchedCoach *model.Coach
+	if s.coachRepo != nil {
 		coaches, _ := s.coachRepo.FindAll(ctx)
 		for _, c := range coaches {
-			if strings.EqualFold(c.Email, cleanInput) ||
+			isMatch := strings.EqualFold(c.Email, cleanInput) ||
 				strings.EqualFold(c.Name, cleanInput) ||
 				strings.EqualFold(c.Phone, cleanInput) ||
-				(strings.Contains(strings.ToLower(c.Name), cleanInput) && cleanInput != "") {
-				if c.UserID != nil && *c.UserID > 0 {
-					user, _ = s.userRepo.FindByID(ctx, *c.UserID)
-				}
-				if user == nil && c.Email != "" {
-					user, _ = s.userRepo.FindByEmail(ctx, c.Email)
-				}
+				(user != nil && c.UserID != nil && *c.UserID == user.ID) ||
+				(user != nil && (strings.EqualFold(c.Email, user.Email) || strings.EqualFold(c.Name, user.Username) || strings.Contains(strings.ToLower(c.Name), strings.ToLower(user.Username)))) ||
+				(cleanInput != "" && strings.Contains(strings.ToLower(c.Name), cleanInput))
+
+			if isMatch {
+				matchedCoach = &c
 				if user == nil {
-					nameParts := strings.Fields(c.Name)
-					rawUser := strings.ToLower(nameParts[0])
-					if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
-						rawUser = strings.ToLower(nameParts[1])
+					if c.UserID != nil && *c.UserID > 0 {
+						user, _ = s.userRepo.FindByID(ctx, *c.UserID)
 					}
-					user, _ = s.userRepo.FindByUsername(ctx, rawUser)
-				}
-				if user != nil {
-					if user.Email == "" && c.Email != "" {
-						user.Email = strings.ToLower(c.Email)
-						_ = s.userRepo.UpdateEmail(ctx, user.ID, user.Email)
+					if user == nil && c.Email != "" {
+						user, _ = s.userRepo.FindByEmail(ctx, c.Email)
 					}
-					break
+					if user == nil {
+						nameParts := strings.Fields(c.Name)
+						rawUser := strings.ToLower(nameParts[0])
+						if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
+							rawUser = strings.ToLower(nameParts[1])
+						}
+						user, _ = s.userRepo.FindByUsername(ctx, rawUser)
+					}
 				}
+				break
 			}
 		}
 	}
@@ -408,6 +410,33 @@ func (s *authService) SendResetPasswordOTP(ctx context.Context, emailOrUsername 
 
 	if user == nil {
 		return "", "", errors.New("akun dengan email atau username tersebut tidak ditemukan")
+	}
+
+	// CRITICAL FIX: If coach has an updated email, ALWAYS prioritize coach.Email and sync user.Email!
+	if matchedCoach != nil && matchedCoach.Email != "" {
+		coachEmail := strings.TrimSpace(strings.ToLower(matchedCoach.Email))
+		if coachEmail != "" && !strings.EqualFold(user.Email, coachEmail) {
+			user.Email = coachEmail
+			_ = s.userRepo.UpdateEmail(ctx, user.ID, coachEmail)
+			if matchedCoach.UserID == nil || *matchedCoach.UserID == 0 {
+				_ = s.coachRepo.LinkUser(ctx, matchedCoach.ID, user.ID)
+			}
+		}
+	} else if user != nil && s.coachRepo != nil {
+		// Double check if this user is a coach with different email
+		coaches, _ := s.coachRepo.FindAll(ctx)
+		for _, c := range coaches {
+			if (c.UserID != nil && *c.UserID == user.ID) ||
+				strings.EqualFold(c.Email, user.Email) ||
+				strings.EqualFold(c.Name, user.Username) ||
+				strings.Contains(strings.ToLower(c.Name), strings.ToLower(user.Username)) {
+				if c.Email != "" && !strings.EqualFold(user.Email, c.Email) {
+					user.Email = strings.TrimSpace(strings.ToLower(c.Email))
+					_ = s.userRepo.UpdateEmail(ctx, user.ID, user.Email)
+				}
+				break
+			}
+		}
 	}
 
 	if user.Email == "" {
@@ -628,21 +657,35 @@ func (s *authService) ResetPasswordWithOTP(ctx context.Context, emailOrUsername,
 	}
 
 	// Fallback lookup via Coach repository
-	if user == nil && s.coachRepo != nil {
+	var matchedCoachReset *model.Coach
+	if s.coachRepo != nil {
 		coaches, _ := s.coachRepo.FindAll(ctx)
 		for _, c := range coaches {
-			if strings.EqualFold(c.Email, cleanInput) ||
+			isMatch := strings.EqualFold(c.Email, cleanInput) ||
 				strings.EqualFold(c.Name, cleanInput) ||
-				strings.EqualFold(c.Phone, cleanInput) {
-				if c.UserID != nil && *c.UserID > 0 {
-					user, _ = s.userRepo.FindByID(ctx, *c.UserID)
+				strings.EqualFold(c.Phone, cleanInput) ||
+				(user != nil && c.UserID != nil && *c.UserID == user.ID) ||
+				(user != nil && (strings.EqualFold(c.Email, user.Email) || strings.EqualFold(c.Name, user.Username) || strings.Contains(strings.ToLower(c.Name), strings.ToLower(user.Username))))
+
+			if isMatch {
+				matchedCoachReset = &c
+				if user == nil {
+					if c.UserID != nil && *c.UserID > 0 {
+						user, _ = s.userRepo.FindByID(ctx, *c.UserID)
+					}
+					if user == nil && c.Email != "" {
+						user, _ = s.userRepo.FindByEmail(ctx, c.Email)
+					}
+					if user == nil {
+						nameParts := strings.Fields(c.Name)
+						rawUser := strings.ToLower(nameParts[0])
+						if strings.HasPrefix(strings.ToLower(c.Name), "coach ") && len(nameParts) > 1 {
+							rawUser = strings.ToLower(nameParts[1])
+						}
+						user, _ = s.userRepo.FindByUsername(ctx, rawUser)
+					}
 				}
-				if user == nil && c.Email != "" {
-					user, _ = s.userRepo.FindByEmail(ctx, c.Email)
-				}
-				if user != nil {
-					break
-				}
+				break
 			}
 		}
 	}
@@ -670,6 +713,14 @@ func (s *authService) ResetPasswordWithOTP(ctx context.Context, emailOrUsername,
 
 	if user == nil {
 		return nil, errors.New("pengguna tidak ditemukan")
+	}
+
+	if matchedCoachReset != nil && matchedCoachReset.Email != "" {
+		cEmail := strings.TrimSpace(strings.ToLower(matchedCoachReset.Email))
+		if cEmail != "" && !strings.EqualFold(user.Email, cEmail) {
+			user.Email = cEmail
+			_ = s.userRepo.UpdateEmail(ctx, user.ID, cEmail)
+		}
 	}
 
 	s.otpMu.Lock()
