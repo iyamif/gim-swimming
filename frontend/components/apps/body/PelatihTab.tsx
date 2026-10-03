@@ -18,6 +18,7 @@ import {
   Wallet,
   Coins,
   Check,
+  ArrowLeft,
 } from "lucide-react";
 import { Coach, ScheduleSession, Student, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
@@ -314,6 +315,200 @@ export default function PelatihTab({
       setIsDeleting(false);
     }
   };
+
+  if (coachToEdit) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12 pt-6 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto space-y-5 animate-fadeIn">
+          {/* Top Bar Header */}
+          <div className="flex items-center justify-between bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => !isSavingEdit && setCoachToEdit(null)}
+                disabled={isSavingEdit}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                <ArrowLeft size={16} />
+                <span>Kembali ke Daftar Pelatih</span>
+              </button>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                Halaman Edit Pelatih
+              </span>
+            </div>
+          </div>
+
+          {/* Full Page Card Form */}
+          <div className="bg-white border border-slate-100 rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                <Pencil size={22} />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900">
+                  Edit Data Pelatih - {coachToEdit.name}
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Perbarui profil, spesialisasi, status &amp; nominal pay per sesi
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              {editError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold animate-fadeIn">
+                  {editError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nama Lengkap Pelatih <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Contoh: Coach Adi Pratama"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Username Akun (untuk login)
+                  </label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="Contoh: coachadi"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nomor WhatsApp / HP <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="Contoh: 081234567890"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Email Resmi <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="Contoh: adi@gimswimming.com"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Keahlian / Spesialisasi
+                  </label>
+                  <input
+                    type="text"
+                    value={editSpec}
+                    onChange={(e) => setEditSpec(e.target.value)}
+                    placeholder="Contoh: Gaya Bebas & Gaya Dada"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Program Kelas Utama
+                  </label>
+                  <select
+                    value={editClass}
+                    onChange={(e) => setEditClass(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    {availablePrograms.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Status Akun Pelatih
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    <option value="Active">Aktif Melatih</option>
+                    <option value="Inactive">Tidak Aktif (Dinonaktifkan)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Pay Per Sesi (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    step="5000"
+                    min="0"
+                    required
+                    value={editPayPerSession}
+                    onChange={(e) => setEditPayPerSession(e.target.value)}
+                    placeholder="Contoh: 100000"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isSavingEdit}
+                  onClick={() => setCoachToEdit(null)}
+                  className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  Batal / Kembali
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-blue-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSavingEdit ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12">
@@ -810,195 +1005,6 @@ export default function PelatihTab({
                 Tutup
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==========================================
-          EDIT COACH MODAL
-          ========================================== */}
-      {coachToEdit && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-fadeIn">
-          <div
-            onClick={() => !isSavingEdit && setCoachToEdit(null)}
-            className="absolute inset-0 bg-slate-950/65 backdrop-blur-xs"
-          />
-          <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 my-auto max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
-                  <Pencil size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900">
-                    Edit Data Pelatih
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Perbarui profil, kelas, status &amp; nominal pay per sesi
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => !isSavingEdit && setCoachToEdit(null)}
-                disabled={isSavingEdit}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer disabled:opacity-50"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSaveEdit} className="space-y-3.5">
-              {editError && (
-                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold animate-fadeIn">
-                  {editError}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Nama Lengkap Pelatih <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Contoh: Coach Adi Pratama"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Username Akun (untuk login)
-                  </label>
-                  <input
-                    type="text"
-                    value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value)}
-                    placeholder="Contoh: coachadi"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Nomor WhatsApp / HP <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="Contoh: 081234567890"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Email Resmi <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="Contoh: adi@gimswimming.com"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Keahlian / Spesialisasi
-                  </label>
-                  <input
-                    type="text"
-                    value={editSpec}
-                    onChange={(e) => setEditSpec(e.target.value)}
-                    placeholder="Contoh: Gaya Bebas & Gaya Dada"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Program Kelas Utama
-                  </label>
-                  <select
-                    value={editClass}
-                    onChange={(e) => setEditClass(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
-                  >
-                    {availablePrograms.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Status Pelatih & Pay Per Session */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Status Akun Pelatih
-                  </label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
-                  >
-                    <option value="Active">Aktif Melatih</option>
-                    <option value="Inactive">Tidak Aktif (Dinonaktifkan)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Pay Per Sesi (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    step="5000"
-                    min="0"
-                    required
-                    value={editPayPerSession}
-                    onChange={(e) => setEditPayPerSession(e.target.value)}
-                    placeholder="Contoh: 100000"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  disabled={isSavingEdit}
-                  onClick={() => setCoachToEdit(null)}
-                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingEdit}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-blue-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {isSavingEdit ? "Menyimpan..." : "Simpan Perubahan"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

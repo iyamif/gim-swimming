@@ -17,6 +17,7 @@ import {
   Calendar,
   Trash2,
   Award,
+  ArrowLeft,
 } from "lucide-react";
 import { Student, Coach, ScheduleSession, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
@@ -66,14 +67,14 @@ export default function DaftarHadirTab({
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
   const [swipedStudentId, setSwipedStudentId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Edit mode states in modal
-  const [isEditing, setIsEditing] = useState(false);
+  // Edit Student Form States
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
-  const [editClass, setEditClass] = useState("");
+  const [editClass, setEditClass] = useState("Prestasi");
   const [editParent, setEditParent] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editAge, setEditAge] = useState("");
@@ -81,6 +82,7 @@ export default function DaftarHadirTab({
   const [editCoachId, setEditCoachId] = useState("");
   const [editStatus, setEditStatus] = useState<"Active" | "Inactive">("Active");
   const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   const [avatarTick, setAvatarTick] = useState(0);
@@ -405,10 +407,17 @@ export default function DaftarHadirTab({
     return "Next Class";
   };
 
-  // Open detail modal and initialize edit state
+  // Open detail modal
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student);
-    setIsEditing(false);
+    setFeedbackMsg(null);
+  };
+  const handleOpenStudentDetail = handleSelectStudent;
+
+  // Open edit page mode
+  const handleOpenEditStudent = (student: Student) => {
+    setSelectedStudent(null);
+    setStudentToEdit(student);
     setEditName(student.name || "");
     setEditUsername(student.username || "");
     setEditClass(student.class || "Prestasi");
@@ -418,74 +427,59 @@ export default function DaftarHadirTab({
     setEditCoachName(student.coach_name || student.coachName || (coaches?.[0]?.name || ""));
     setEditCoachId(student.coach_id || student.coachId || (coaches?.[0]?.id ? String(coaches[0].id) : ""));
     setEditStatus(isStudentActive(student) ? "Active" : "Inactive");
-    setFeedbackMsg(null);
-  };
-  const handleOpenStudentDetail = handleSelectStudent;
-
-  // Start edit mode
-  const handleStartEdit = () => {
-    if (!selectedStudent) return;
-    setEditName(selectedStudent.name || "");
-    setEditUsername(selectedStudent.username || "");
-    setEditClass(selectedStudent.class || "Prestasi");
-    setEditParent(selectedStudent.parent || "");
-    setEditPhone(selectedStudent.phone || "");
-    setEditAge(selectedStudent.age || "");
-    setEditCoachName(selectedStudent.coach_name || selectedStudent.coachName || (coaches?.[0]?.name || ""));
-    setEditCoachId(selectedStudent.coach_id || selectedStudent.coachId || (coaches?.[0]?.id ? String(coaches[0].id) : ""));
-    setEditStatus(isStudentActive(selectedStudent) ? "Active" : "Inactive");
-    setIsEditing(true);
-    setFeedbackMsg(null);
+    setEditError("");
   };
 
-  // Save updated student details (Admin)
-  const handleSaveStudent = async () => {
-    if (!selectedStudent) return;
+  // Save student edit from dedicated page
+  const handleSaveStudentEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentToEdit) return;
+
     if (!editName.trim()) {
-      setFeedbackMsg("Nama siswa tidak boleh kosong.");
+      setEditError("Nama lengkap siswa wajib diisi.");
       return;
     }
 
-    setIsSaving(true);
-    setFeedbackMsg(null);
-
-    const selectedCoachObj = (coaches || []).find((c) => c.name === editCoachName);
-    const resolvedCoachId = editCoachId || (selectedCoachObj ? String(selectedCoachObj.id) : "");
-    const resolvedCoachName = editCoachName || (selectedCoachObj ? selectedCoachObj.name : "");
-
-    const updatePayload: Partial<Student> & { username?: string } = {
-      name: editName.trim(),
-      username: editUsername.trim(),
-      class: editClass.trim() || selectedStudent.class,
-      parent: editParent.trim(),
-      phone: editPhone.trim(),
-      age: editAge.trim(),
-      coach_id: resolvedCoachId,
-      coach_name: resolvedCoachName,
-      coachId: resolvedCoachId,
-      coachName: resolvedCoachName,
-      status: editStatus,
-    };
-
     try {
-      if (onUpdateStudent) {
-        await onUpdateStudent(selectedStudent.id, updatePayload);
-      } else if (onUpdateStudentStatus) {
-        await onUpdateStudentStatus(selectedStudent.id, editStatus);
-      }
+      setIsSaving(true);
+      setEditError("");
 
-      const updatedStudent: Student = {
-        ...selectedStudent,
-        ...updatePayload,
+      const selectedCoachObj = (coaches || []).find((c) => c.name === editCoachName);
+      const resolvedCoachId = editCoachId || (selectedCoachObj ? String(selectedCoachObj.id) : "");
+      const resolvedCoachName = editCoachName || (selectedCoachObj ? selectedCoachObj.name : "");
+
+      const updatePayload: Partial<Student> & { username?: string } = {
+        name: editName.trim(),
+        username: editUsername.trim(),
+        class: editClass.trim() || studentToEdit.class,
+        parent: editParent.trim(),
+        phone: editPhone.trim(),
+        age: editAge.trim(),
+        coach_id: resolvedCoachId,
+        coach_name: resolvedCoachName,
+        coachId: resolvedCoachId,
+        coachName: resolvedCoachName,
+        status: editStatus,
       };
 
-      setSelectedStudent(updatedStudent);
-      setIsEditing(false);
-      setFeedbackMsg("Data siswa berhasil diperbarui!");
-      setTimeout(() => setFeedbackMsg(null), 3500);
+      if (onUpdateStudent) {
+        await onUpdateStudent(studentToEdit.id, updatePayload);
+      } else if (onUpdateStudentStatus) {
+        await onUpdateStudentStatus(studentToEdit.id, editStatus);
+      }
+
+      // Update local selectedStudent if it matches
+      if (selectedStudent && String(selectedStudent.id) === String(studentToEdit.id)) {
+        setSelectedStudent({
+          ...selectedStudent,
+          ...updatePayload,
+        });
+      }
+
+      setStudentToEdit(null);
     } catch (err: any) {
       console.error("Gagal menyimpan data siswa:", err);
-      setFeedbackMsg(err?.message || "Gagal menyimpan perubahan. Silakan coba lagi.");
+      setEditError(err?.message || "Gagal menyimpan perubahan data siswa.");
     } finally {
       setIsSaving(false);
     }
@@ -509,6 +503,208 @@ export default function DaftarHadirTab({
       setIsDeleting(false);
     }
   };
+
+  if (studentToEdit) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-28 md:pb-12 pt-6 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto space-y-5 animate-fadeIn">
+          {/* Top Bar Header */}
+          <div className="flex items-center justify-between bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => !isSaving && setStudentToEdit(null)}
+                disabled={isSaving}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                <ArrowLeft size={16} />
+                <span>Kembali ke Data Siswa</span>
+              </button>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                Halaman Edit Siswa
+              </span>
+            </div>
+          </div>
+
+          {/* Full Page Card Form */}
+          <div className="bg-white border border-slate-100 rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                <Pencil size={22} />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900">
+                  Edit Data Siswa - {studentToEdit.name}
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Perbarui profil siswa, program kelas, orang tua &amp; pelatih penanggung jawab
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveStudentEdit} className="space-y-4">
+              {editError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold animate-fadeIn">
+                  {editError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nama Lengkap Siswa <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Contoh: Muhammad Alif"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Username Akun (untuk login)
+                  </label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="Contoh: alif123"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Program Kelas Renang
+                  </label>
+                  <select
+                    value={editClass}
+                    onChange={(e) => setEditClass(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    {availablePrograms.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Status Keaktifan Siswa
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    <option value="Active">Aktif (Masih Mengikuti Kelas)</option>
+                    <option value="Inactive">Tidak Aktif (Tidak Melanjutkan)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nama Orang Tua / Wali
+                  </label>
+                  <input
+                    type="text"
+                    value={editParent}
+                    onChange={(e) => setEditParent(e.target.value)}
+                    placeholder="Contoh: Bapak Hendra"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Pelatih Penanggung Jawab
+                  </label>
+                  <select
+                    value={editCoachName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditCoachName(val);
+                      const c = (coaches || []).find((coach) => coach.name === val);
+                      setEditCoachId(c ? String(c.id) : "");
+                    }}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 font-bold outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
+                  >
+                    {coaches && coaches.length > 0 ? (
+                      coaches.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name} {c.spec ? `(${c.spec})` : ""}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">Belum ada data pelatih</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nomor WhatsApp / HP Orang Tua
+                  </label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="Contoh: 081234567890"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Usia / Umur Siswa
+                  </label>
+                  <input
+                    type="text"
+                    value={editAge}
+                    onChange={(e) => setEditAge(e.target.value)}
+                    placeholder="Contoh: 8 thn"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => setStudentToEdit(null)}
+                  className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  Batal / Kembali
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-blue-600/20 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
@@ -1000,9 +1196,12 @@ export default function DaftarHadirTab({
               </div>
 
               <div className="flex items-center gap-1.5">
-                {!isEditing && sessionRole === "admin" && (
+                {sessionRole === "admin" && (
                   <button
-                    onClick={handleStartEdit}
+                    onClick={() => {
+                      const st = selectedStudent;
+                      handleOpenEditStudent(st);
+                    }}
                     className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-blue-200/70"
                   >
                     <Pencil size={12} />
@@ -1026,202 +1225,25 @@ export default function DaftarHadirTab({
               </div>
             )}
 
-            {/* ==========================================
-                EDIT MODE: FULL STUDENT EDIT FORM
-                ========================================== */}
-            {isEditing && sessionRole === "admin" ? (
-              <div className="space-y-3.5 animate-fadeIn">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                  <span className="text-xs font-bold text-slate-800">
-                    Edit Data Siswa
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    ID #{selectedStudent.id}
-                  </span>
-                </div>
-
-                {/* Nama Lengkap & Username */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Nama Lengkap Siswa:
-                    </label>
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Nama siswa..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Username Akun (Login):
-                    </label>
-                    <input
-                      type="text"
-                      value={editUsername}
-                      onChange={(e) => setEditUsername(e.target.value)}
-                      placeholder="Username untuk login..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Status & Kelas Grid */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Status Siswa:
-                    </label>
-                    <select
-                      value={editStatus}
-                      onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                    >
-                      <option value="Active">Aktif</option>
-                      <option value="Inactive">Tidak Aktif</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Program Kelas:
-                    </label>
-                    <select
-                      value={editClass}
-                      onChange={(e) => setEditClass(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                    >
-                      {availablePrograms.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Orang Tua / Wali */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                    Nama Orang Tua / Wali:
-                  </label>
-                  <input
-                    type="text"
-                    value={editParent}
-                    onChange={(e) => setEditParent(e.target.value)}
-                    placeholder="Nama orang tua..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {/* Pelatih Penanggung Jawab */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                    Pelatih Penanggung Jawab:
-                  </label>
-                  <select
-                    value={editCoachName}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditCoachName(val);
-                      const c = (coaches || []).find((coach) => coach.name === val);
-                      setEditCoachId(c ? String(c.id) : "");
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                  >
-                    {coaches && coaches.length > 0 ? (
-                      coaches.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name} {c.spec ? `(${c.spec})` : ""}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">Belum ada data pelatih</option>
-                    )}
-                  </select>
-                </div>
-
-                {/* Grid Phone & Age */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                      No. Telepon / WA:
-                    </label>
-                    <input
-                      type="tel"
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="08xxxxxxxxxx"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Usia / Umur:
-                    </label>
-                    <input
-                      type="text"
-                      value={editAge}
-                      onChange={(e) => setEditAge(e.target.value)}
-                      placeholder="Contoh: 8 thn"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Edit Action Buttons */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={handleSaveStudent}
-                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    {isSaving ? (
-                      <span>Menyimpan...</span>
-                    ) : (
-                      <>
-                        <Save size={13} />
-                        <span>Simpan Perubahan</span>
-                      </>
-                    )}
-                  </button>
+            {/* Status Row */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <div>
+                <span className="text-[11px] text-slate-400 block font-medium">Status Keanggotaan</span>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  {isStudentActive(selectedStudent) ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                      Aktif (Masih Mengikuti Kelas)
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold text-xs inline-flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                      Tidak Aktif (Tidak Melanjutkan)
+                    </span>
+                  )}
                 </div>
               </div>
-            ) : (
-              /* ==========================================
-                 VIEW MODE: STUDENT DETAIL SUMMARY
-                 ========================================== */
-              <>
-                {/* Status Row */}
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div>
-                    <span className="text-[11px] text-slate-400 block font-medium">Status Keanggotaan</span>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      {isStudentActive(selectedStudent) ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                          Aktif (Masih Mengikuti Kelas)
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold text-xs inline-flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-                          Tidak Aktif (Tidak Melanjutkan)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+            </div>
 
                 {/* Student Details Grid */}
                 <div className="space-y-2.5 text-xs">
@@ -1345,8 +1367,6 @@ export default function DaftarHadirTab({
                     Tutup
                   </button>
                 </div>
-              </>
-            )}
           </div>
         </div>
       )}
