@@ -76,7 +76,7 @@ export default function RegistrasiTab({
   const [coachUsername, setCoachUsername] = useState("");
   const [coachAge, setCoachAge] = useState("");
   const [coachSpec, setCoachSpec] = useState("");
-  const [coachClass, setCoachClass] = useState("Prestasi");
+  const [coachClass, setCoachClass] = useState(() => (classPrograms && classPrograms[0]?.name) || "Prestasi");
   const [coachExperience, setCoachExperience] = useState("");
   const [coachPayPerSession, setCoachPayPerSession] = useState("100000");
 
@@ -84,7 +84,7 @@ export default function RegistrasiTab({
   const [studentUsername, setStudentUsername] = useState("");
   const [studentParent, setStudentParent] = useState("");
   const [studentAge, setStudentAge] = useState("");
-  const [studentClass, setStudentClass] = useState("Prestasi");
+  const [studentClass, setStudentClass] = useState(() => (classPrograms && classPrograms[0]?.name) || "Prestasi");
   const [studentCoachName, setStudentCoachName] = useState("");
   const [studentCoachId, setStudentCoachId] = useState("");
   const [studentNotes, setStudentNotes] = useState("");
@@ -96,17 +96,6 @@ export default function RegistrasiTab({
       setStudentCoachId(String(coaches[0].id));
     }
   }, [coaches, studentCoachName]);
-
-  useEffect(() => {
-    if (availablePrograms.length > 0) {
-      if (!coachClass || !availablePrograms.includes(coachClass)) {
-        setCoachClass(availablePrograms[0]);
-      }
-      if (!studentClass || !availablePrograms.includes(studentClass)) {
-        setStudentClass(availablePrograms[0]);
-      }
-    }
-  }, [availablePrograms]);
 
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);

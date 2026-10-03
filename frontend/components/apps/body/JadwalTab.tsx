@@ -254,23 +254,14 @@ export default function JadwalTab({
 
   const [formTimeStart, setFormTimeStart] = useState("15:00");
   const [formTimeEnd, setFormTimeEnd] = useState("16:00");
-  const [formClass, setFormClass] = useState("Private Class");
-  const [formPoolArea, setFormPoolArea] = useState("Nalendra");
+  const [formClass, setFormClass] = useState(() => (classPrograms && classPrograms[0]?.name) || "Private Class");
+  const [formPoolArea, setFormPoolArea] = useState(() => (pools && pools[0]?.name) || "Nalendra");
   const [formCoachId, setFormCoachId] = useState(coaches[0]?.id || "custom");
   const [formCoachName, setFormCoachName] = useState(coaches[0]?.name || "Coach Rendi");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formTitle, setFormTitle] = useState("");
-
-  useEffect(() => {
-    if (availablePrograms.length > 0 && !availablePrograms.includes(formClass)) {
-      setFormClass(availablePrograms[0]);
-    }
-    if (availablePools.length > 0 && !availablePools.includes(formPoolArea)) {
-      setFormPoolArea(availablePools[0]);
-    }
-  }, [availablePrograms, availablePools]);
 
   // ==========================================
   // EDIT SCHEDULE STATE
@@ -547,33 +538,10 @@ export default function JadwalTab({
   // Class Change in Create Modal
   const handleClassChange = (newClass: string) => {
     setFormClass(newClass);
+    // Dynamically calculate recommended end time based on the new class duration
+    setFormTimeEnd(calculateEndTimeForClass(formTimeStart, newClass));
     if (isSingleStudentClass(newClass)) {
-      setFormPoolArea("Nalendra");
-      setFormTimeEnd(calculateEndTimeForClass(formTimeStart, newClass));
       setSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
-      if (selectedDates.length > 4) {
-        setSelectedDates((prev) => prev.slice(0, 4));
-      }
-    } else if (newClass === "Prestasi") {
-      setFormPoolArea("312 Wera");
-      setFormTimeStart("15:00");
-      setFormTimeEnd("17:30");
-      // Auto-generate 12 dates for Senin, Rabu, Jumat starting from base date
-      const base = selectedDates[0] || todayStr;
-      const results: string[] = [];
-      const [y, m, d] = base.split("-").map(Number);
-      let curr = new Date(y, m - 1, d);
-      while (results.length < 12) {
-        const dayOfWeek = curr.getDay();
-        if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
-          const cy = curr.getFullYear();
-          const cm = String(curr.getMonth() + 1).padStart(2, "0");
-          const cd = String(curr.getDate()).padStart(2, "0");
-          results.push(`${cy}-${cm}-${cd}`);
-        }
-        curr.setDate(curr.getDate() + 1);
-      }
-      setSelectedDates(results.sort());
     }
   };
 
@@ -586,14 +554,9 @@ export default function JadwalTab({
   // Class Change in Edit Modal
   const handleEditClassChange = (newClass: string) => {
     setEditClass(newClass);
+    setEditTimeEnd(calculateEndTimeForClass(editTimeStart, newClass));
     if (isSingleStudentClass(newClass)) {
-      setEditPoolArea("Nalendra");
-      setEditTimeEnd(calculateEndTimeForClass(editTimeStart, newClass));
       setEditSelectedStudentIds((prev) => (prev.length > 1 ? [prev[0]] : prev));
-    } else if (newClass === "Prestasi") {
-      setEditPoolArea("312 Wera");
-      setEditTimeStart("15:00");
-      setEditTimeEnd("17:30");
     }
   };
 
