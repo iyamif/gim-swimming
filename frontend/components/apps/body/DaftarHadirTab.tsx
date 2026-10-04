@@ -865,7 +865,7 @@ export default function DaftarHadirTab({
       {/* ==========================================
           2. MAIN CONTENT CONTAINER (FLOATING CARDS)
           ========================================== */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-3.5 -mt-10 sm:-mt-12 relative z-20 animate-fadeIn">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-3.5 -mt-10 sm:-mt-12 relative z-20">
         {/* Featured Top Student Card */}
         {featuredStudent && (
           <SwipeableRow

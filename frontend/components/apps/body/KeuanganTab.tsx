@@ -241,10 +241,24 @@ export default function KeuanganTab({
   // REAL-DATA AGGREGATIONS (100% FROM DATABASE)
   // ==========================================
 
+  // Stable Status Helpers
+  const isPaid = (status?: string) => {
+    const s = (status || "").toLowerCase().trim();
+    return s === "lunas" || s === "paid" || s === "sudah bayar";
+  };
+  const isPendingConfirm = (status?: string) => {
+    const s = (status || "").toLowerCase().trim();
+    return s === "menunggu konfirmasi" || s === "verifikasi" || s === "pending_verification";
+  };
+  const isUnpaid = (status?: string) => {
+    const s = (status || "").toLowerCase().trim();
+    return s === "belum dibayar" || s === "belum bayar" || s === "unpaid" || s === "pending";
+  };
+
   // Invoices categorization
-  const pendingInvoices = invoices.filter((i) => i.status === "Menunggu Konfirmasi");
-  const paidInvoices = invoices.filter((i) => i.status === "Lunas");
-  const unpaidInvoices = invoices.filter((i) => i.status === "Belum Dibayar");
+  const pendingInvoices = useMemo(() => invoices.filter((i) => isPendingConfirm(i.status)), [invoices]);
+  const paidInvoices = useMemo(() => invoices.filter((i) => isPaid(i.status)), [invoices]);
+  const unpaidInvoices = useMemo(() => invoices.filter((i) => isUnpaid(i.status)), [invoices]);
 
   // Filter financial transactions to exclude duplicate auto-recorded SPP invoices
   const manualTransactions = useMemo(() => {
@@ -414,18 +428,20 @@ export default function KeuanganTab({
   }, [monthlyChartData]);
 
   // Filtered Student SPP list
-  const filteredInvoices = invoices.filter((inv) => {
-    const matchesSearch =
-      inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.desc.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      const matchesSearch =
+        inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (inv.desc && inv.desc.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    if (statusFilter === "PAID") return inv.status === "Lunas";
-    if (statusFilter === "PENDING") return inv.status === "Belum Dibayar";
-    if (statusFilter === "CONFIRM") return inv.status === "Menunggu Konfirmasi";
-    return true;
-  });
+      if (statusFilter === "PAID") return isPaid(inv.status);
+      if (statusFilter === "PENDING") return isUnpaid(inv.status);
+      if (statusFilter === "CONFIRM") return isPendingConfirm(inv.status);
+      return true;
+    });
+  }, [invoices, searchQuery, statusFilter]);
 
   // Handler: Add Custom Transaction to PostgreSQL Backend
   const handleAddTransactionSubmit = async (e: React.FormEvent) => {
@@ -528,7 +544,7 @@ export default function KeuanganTab({
         {/* ==========================================
             SECTION 0: SIMPLE & COMPACT FINANCIAL SUMMARY
             ========================================== */}
-        <div className="p-3.5 sm:p-4.5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-md shadow-slate-200/50 space-y-2.5 animate-fadeIn">
+        <div className="p-3.5 sm:p-4.5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-md shadow-slate-200/50 space-y-2.5">
           {/* Header row with Period & Status */}
           <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -646,7 +662,7 @@ export default function KeuanganTab({
         {/* ==========================================
             CARD 1: FINANCIAL OVERVIEW & 6-MONTH CHART
             ========================================== */}
-        <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3 sm:space-y-4 animate-fadeIn">
+        <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
           {/* Top Title & Legend */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
@@ -730,7 +746,7 @@ export default function KeuanganTab({
                     <div className="flex items-end justify-center gap-0.5 sm:gap-1.5 w-full max-w-[28px] sm:max-w-[36px] h-full pb-0.5">
                       {/* Income Bar (Blue) */}
                       <div
-                        className={`w-1/2 rounded-t-sm sm:rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                        className={`w-1/2 rounded-t-sm sm:rounded-t-md group-hover:brightness-110 cursor-pointer ${
                           incomeHeight > 0
                             ? "bg-gradient-to-t from-blue-700 via-blue-600 to-blue-500 shadow-2xs"
                             : "bg-slate-200/60"
@@ -741,7 +757,7 @@ export default function KeuanganTab({
 
                       {/* Expense Bar (Amber / Orange) */}
                       <div
-                        className={`w-1/2 rounded-t-sm sm:rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                        className={`w-1/2 rounded-t-sm sm:rounded-t-md group-hover:brightness-110 cursor-pointer ${
                           expenseHeight > 0
                             ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-2xs"
                             : "bg-slate-200/60"
@@ -884,7 +900,7 @@ export default function KeuanganTab({
             PENDING CONFIRMATION ALERT (BUKTI TRANSFER BARU)
             ========================================== */}
         {pendingInvoices.length > 0 && (
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 shadow-2xs space-y-2.5 animate-fadeIn">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <AlertTriangle size={15} className="text-amber-600 shrink-0" />
