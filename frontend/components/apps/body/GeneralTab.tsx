@@ -31,7 +31,10 @@ import {
 interface GeneralTabProps {
   sessionUser?: string;
   sessionRole?: string;
+  pools?: PoolVenue[];
+  classPrograms?: ClassProgram[];
   onRefresh?: () => Promise<void>;
+  setActiveTab?: (tab: string) => void;
 }
 
 const formatRupiah = (val: number | string): string => {
@@ -45,13 +48,16 @@ const formatRupiah = (val: number | string): string => {
 export default function GeneralTab({
   sessionUser = "",
   sessionRole = "admin",
+  pools: initialPools = [],
+  classPrograms: initialPrograms = [],
   onRefresh,
+  setActiveTab,
 }: GeneralTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<"pools" | "programs">("pools");
   const [searchQuery, setSearchQuery] = useState("");
 
   // State: Pools
-  const [pools, setPools] = useState<PoolVenue[]>([]);
+  const [pools, setPools] = useState<PoolVenue[]>(() => initialPools);
   const [loadingPools, setLoadingPools] = useState(false);
   const [showPoolModal, setShowPoolModal] = useState(false);
   const [editingPool, setEditingPool] = useState<PoolVenue | null>(null);
@@ -64,7 +70,7 @@ export default function GeneralTab({
   const [deletingPoolId, setDeletingPoolId] = useState<string | null>(null);
 
   // State: Class Programs
-  const [programs, setPrograms] = useState<ClassProgram[]>([]);
+  const [programs, setPrograms] = useState<ClassProgram[]>(() => initialPrograms);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [showProgramModal, setShowProgramModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<ClassProgram | null>(null);
@@ -76,17 +82,33 @@ export default function GeneralTab({
   const [savingProgram, setSavingProgram] = useState(false);
   const [deletingProgramId, setDeletingProgramId] = useState<string | null>(null);
 
+  // Synchronize state when parent props update
+  useEffect(() => {
+    if (initialPools && initialPools.length > 0) {
+      setPools(initialPools);
+    }
+  }, [initialPools]);
+
+  useEffect(() => {
+    if (initialPrograms && initialPrograms.length > 0) {
+      setPrograms(initialPrograms);
+    }
+  }, [initialPrograms]);
+
   // Load Pools & Programs
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoadingPools(true);
-      setLoadingPrograms(true);
+      if (!silent && pools.length === 0) setLoadingPools(true);
+      if (!silent && programs.length === 0) setLoadingPrograms(true);
       const [poolData, progData] = await Promise.all([
         fetchPools(),
         fetchClassPrograms(),
       ]);
       setPools(poolData);
       setPrograms(progData);
+      if (onRefresh) {
+        onRefresh().catch(() => {});
+      }
     } catch (err) {
       console.error("Error loading master general data:", err);
     } finally {
@@ -96,7 +118,11 @@ export default function GeneralTab({
   };
 
   useEffect(() => {
-    loadData();
+    if (pools.length === 0 || programs.length === 0) {
+      loadData(false);
+    } else {
+      loadData(true);
+    }
   }, []);
 
   // Open Pool Modal (Create or Edit)

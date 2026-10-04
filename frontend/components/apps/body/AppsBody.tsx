@@ -274,7 +274,10 @@ export default function AppsBody({
         <GeneralTab
           sessionUser={sessionUser}
           sessionRole={sessionRole}
+          pools={pools}
+          classPrograms={classPrograms}
           onRefresh={onRefresh}
+          setActiveTab={setActiveTab}
         />
       )}
 

@@ -231,7 +231,25 @@ export default function AppsPage() {
     }
   }, [initialCache?.students, sessionRole, sessionUser, students]);
 
-  // Pull-to-refresh and background resume handler: reloads all database data and profile avatar + checks SW updates
+  // Silent background reload handler: refreshes data seamlessly without blocking overlay
+  const handleSilentReload = useCallback(async () => {
+    try {
+      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg) reg.update().catch(() => { });
+        });
+      }
+
+      await Promise.all([
+        loadAllData(),
+        sessionUser ? syncCurrentUserAvatar(sessionUser) : Promise.resolve(""),
+      ]);
+    } catch (err) {
+      console.error("Silent reload error:", err);
+    }
+  }, [loadAllData, sessionUser]);
+
+  // Pull-to-refresh handler (manual gesture from user)
   const handlePullRefresh = useCallback(async () => {
     try {
       setIsRefreshing(true);
@@ -504,9 +522,8 @@ export default function AppsPage() {
         lastHiddenTimeRef.current = Date.now();
       } else if (document.visibilityState === "visible") {
         const timeHidden = Date.now() - lastHiddenTimeRef.current;
-        // If app was in background or idle for > 2 seconds, reload data with visible loading state
         if (lastHiddenTimeRef.current > 0 && timeHidden > 2000) {
-          handlePullRefresh();
+          handleSilentReload();
         } else {
           performSilentPoll();
         }
@@ -516,12 +533,12 @@ export default function AppsPage() {
     const handleWindowFocus = () => {
       const timeHidden = Date.now() - lastHiddenTimeRef.current;
       if (lastHiddenTimeRef.current > 0 && timeHidden > 2000) {
-        handlePullRefresh();
+        handleSilentReload();
       }
     };
 
     const handleOnline = () => {
-      handlePullRefresh();
+      handleSilentReload();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -537,7 +554,7 @@ export default function AppsPage() {
       window.removeEventListener("pageshow", handleWindowFocus);
       window.removeEventListener("online", handleOnline);
     };
-  }, [handlePullRefresh, sessionRole, sessionUser, students]);
+  }, [handleSilentReload, sessionRole, sessionUser, students]);
 
   useEffect(() => {
     // Register Service Worker in the browser with auto-update handling
@@ -1282,15 +1299,15 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Floating Loading Screen Overlay during Initial Load / Resume / Refresh */}
-        {(loadingData || isRefreshing) && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+        {/* Centered Floating Loading Screen Overlay during Initial Cold Start (only when no cache data is present) */}
+        {loadingData && students.length === 0 && coaches.length === 0 && schedules.length === 0 && (
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/80 backdrop-blur-xs pointer-events-auto transition-all duration-300 animate-fadeIn">
             <div className="flex flex-col items-center justify-center space-y-3 scale-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/icon.png"
                 alt="Loading"
-                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
+                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
               />
             </div>
           </div>
@@ -1427,15 +1444,15 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      {/* Centered Floating Loading Screen Overlay during Initial Load / Resume / Refresh */}
-      {(loadingData || isRefreshing) && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
+      {/* Centered Floating Loading Screen Overlay during Initial Cold Start (only when no cache data is present) */}
+      {loadingData && students.length === 0 && coaches.length === 0 && schedules.length === 0 && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/80 backdrop-blur-xs pointer-events-auto transition-all duration-300 animate-fadeIn">
           <div className="flex flex-col items-center justify-center space-y-3 scale-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon.png"
               alt="Loading"
-              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
             />
           </div>
         </div>

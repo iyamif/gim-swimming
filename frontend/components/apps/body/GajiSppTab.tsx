@@ -151,7 +151,6 @@ export default function GajiSppTab({
   // Load coach payrolls from backend
   const loadPayrolls = async () => {
     try {
-      setLoadingPayrolls(true);
       const data = await fetchCoachPayrolls(selectedMonth);
       setPayrolls(data);
     } catch (err) {
