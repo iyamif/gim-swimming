@@ -20,6 +20,14 @@ import {
   MapPin,
   Plus,
   Trash2,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Layers,
+  FileCheck2,
+  Sparkles,
 } from "lucide-react";
 
 interface KeuanganTabProps {
@@ -92,8 +100,9 @@ export default function KeuanganTab({
 
   // Real Current Date
   const now = useMemo(() => new Date(), []);
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  // 1. Dynamic 6-Month Rolling Window ending on current month (e.g. Apr - Sep 2026)
+  // 1. Dynamic 6-Month Rolling Window ending on current month (e.g. Mei - Okt 2026)
   const rollingMonths = useMemo(() => {
     const list = [];
     for (let i = 5; i >= 0; i--) {
@@ -112,17 +121,32 @@ export default function KeuanganTab({
     return list;
   }, [now]);
 
-  // Current Month Key & Selected Period
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(
-    `${MONTH_NAMES_SHORT[now.getMonth()]} ${now.getFullYear()}`
-  );
+  // Selected Period State (Defaults to Current Month Key)
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
+
+  // Derive readable label from selected key
+  const selectedPeriodObj = useMemo(() => {
+    const found = rollingMonths.find((m) => m.key === selectedMonthKey);
+    if (found) return found;
+    const [yStr, mStr] = selectedMonthKey.split("-");
+    const y = parseInt(yStr, 10) || now.getFullYear();
+    const m = (parseInt(mStr, 10) || 1) - 1;
+    return {
+      year: y,
+      monthIndex: m,
+      key: selectedMonthKey,
+      shortLabel: MONTH_NAMES_SHORT[m] || "Bln",
+      fullLabel: `${MONTH_NAMES_FULL[m] || "Bulan"} ${y}`,
+      shortPeriod: `${MONTH_NAMES_SHORT[m] || "Bln"} ${y}`,
+    };
+  }, [selectedMonthKey, rollingMonths, now]);
 
   // Modals for Transaction History & Add Transaction
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [showPaymentReceivedModal, setShowPaymentReceivedModal] = useState(false);
   const [showCoachPaymentModal, setShowCoachPaymentModal] = useState(false);
+  const [modalViewAllTime, setModalViewAllTime] = useState(false);
   const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<Invoice | null>(null);
 
   // Search & Filter for Student SPP Table
@@ -172,17 +196,29 @@ export default function KeuanganTab({
     }
   };
 
-  // Helper to resolve an Invoice's month key
+  // Helper to resolve an Invoice's month key accurately
   const getInvoiceMonthKey = (inv: Invoice): string => {
-    if (inv.date) return getMonthKeyFromDate(inv.date);
-    if (inv.createdAt) return getMonthKeyFromDate(inv.createdAt);
+    const dateVal = inv.date || inv.createdAt;
+    if (dateVal) {
+      try {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
     const desc = (inv.desc || "").toLowerCase();
     for (let m = 0; m < 12; m++) {
       const full = MONTH_NAMES_FULL[m].toLowerCase();
       const short = MONTH_NAMES_SHORT[m].toLowerCase();
-      if (desc.includes(full) || desc.includes(short)) {
-        const matchYear = desc.match(/20\d{2}/);
-        const y = matchYear ? parseInt(matchYear[0]) : now.getFullYear();
+      // Match whole word to avoid substring collisions
+      const regex = new RegExp(`\\b(${full}|${short})\\b`, "i");
+      if (regex.test(desc)) {
+        const matchYear = desc.match(/20\\d{2}/);
+        const y = matchYear ? parseInt(matchYear[0], 10) : now.getFullYear();
         return `${y}-${String(m + 1).padStart(2, "0")}`;
       }
     }
@@ -195,13 +231,13 @@ export default function KeuanganTab({
   };
 
   const formatShortK = (num: number) => {
-    if (num >= 1000000) {
-      return `IDR ${(num / 1000000).toFixed(2).replace(/\.00$/, "")}M`;
+    if (Math.abs(num) >= 1000000) {
+      return `IDR ${(num / 1000000).toFixed(2).replace(/\\.00$/, "")}M`;
     }
-    if (num >= 1000) {
+    if (Math.abs(num) >= 1000) {
       return `IDR ${(num / 1000).toFixed(0)}k`;
     }
-    return `IDR ${num}`;
+    return `IDR ${Math.round(num)}`;
   };
 
   // ==========================================
@@ -213,19 +249,26 @@ export default function KeuanganTab({
   const paidInvoices = invoices.filter((i) => i.status === "Lunas");
   const unpaidInvoices = invoices.filter((i) => i.status === "Belum Dibayar");
 
-  // Sum of real paid invoices (Total all-time or current period)
-  const totalStudentPaidAllTime = paidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  // Filter financial transactions to exclude duplicate auto-recorded SPP invoices
+  const manualTransactions = useMemo(() => {
+    return financialTransactions.filter((t) => {
+      const isAutoSpp =
+        t.category === "SPP Siswa" ||
+        (t.notes && t.notes.toLowerCase().includes("auto-recorded dari approval spp"));
+      return !isAutoSpp;
+    });
+  }, [financialTransactions]);
 
-  // Dynamic Coach Payments based on real verified attendances and completed schedules
-  const coachPayrolls = useMemo(() => {
+  // Dynamic Coach Payments calculation for any specified month key
+  const calculateCoachPayrollForMonth = (monthKey: string) => {
     return coaches.map((c, idx) => {
-      // Find completed sessions from schedules
       const coachSchedules = schedules.filter((s) => {
-        return (
+        const matchCoach =
           s.coachId === c.id ||
           s.coachName?.toLowerCase().trim() === c.name.toLowerCase().trim() ||
-          c.name.toLowerCase().includes(s.coachName?.toLowerCase().trim() || "")
-        );
+          c.name.toLowerCase().includes(s.coachName?.toLowerCase().trim() || "");
+        const matchMonth = getMonthKeyFromDate(s.date) === monthKey;
+        return matchCoach && matchMonth;
       });
 
       const completedSchedules = coachSchedules.filter((s) => {
@@ -234,18 +277,18 @@ export default function KeuanganTab({
         return false;
       });
 
-      // Find verified coach attendances
       const verifiedCoachAttendances = attendances.filter((a) => {
         const isCoachPerson =
           a.person_type === "coach" &&
           (String(a.person_id) === String(c.id) ||
             a.person_name?.toLowerCase().trim() === c.name.toLowerCase().trim() ||
             c.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || ""));
-        const isValidStatus = a.status === "Hadir" || a.status === "Terlambat" || a.status === "Selesai";
-        return isCoachPerson && isValidStatus;
+        const isValidStatus =
+          a.status === "Hadir" || a.status === "Terlambat" || a.status === "Selesai";
+        const matchMonth = getMonthKeyFromDate(a.date) === monthKey;
+        return isCoachPerson && isValidStatus && matchMonth;
       });
 
-      // Calculate total sessions completed
       const sessionsCount = Math.max(
         completedSchedules.length,
         verifiedCoachAttendances.length,
@@ -267,38 +310,83 @@ export default function KeuanganTab({
         ratePerSession,
         totalHonor,
         status: "Sudah Ditransfer" as const,
-        date: `25 ${MONTH_NAMES_SHORT[now.getMonth()]} ${now.getFullYear()}`,
         recentAttendances: verifiedCoachAttendances.slice(0, 5),
       };
     });
-  }, [coaches, schedules, attendances, now]);
+  };
 
-  const totalCoachExpenses = useMemo(() => {
-    return coachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
-  }, [coachPayrolls]);
+  // Selected Month Breakdown Calculations
+  const activeMonthCoachPayrolls = useMemo(() => {
+    return calculateCoachPayrollForMonth(selectedMonthKey);
+  }, [selectedMonthKey, coaches, schedules, attendances, now]);
 
-  // Current Month Real Income & Expense Totals
-  const currentMonthPaidInvoices = paidInvoices.filter(
-    (inv) => getInvoiceMonthKey(inv) === currentMonthKey
-  );
-  const currentMonthStudentIncome = currentMonthPaidInvoices.reduce(
-    (acc, curr) => acc + (curr.amount || 0),
-    0
-  );
+  const activeMonthCoachExpenses = useMemo(() => {
+    return activeMonthCoachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
+  }, [activeMonthCoachPayrolls]);
 
-  const currentMonthTxIncome = financialTransactions
-    .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === currentMonthKey)
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
+  const activeMonthPaidInvoices = useMemo(() => {
+    return paidInvoices.filter((inv) => getInvoiceMonthKey(inv) === selectedMonthKey);
+  }, [paidInvoices, selectedMonthKey]);
 
-  const currentMonthTxExpense = financialTransactions
-    .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === currentMonthKey)
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
+  const activeMonthStudentIncome = useMemo(() => {
+    return activeMonthPaidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  }, [activeMonthPaidInvoices]);
 
-  // Total Real Income & Expenses for active month
-  const totalIncomePaid = currentMonthStudentIncome + currentMonthTxIncome;
-  const totalExpenses = totalCoachExpenses + currentMonthTxExpense;
+  const activeMonthManualIncome = useMemo(() => {
+    return manualTransactions
+      .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === selectedMonthKey)
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [manualTransactions, selectedMonthKey]);
 
-  // Monthly Financial Data for Bar Chart (Rolling 6 Months - Pure Database Aggregations)
+  const activeMonthManualExpense = useMemo(() => {
+    return manualTransactions
+      .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === selectedMonthKey)
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [manualTransactions, selectedMonthKey]);
+
+  // Grand Totals for Active Selected Month
+  const activeMonthTotalIncome = activeMonthStudentIncome + activeMonthManualIncome;
+  const activeMonthTotalExpense = activeMonthCoachExpenses + activeMonthManualExpense;
+  const activeMonthNetProfit = activeMonthTotalIncome - activeMonthTotalExpense;
+  const activeMonthProfitMargin =
+    activeMonthTotalIncome > 0
+      ? Math.round((activeMonthNetProfit / activeMonthTotalIncome) * 100)
+      : 0;
+
+  // Current Month (Bulan Berjalan) Totals for Quick Compare
+  const currentMonthPaidInvoices = useMemo(() => {
+    return paidInvoices.filter((inv) => getInvoiceMonthKey(inv) === currentMonthKey);
+  }, [paidInvoices, currentMonthKey]);
+
+  const currentMonthStudentIncome = useMemo(() => {
+    return currentMonthPaidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  }, [currentMonthPaidInvoices]);
+
+  const currentMonthManualIncome = useMemo(() => {
+    return manualTransactions
+      .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === currentMonthKey)
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [manualTransactions, currentMonthKey]);
+
+  const currentMonthCoachPayrolls = useMemo(() => {
+    return calculateCoachPayrollForMonth(currentMonthKey);
+  }, [currentMonthKey, coaches, schedules, attendances, now]);
+
+  const currentMonthCoachExpense = useMemo(() => {
+    return currentMonthCoachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
+  }, [currentMonthCoachPayrolls]);
+
+  const currentMonthManualExpense = useMemo(() => {
+    return manualTransactions
+      .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === currentMonthKey)
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [manualTransactions, currentMonthKey]);
+
+  const currentMonthTotalIncome = currentMonthStudentIncome + currentMonthManualIncome;
+  const currentMonthTotalExpense = currentMonthCoachExpense + currentMonthManualExpense;
+  const currentMonthNetProfit = currentMonthTotalIncome - currentMonthTotalExpense;
+
+  // Monthly Financial Data for Bar Chart (Rolling 6 Months - Pure Database Aggregations, No Duplications)
   const monthlyChartData = useMemo(() => {
     return rollingMonths.map((m) => {
       // 1. Paid student SPP invoices belonging to this month
@@ -310,26 +398,18 @@ export default function KeuanganTab({
         0
       );
 
-      // 2. Custom financial transactions from database for this month
-      const customIncome = financialTransactions
+      // 2. Custom financial transactions (non-duplicate) from database for this month
+      const customIncome = manualTransactions
         .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === m.key)
         .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-      const customExpense = financialTransactions
+      const customExpense = manualTransactions
         .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === m.key)
         .reduce((sum, t) => sum + (t.amount || 0), 0);
 
       // 3. Coach completed session honor for this month
-      let coachExpense = 0;
-      if (m.key === currentMonthKey) {
-        coachExpense = totalCoachExpenses;
-      } else {
-        // Find completed schedules in this month
-        const monthSchedules = schedules.filter(
-          (s) => getMonthKeyFromDate(s.date) === m.key && (s.status === "Completed" || new Date(s.date) <= now)
-        );
-        coachExpense = monthSchedules.length * 100000;
-      }
+      const monthCoachPayroll = calculateCoachPayrollForMonth(m.key);
+      const coachExpense = monthCoachPayroll.reduce((acc, curr) => acc + curr.totalHonor, 0);
 
       const totalMonthIncome = studentIncome + customIncome;
       const totalMonthExpense = coachExpense + customExpense;
@@ -340,16 +420,23 @@ export default function KeuanganTab({
         fullPeriod: m.fullLabel,
         income: totalMonthIncome,
         expenses: totalMonthExpense,
+        studentIncome,
+        customIncome,
+        coachExpense,
+        customExpense,
         isCurrent: m.key === currentMonthKey,
+        isSelected: m.key === selectedMonthKey,
       };
     });
   }, [
     rollingMonths,
     paidInvoices,
-    financialTransactions,
+    manualTransactions,
+    coaches,
     schedules,
+    attendances,
     currentMonthKey,
-    totalCoachExpenses,
+    selectedMonthKey,
     now,
   ]);
 
@@ -437,30 +524,222 @@ export default function KeuanganTab({
         <div className="max-w-3xl mx-auto relative z-10 flex items-center justify-between">
           {/* Title: Keuangan & Subtitle */}
           <div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Keuangan
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+              <span>Keuangan</span>
+              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-cyan-100 border border-white/20">
+                Admin
+              </span>
             </h2>
             <p className="text-xs text-cyan-100 font-medium mt-1">
-              Financial Overview, Cashflow &amp; Status Pembayaran SPP
+              Financial Overview, Arus Kas &amp; Rekapitulasi SPP Bulan Berjalan
             </p>
           </div>
 
-          {/* Action Button: + Catat Transaksi */}
-          <button
-            onClick={() => setShowAddTransactionModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 backdrop-blur-xs transition cursor-pointer shadow-xs active:scale-95"
-            title="Catat Pemasukan atau Pengeluaran Lainnya"
-          >
-            <Plus size={15} className="stroke-[2.5]" />
-            <span className="hidden sm:inline">Catat Transaksi</span>
-          </button>
+          {/* Action Buttons: Periode & + Catat Transaksi */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPeriodModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 backdrop-blur-xs transition cursor-pointer shadow-xs active:scale-95"
+              title="Ganti Periode Bulan"
+            >
+              <CalendarDays size={14} />
+              <span>{selectedPeriodObj.shortPeriod}</span>
+            </button>
+
+            <button
+              onClick={() => setShowAddTransactionModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white text-blue-700 hover:bg-cyan-50 text-xs font-black transition cursor-pointer shadow-md active:scale-95"
+              title="Catat Pemasukan atau Pengeluaran Lainnya"
+            >
+              <Plus size={15} className="stroke-[3]" />
+              <span className="hidden sm:inline">Catat Transaksi</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ==========================================
-          MAIN CONTAINER (FLOATING CARDS - ORIGINAL LAYOUT)
+          MAIN CONTAINER (FLOATING CARDS)
           ========================================== */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20">
+        {/* ==========================================
+            SECTION 0: HIGHLIGHT RINGKASAN KEUANGAN BULAN BERJALAN (ADMIN SUMMARY)
+            ========================================== */}
+        <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                <Wallet size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
+                  Ringkasan Keuangan {selectedPeriodObj.fullLabel}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {selectedMonthKey === currentMonthKey ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      Periode Bulan Berjalan (Aktif)
+                    </span>
+                  ) : (
+                    <span>Arsip Periode {selectedPeriodObj.shortPeriod}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Switcher to Current Month if viewing past archive */}
+            {selectedMonthKey !== currentMonthKey && (
+              <button
+                onClick={() => setSelectedMonthKey(currentMonthKey)}
+                className="px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-black transition cursor-pointer border border-blue-100 flex items-center gap-1"
+              >
+                <Sparkles size={12} />
+                <span>Kembali ke Bulan Berjalan</span>
+              </button>
+            )}
+          </div>
+
+          {/* 3 Metric Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 1. TOTAL PEMASUKAN */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-emerald-100/90 space-y-2 relative overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">
+                  Total Pemasukan
+                </span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100/80 text-emerald-700">
+                  <ArrowUpRight size={15} className="stroke-[2.5]" />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-lg sm:text-xl font-black text-emerald-950 tracking-tight">
+                  {formatIDR(activeMonthTotalIncome)}
+                </p>
+                <p className="text-[10px] text-emerald-700 font-bold mt-0.5">
+                  +{activeMonthPaidInvoices.length} SPP Lunas
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-emerald-100/70 text-[10px] space-y-0.5 text-emerald-900/80 font-medium">
+                <div className="flex justify-between">
+                  <span>SPP Siswa:</span>
+                  <span className="font-bold">{formatIDR(activeMonthStudentIncome)}</span>
+                </div>
+                {activeMonthManualIncome > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-semibold">
+                    <span>Lainnya:</span>
+                    <span>+{formatIDR(activeMonthManualIncome)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. TOTAL PENGELUARAN */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/80 to-orange-50/40 border border-amber-100/90 space-y-2 relative overflow-hidden group">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
+                  Total Pengeluaran
+                </span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700">
+                  <ArrowDownRight size={15} className="stroke-[2.5]" />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-lg sm:text-xl font-black text-amber-950 tracking-tight">
+                  {formatIDR(activeMonthTotalExpense)}
+                </p>
+                <p className="text-[10px] text-amber-700 font-bold mt-0.5">
+                  Honor {coaches.length} Pelatih &amp; Ops
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-amber-100/70 text-[10px] space-y-0.5 text-amber-900/80 font-medium">
+                <div className="flex justify-between">
+                  <span>Honor Pelatih:</span>
+                  <span className="font-bold">{formatIDR(activeMonthCoachExpenses)}</span>
+                </div>
+                {activeMonthManualExpense > 0 && (
+                  <div className="flex justify-between text-amber-700 font-semibold">
+                    <span>Operasional:</span>
+                    <span>+{formatIDR(activeMonthManualExpense)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. SURPLUS / SISA SALDO */}
+            <div
+              className={`p-4 rounded-2xl border space-y-2 relative overflow-hidden ${
+                activeMonthNetProfit >= 0
+                  ? "bg-gradient-to-br from-blue-50/80 to-indigo-50/40 border-blue-100/90"
+                  : "bg-gradient-to-br from-rose-50/80 to-orange-50/40 border-rose-100/90"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className={`text-[11px] font-black uppercase tracking-wider ${
+                    activeMonthNetProfit >= 0 ? "text-blue-800" : "text-rose-800"
+                  }`}
+                >
+                  Sisa Saldo / Margin
+                </span>
+                <div
+                  className={`flex h-7 w-7 items-center justify-center rounded-xl ${
+                    activeMonthNetProfit >= 0
+                      ? "bg-blue-100/80 text-blue-700"
+                      : "bg-rose-100/80 text-rose-700"
+                  }`}
+                >
+                  {activeMonthNetProfit >= 0 ? (
+                    <TrendingUp size={15} className="stroke-[2.5]" />
+                  ) : (
+                    <TrendingDown size={15} className="stroke-[2.5]" />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p
+                  className={`text-lg sm:text-xl font-black tracking-tight ${
+                    activeMonthNetProfit >= 0 ? "text-blue-950" : "text-rose-950"
+                  }`}
+                >
+                  {activeMonthNetProfit >= 0 ? "+" : ""}
+                  {formatIDR(activeMonthNetProfit)}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black ${
+                      activeMonthNetProfit >= 0
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-200/60"
+                        : "bg-rose-100 text-rose-800 border border-rose-200/60"
+                    }`}
+                  >
+                    {activeMonthNetProfit >= 0 ? "Surplus Kas" : "Defisit Kas"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold">
+                    Margin {activeMonthProfitMargin}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200/50 text-[10px] flex justify-between text-slate-600 font-medium">
+                <span>Rasio Bersih:</span>
+                <span className="font-black text-slate-800">
+                  {activeMonthTotalIncome > 0
+                    ? `${Math.round(
+                        (activeMonthNetProfit / activeMonthTotalIncome) * 100
+                      )}% dari Income`
+                    : "0%"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ==========================================
             CARD 1: FINANCIAL OVERVIEW & 6-MONTH CHART
             ========================================== */}
@@ -469,10 +748,10 @@ export default function KeuanganTab({
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-base sm:text-lg font-black text-slate-900">
-                Financial Overview
+                Financial Overview (6 Bulan Terakhir)
               </h3>
               <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                {selectedPeriod}
+                Perbandingan Arus Kas Bulanan: Income vs Expenses
               </p>
             </div>
 
@@ -488,7 +767,7 @@ export default function KeuanganTab({
           {/* Income & Expenses Subheader + Legend */}
           <div className="flex items-center justify-between flex-wrap gap-2 border-t border-slate-100 pt-3">
             <h4 className="text-xs sm:text-sm font-black text-slate-900">
-              Income &amp; Expenses
+              Grafik Arus Kas Bulanan
             </h4>
 
             <div className="flex items-center gap-4 text-xs font-bold">
@@ -505,9 +784,9 @@ export default function KeuanganTab({
 
           {/* Vertical Bar Chart Container (Dynamic 6 Months Rolling) */}
           <div className="pt-2">
-            <div className="relative h-52 sm:h-60 flex items-end justify-between gap-1 sm:gap-2 pb-7 pt-5 px-2 sm:px-4 bg-slate-50/70 rounded-2xl border border-slate-100">
+            <div className="relative h-56 sm:h-64 flex items-end justify-between gap-1.5 sm:gap-3 pb-8 pt-6 px-2 sm:px-4 bg-slate-50/70 rounded-2xl border border-slate-100">
               {/* Background Grid Lines & Y-Axis Labels */}
-              <div className="absolute inset-x-2 sm:inset-x-4 top-5 bottom-7 flex flex-col justify-between pointer-events-none opacity-40">
+              <div className="absolute inset-x-2 sm:inset-x-4 top-6 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
                 <div className="border-b border-slate-300 border-dashed w-full relative">
                   <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
                     {formatShortK(maxChartValue)}
@@ -546,49 +825,68 @@ export default function KeuanganTab({
                     ? Math.min(100, Math.max(6, Math.round((item.expenses / maxChartValue) * 100)))
                     : 0;
 
+                const isSelected = item.key === selectedMonthKey;
+
                 return (
                   <div
                     key={idx}
-                    className="flex-1 flex flex-col items-center justify-end h-full relative group z-10"
+                    onClick={() => setSelectedMonthKey(item.key)}
+                    className={`flex-1 flex flex-col items-center justify-end h-full relative group z-10 cursor-pointer p-1 rounded-xl transition ${
+                      isSelected ? "bg-blue-100/30 ring-2 ring-blue-500/30" : "hover:bg-slate-100/50"
+                    }`}
                   >
                     {/* Tooltip on Hover */}
-                    <div className="absolute -top-12 bg-slate-900 text-white text-[9px] py-1.5 px-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap shadow-lg z-30 space-y-0.5">
-                      <p className="font-bold text-white">
-                        {item.month} ({item.fullPeriod}):
+                    <div className="absolute -top-16 bg-slate-900 text-white text-[9px] py-2 px-3 rounded-xl opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap shadow-xl z-30 space-y-0.5">
+                      <p className="font-black text-white">
+                        {item.month} ({item.fullPeriod}) {item.isCurrent ? "• Bulan Ini" : ""}:
                       </p>
-                      <p className="text-cyan-300 font-semibold">
-                        Income: {formatIDR(item.income)}
+                      <p className="text-cyan-300 font-bold">
+                        Income: {formatIDR(item.income)} (SPP: {formatIDR(item.studentIncome)})
                       </p>
-                      <p className="text-amber-300 font-semibold">
-                        Expense: {formatIDR(item.expenses)}
+                      <p className="text-amber-300 font-bold">
+                        Expense: {formatIDR(item.expenses)} (Gaji: {formatIDR(item.coachExpense)})
+                      </p>
+                      <p
+                        className={`font-black pt-0.5 border-t border-slate-700 ${
+                          item.income >= item.expenses ? "text-emerald-400" : "text-rose-400"
+                        }`}
+                      >
+                        Net: {item.income >= item.expenses ? "+" : ""}
+                        {formatIDR(item.income - item.expenses)}
                       </p>
                     </div>
 
                     {/* Dual Bars Wrapper with h-full */}
-                    <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full max-w-[36px] h-full pb-0.5">
+                    <div className="flex items-end justify-center gap-1 sm:gap-2 w-full max-w-[40px] h-full pb-0.5">
                       {/* Income Bar (Blue) */}
                       <div
-                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${incomeHeight > 0
+                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                          incomeHeight > 0
                             ? "bg-gradient-to-t from-blue-700 via-blue-600 to-blue-500 shadow-xs"
                             : "bg-slate-200/60"
-                          }`}
+                        }`}
                         style={{ height: `${Math.max(2, incomeHeight)}%` }}
                         title={`${item.month} Income: ${formatIDR(item.income)}`}
                       />
 
                       {/* Expense Bar (Amber / Orange) */}
                       <div
-                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${expenseHeight > 0
+                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                          expenseHeight > 0
                             ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-xs"
                             : "bg-slate-200/60"
-                          }`}
+                        }`}
                         style={{ height: `${Math.max(2, expenseHeight)}%` }}
                         title={`${item.month} Expense: ${formatIDR(item.expenses)}`}
                       />
                     </div>
 
                     {/* Month Label */}
-                    <span className="absolute -bottom-6 text-[10px] sm:text-xs font-black text-slate-600">
+                    <span
+                      className={`absolute -bottom-6 text-[10px] sm:text-xs font-black transition ${
+                        isSelected ? "text-blue-700 underline" : "text-slate-600"
+                      }`}
+                    >
                       {item.month}
                     </span>
                   </div>
@@ -599,12 +897,17 @@ export default function KeuanganTab({
         </div>
 
         {/* ==========================================
-            CARD 2: TRANSACTION HISTORY (ORIGINAL LAYOUT)
+            CARD 2: TRANSACTION HISTORY & REKAP PERIODE
             ========================================== */}
         <div className="space-y-2.5">
-          <h3 className="text-sm font-black text-slate-900 px-1 flex items-center gap-1.5">
-            <span>Transaction History</span>
-          </h3>
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+              <span>Transaction History &amp; Penggajian ({selectedPeriodObj.shortPeriod})</span>
+            </h3>
+            <span className="text-[11px] text-slate-400 font-semibold">
+              Klik untuk rincian transaksi
+            </span>
+          </div>
 
           <div className="space-y-2.5">
             {/* Item 1: Payment received */}
@@ -617,18 +920,21 @@ export default function KeuanganTab({
                   <CreditCard size={18} />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                    Payment received
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <span>Payment received</span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      ({selectedPeriodObj.shortPeriod})
+                    </span>
                   </h4>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    {paidInvoices.length} Transaksi SPP terverifikasi lunas
+                    {activeMonthPaidInvoices.length} transaksi SPP lunas periode ini
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100">
-                  +{formatShortK(totalIncomePaid)}
+                  +{formatIDR(activeMonthStudentIncome)}
                 </span>
                 <ChevronRight size={16} className="text-slate-400" />
               </div>
@@ -644,31 +950,35 @@ export default function KeuanganTab({
                   <Handshake size={18} />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                    Coach payment
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <span>Coach payment</span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      ({selectedPeriodObj.shortPeriod})
+                    </span>
                   </h4>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Honor &amp; insentif {coaches.length || coachPayrolls.length} pelatih renang
+                    Honor &amp; insentif {coaches.length || activeMonthCoachPayrolls.length} pelatih renang
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100">
-                  -{formatShortK(totalExpenses)}
+                  -{formatIDR(activeMonthCoachExpenses)}
                 </span>
                 <ChevronRight size={16} className="text-slate-400" />
               </div>
             </div>
 
             {/* Item 3 (If any): Manual Transactions recorded */}
-            {financialTransactions.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-white border border-slate-100 shadow-2xs space-y-2">
+            {manualTransactions.length > 0 && (
+              <div className="p-4 rounded-3xl bg-white border border-slate-100 shadow-2xs space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-black text-slate-700">
-                  <span>Transaksi Manual Tercatat ({financialTransactions.length})</span>
+                  <span>Transaksi Manual Tercatat ({manualTransactions.length})</span>
+                  <span className="text-[10px] text-slate-400 font-medium">PostgreSQL Database</span>
                 </div>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {financialTransactions.map((tx) => (
+                  {manualTransactions.map((tx) => (
                     <div
                       key={tx.id}
                       className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
@@ -681,8 +991,9 @@ export default function KeuanganTab({
                       </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-xs font-black ${tx.type === "income" ? "text-emerald-600" : "text-amber-600"
-                            }`}
+                          className={`text-xs font-black ${
+                            tx.type === "income" ? "text-emerald-600" : "text-amber-600"
+                          }`}
                         >
                           {tx.type === "income" ? "+" : "-"}
                           {formatIDR(tx.amount)}
@@ -785,28 +1096,31 @@ export default function KeuanganTab({
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl text-[10px] font-bold">
               <button
                 onClick={() => setStatusFilter("ALL")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${statusFilter === "ALL"
+                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                  statusFilter === "ALL"
                     ? "bg-white text-blue-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 Semua ({invoices.length})
               </button>
               <button
                 onClick={() => setStatusFilter("PAID")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${statusFilter === "PAID"
+                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                  statusFilter === "PAID"
                     ? "bg-white text-emerald-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 Lunas ({paidInvoices.length})
               </button>
               <button
                 onClick={() => setStatusFilter("PENDING")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${statusFilter === "PENDING"
+                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                  statusFilter === "PENDING"
                     ? "bg-white text-amber-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 Pending ({unpaidInvoices.length})
               </button>
@@ -869,7 +1183,9 @@ export default function KeuanganTab({
                           {/* Name */}
                           <td className="py-3.5 px-3.5">
                             <p className="font-black text-slate-900 capitalize">{inv.name}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">ID: {inv.studentId || inv.id}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">
+                              ID: {inv.studentId || inv.id}
+                            </p>
                           </td>
 
                           {/* Tagihan / Desc */}
@@ -879,18 +1195,19 @@ export default function KeuanganTab({
 
                           {/* Amount */}
                           <td className="py-3.5 px-3 font-bold text-slate-800 whitespace-nowrap">
-                            {formatShortK(inv.amount)}
+                            {formatIDR(inv.amount)}
                           </td>
 
                           {/* Status Badge */}
                           <td className="py-3.5 px-3.5 text-right whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black ${isPaid
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black ${
+                                isPaid
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                   : isPending
-                                    ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                    : "bg-blue-50 text-blue-700 border border-blue-100 animate-pulse"
-                                }`}
+                                  ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                  : "bg-blue-50 text-blue-700 border border-blue-100 animate-pulse"
+                              }`}
                             >
                               {isPaid ? "Paid" : isPending ? "Pending" : "Review"}
                             </span>
@@ -958,12 +1275,13 @@ export default function KeuanganTab({
                       setTxType("income");
                       setTxCategory(incomeCategories[0]);
                     }}
-                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${txType === "income"
+                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      txType === "income"
                         ? "bg-white text-blue-600 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
-                      }`}
+                    }`}
                   >
-                    <span>Income</span>
+                    <span>Income (Pemasukan)</span>
                   </button>
                   <button
                     type="button"
@@ -971,12 +1289,13 @@ export default function KeuanganTab({
                       setTxType("expense");
                       setTxCategory(expenseCategories[0]);
                     }}
-                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${txType === "expense"
+                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      txType === "expense"
                         ? "bg-white text-amber-600 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
-                      }`}
+                    }`}
                   >
-                    <span>Expense</span>
+                    <span>Expense (Pengeluaran)</span>
                   </button>
                 </div>
               </div>
@@ -1108,7 +1427,11 @@ export default function KeuanganTab({
                     Payment Received
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Total: <span className="font-bold text-emerald-600">{formatIDR(totalStudentPaidAllTime)}</span> dari {paidInvoices.length} siswa lunas
+                    {modalViewAllTime ? (
+                      <span>Semua Periode ({paidInvoices.length} Transaksi)</span>
+                    ) : (
+                      <span>Periode: {selectedPeriodObj.fullLabel}</span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -1120,20 +1443,61 @@ export default function KeuanganTab({
               </button>
             </div>
 
-            <div className="space-y-2.5">
-              {paidInvoices.length === 0 ? (
+            {/* Switch between Periode Ini and Semua */}
+            <div className="flex items-center justify-between bg-slate-100 p-1 rounded-2xl">
+              <button
+                onClick={() => setModalViewAllTime(false)}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  !modalViewAllTime ? "bg-white text-blue-700 shadow-2xs font-black" : "text-slate-600"
+                }`}
+              >
+                Periode {selectedPeriodObj.shortPeriod} ({activeMonthPaidInvoices.length})
+              </button>
+              <button
+                onClick={() => setModalViewAllTime(true)}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  modalViewAllTime ? "bg-white text-blue-700 shadow-2xs font-black" : "text-slate-600"
+                }`}
+              >
+                Semua Periode ({paidInvoices.length})
+              </button>
+            </div>
+
+            {/* Total Display */}
+            <div className="p-3.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-emerald-800">
+                  Total Penerimaan SPP:
+                </span>
+                <p className="text-base font-black text-emerald-950">
+                  {formatIDR(
+                    modalViewAllTime
+                      ? paidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0)
+                      : activeMonthStudentIncome
+                  )}
+                </p>
+              </div>
+              <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800">
+                {(modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).length} Transaksi Lunas
+              </span>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {(modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).length === 0 ? (
                 <p className="text-xs text-slate-400 italic py-6 text-center">
-                  Belum ada transaksi pembayaran SPP yang tercatat lunas di database.
+                  Belum ada transaksi pembayaran SPP yang tercatat lunas di periode ini.
                 </p>
               ) : (
-                paidInvoices.map((inv) => (
+                (modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).map((inv) => (
                   <div
                     key={inv.id}
                     className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3"
                   >
                     <div>
                       <p className="text-xs font-black text-slate-900 capitalize">{inv.name}</p>
-                      <p className="text-[10px] text-slate-400">{inv.desc || "SPP Bulanan"}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {inv.desc || "SPP Bulanan"} {inv.date ? `• ${inv.date}` : ""}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-black text-emerald-600">
@@ -1180,7 +1544,7 @@ export default function KeuanganTab({
                     Coach Payment
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Rekap Honor &amp; Insentif Pelatih Renang
+                    Rekap Honor Pelatih Periode {selectedPeriodObj.fullLabel}
                   </p>
                 </div>
               </div>
@@ -1192,8 +1556,23 @@ export default function KeuanganTab({
               </button>
             </div>
 
-            <div className="space-y-3">
-              {coachPayrolls.map((c) => (
+            {/* Total Coach Payment Display */}
+            <div className="p-3.5 bg-amber-50/70 border border-amber-100 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-amber-800">
+                  Total Honor Pelatih ({selectedPeriodObj.shortPeriod}):
+                </span>
+                <p className="text-base font-black text-amber-950">
+                  {formatIDR(activeMonthCoachExpenses)}
+                </p>
+              </div>
+              <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800">
+                {coaches.length} Pelatih Aktif
+              </span>
+            </div>
+
+            <div className="space-y-3 max-h-72 overflow-y-auto">
+              {activeMonthCoachPayrolls.map((c) => (
                 <div
                   key={c.id}
                   className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2"
@@ -1202,7 +1581,10 @@ export default function KeuanganTab({
                     <div>
                       <p className="text-xs font-black text-slate-900">{c.name}</p>
                       <p className="text-[10px] text-slate-500 font-medium">
-                        {c.spec} • <span className="font-bold text-blue-700">Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi</span>
+                        {c.spec} •{" "}
+                        <span className="font-bold text-blue-700">
+                          Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi
+                        </span>
                       </p>
                     </div>
                     <div className="text-right">
@@ -1210,14 +1592,16 @@ export default function KeuanganTab({
                         -{formatIDR(c.totalHonor)}
                       </p>
                       <span className="text-[9px] font-bold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
-                        {c.date}
+                        {selectedPeriodObj.shortPeriod}
                       </span>
                     </div>
                   </div>
 
                   {/* Calculation Formula Pill */}
                   <div className="p-2 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between text-[10px] font-bold text-blue-900">
-                    <span>Formula Gaji: {c.sessionsCount} Sesi × Rp {c.ratePerSession.toLocaleString("id-ID")}</span>
+                    <span>
+                      Formula Gaji: {c.sessionsCount} Sesi × Rp {c.ratePerSession.toLocaleString("id-ID")}
+                    </span>
                     <span className="font-black text-blue-700">{formatIDR(c.totalHonor)}</span>
                   </div>
 
@@ -1226,7 +1610,12 @@ export default function KeuanganTab({
                     <div className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span className="text-slate-600 font-semibold">
-                        Basis: <span className="font-bold text-slate-900">{c.verifiedCount > 0 ? `${c.verifiedCount} Sesi Tervalidasi` : `${c.sessionsCount} Sesi Selesai`}</span>
+                        Basis:{" "}
+                        <span className="font-bold text-slate-900">
+                          {c.verifiedCount > 0
+                            ? `${c.verifiedCount} Sesi Tervalidasi`
+                            : `${c.sessionsCount} Sesi Selesai`}
+                        </span>
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-1">
@@ -1288,7 +1677,9 @@ export default function KeuanganTab({
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">File Bukti:</span>
-                <span className="font-mono text-cyan-700">{selectedReceiptInvoice.uploadReceipt || "transfer_receipt.jpg"}</span>
+                <span className="font-mono text-cyan-700">
+                  {selectedReceiptInvoice.uploadReceipt || "transfer_receipt.jpg"}
+                </span>
               </div>
             </div>
 
@@ -1330,23 +1721,40 @@ export default function KeuanganTab({
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
           />
           <div className="relative z-10 w-full max-w-sm bg-white border border-slate-100 rounded-3xl p-5 shadow-2xl space-y-4 my-auto">
-            <h4 className="text-sm font-black text-slate-900 border-b border-slate-100 pb-2">
-              Pilih Periode Keuangan
-            </h4>
+            <div className="border-b border-slate-100 pb-2">
+              <h4 className="text-sm font-black text-slate-900">
+                Pilih Periode Keuangan
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                Lihat arus kas dan rekapitulasi berdasarkan bulan
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {rollingMonths.map((m) => (
                 <button
                   key={m.key}
                   onClick={() => {
-                    setSelectedPeriod(m.shortPeriod);
+                    setSelectedMonthKey(m.key);
                     setShowPeriodModal(false);
                   }}
-                  className={`p-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${selectedPeriod === m.shortPeriod
+                  className={`p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-between ${
+                    selectedMonthKey === m.key
                       ? "bg-blue-600 text-white shadow-xs font-black"
                       : "bg-slate-50 hover:bg-cyan-50 text-slate-700 border border-slate-100"
-                    }`}
+                  }`}
                 >
-                  {m.shortPeriod}
+                  <span>{m.shortPeriod}</span>
+                  {m.key === currentMonthKey && (
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded-md ${
+                        selectedMonthKey === m.key
+                          ? "bg-white/20 text-white"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      Bulan Ini
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1354,7 +1762,7 @@ export default function KeuanganTab({
               onClick={() => setShowPeriodModal(false)}
               className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
             >
-              Batal
+              Tutup
             </button>
           </div>
         </div>

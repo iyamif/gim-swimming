@@ -581,6 +581,8 @@ export async function fetchInvoices(): Promise<Invoice[]> {
       desc: i.desc || i.description,
       status: i.status,
       uploadReceipt: i.uploadReceipt || null,
+      createdAt: i.created_at || i.createdAt,
+      date: i.date || (i.created_at || i.createdAt ? String(i.created_at || i.createdAt).split("T")[0] : undefined),
     }));
   } catch (err) {
     console.error("fetchInvoices error:", err);
@@ -623,6 +625,8 @@ export async function createInvoice(payload: {
       desc: i.desc || i.description,
       status: i.status,
       uploadReceipt: i.uploadReceipt || null,
+      createdAt: i.created_at || i.createdAt,
+      date: i.date || (i.created_at || i.createdAt ? String(i.created_at || i.createdAt).split("T")[0] : undefined),
     };
   } catch (err) {
     console.error("createInvoice error:", err);
