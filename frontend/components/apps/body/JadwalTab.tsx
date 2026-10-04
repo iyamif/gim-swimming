@@ -54,6 +54,7 @@ interface JadwalTabProps {
   attendances?: AttendanceRecord[];
   pools?: PoolVenue[];
   classPrograms?: ClassProgram[];
+  loadingData?: boolean;
   sessionUser?: string;
   sessionRole?: string;
   onAddSchedule: (newSchedule: Omit<ScheduleSession, "id">) => void;
@@ -69,6 +70,7 @@ export default function JadwalTab({
   attendances = [],
   pools = [],
   classPrograms = [],
+  loadingData = false,
   sessionUser = "",
   sessionRole = "admin",
   onAddSchedule,

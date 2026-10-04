@@ -43,6 +43,7 @@ interface GajiSppTabProps {
   invoices: Invoice[];
   attendances?: AttendanceRecord[];
   schedules?: ScheduleSession[];
+  loadingData?: boolean;
   sessionUser?: string;
   sessionRole?: string;
   onRefresh?: () => Promise<void>;
@@ -74,6 +75,7 @@ export default function GajiSppTab({
   invoices = [],
   attendances = [],
   schedules = [],
+  loadingData = false,
   sessionUser = "",
   sessionRole = "admin",
   onRefresh,
@@ -970,7 +972,19 @@ export default function GajiSppTab({
               </div>
 
               {/* Stats Cards Admin */}
-              {activeSegment === "gaji" ? (
+              {loadingData ? (
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
+                  {[...Array(4)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs flex flex-col justify-center space-y-1.5"
+                    >
+                      <div className="h-2.5 w-12 bg-white/30 rounded animate-pulse" />
+                      <div className="h-4 w-16 bg-white/40 rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : activeSegment === "gaji" ? (
                 <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
                   <div className="bg-white/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/20 px-2 py-2 sm:px-3 sm:py-2.5 shadow-xs transition hover:bg-white/20 flex flex-col justify-center">
                     <span className="text-[8.5px] sm:text-[10px] font-bold text-cyan-200 uppercase tracking-tight block truncate">
@@ -1144,12 +1158,34 @@ export default function GajiSppTab({
                       <CreditCard size={18} className="text-blue-600" />
                       <span>Daftar Tagihan &amp; Pembayaran SPP Siswa</span>
                     </h3>
-                    <span className="text-xs font-bold text-slate-500">
-                      Menampilkan {filteredInvoices.length} data
-                    </span>
+                    {loadingData ? (
+                      <div className="h-3.5 w-24 bg-slate-200 rounded animate-pulse" />
+                    ) : (
+                      <span className="text-xs font-bold text-slate-500">
+                        Menampilkan {filteredInvoices.length} data
+                      </span>
+                    )}
                   </div>
 
-                  {filteredInvoices.length === 0 ? (
+                  {loadingData ? (
+                    <div className="divide-y divide-slate-100">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3.5">
+                            <div className="h-11 w-11 rounded-2xl bg-slate-100 animate-pulse shrink-0" />
+                            <div className="space-y-1.5">
+                              <div className="h-4 w-32 bg-slate-200 rounded animate-pulse" />
+                              <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5 text-right">
+                            <div className="h-4 w-24 bg-slate-200 rounded animate-pulse ml-auto" />
+                            <div className="h-3 w-16 bg-slate-100 rounded-full animate-pulse ml-auto" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredInvoices.length === 0 ? (
                     <div className="p-12 text-center">
                       <FileText size={40} className="mx-auto text-slate-300 mb-3" />
                       <p className="text-slate-700 font-bold text-sm">
@@ -1248,8 +1284,35 @@ export default function GajiSppTab({
             {/* Segment 2: Gaji Pelatih (Admin) */}
             {activeSegment === "gaji" && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {coachCalculations.map((item) => {
+                {loadingData ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {[...Array(2)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-2xl bg-slate-100 animate-pulse shrink-0" />
+                            <div className="space-y-1.5">
+                              <div className="h-4 w-32 bg-slate-200 rounded animate-pulse" />
+                              <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
+                            </div>
+                          </div>
+                          <div className="h-6 w-20 bg-slate-100 rounded-full animate-pulse" />
+                        </div>
+                        <div className="bg-slate-50 p-3.5 rounded-xl space-y-2">
+                          <div className="h-3.5 w-full bg-slate-200/60 rounded animate-pulse" />
+                          <div className="h-3.5 w-full bg-slate-200/60 rounded animate-pulse" />
+                          <div className="h-4 w-full bg-slate-200 rounded animate-pulse pt-2" />
+                        </div>
+                        <div className="h-9 w-full bg-slate-100 rounded-xl animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {coachCalculations.map((item) => {
                     const isApproved = item.status === "Approved";
 
                     return (
@@ -1354,7 +1417,8 @@ export default function GajiSppTab({
                       </div>
                     );
                   })}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

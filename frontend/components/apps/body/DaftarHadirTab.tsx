@@ -32,6 +32,7 @@ interface DaftarHadirTabProps {
   attendances?: AttendanceRecord[];
   pools?: PoolVenue[];
   classPrograms?: ClassProgram[];
+  loadingData?: boolean;
   onUpdateStudentStatus?: (studentId: string, status: string) => Promise<void> | void;
   onUpdateStudent?: (studentId: string, data: Partial<Student>) => Promise<void> | void;
   onDeleteStudent?: (studentId: string) => Promise<void> | void;
@@ -47,6 +48,7 @@ export default function DaftarHadirTab({
   attendances = [],
   pools = [],
   classPrograms = [],
+  loadingData = false,
   onUpdateStudentStatus,
   onUpdateStudent,
   onDeleteStudent,
@@ -1117,7 +1119,25 @@ export default function DaftarHadirTab({
 
         {/* Student List Cards */}
         <div className="space-y-2.5">
-          {filteredStudents.length === 0 ? (
+          {loadingData ? (
+            <div className="space-y-2.5">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-100 shadow-xs flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-slate-100 animate-pulse shrink-0" />
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-32 bg-slate-200 rounded animate-pulse" />
+                      <div className="h-3 w-24 bg-slate-100 rounded animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="h-6 w-16 bg-slate-100 rounded-full animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : filteredStudents.length === 0 ? (
             <div className="p-10 rounded-3xl bg-white border border-slate-100 text-center space-y-2 shadow-sm">
               <Users size={36} className="text-slate-300 mx-auto" />
               <h4 className="text-sm font-bold text-slate-700">Siswa Tidak Ditemukan</h4>

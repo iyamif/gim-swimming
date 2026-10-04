@@ -38,6 +38,7 @@ interface AppsBodyProps {
   notifications?: AdminNotification[];
   pools?: PoolVenue[];
   classPrograms?: ClassProgram[];
+  loadingData?: boolean;
   showInstallBtn?: boolean;
   onInstallClick?: () => void;
   onLogout?: () => void;
@@ -119,6 +120,7 @@ export default function AppsBody({
   financialTransactions = [],
   pools = [],
   classPrograms = [],
+  loadingData = false,
   onAddFinancialTransaction,
   onDeleteFinancialTransaction,
   showInstallBtn,
@@ -154,6 +156,7 @@ export default function AppsBody({
           schedules={schedules}
           attendances={attendances}
           notifications={notifications}
+          loadingData={loadingData}
           onMarkNotificationRead={onMarkNotificationRead}
           onClearAllNotifications={onClearAllNotifications}
           onRefresh={onRefresh}
@@ -170,6 +173,7 @@ export default function AppsBody({
           schedules={schedules}
           attendances={attendances}
           financialTransactions={financialTransactions}
+          loadingData={loadingData}
           onAddFinancialTransaction={onAddFinancialTransaction}
           onDeleteFinancialTransaction={onDeleteFinancialTransaction}
           sessionUser={sessionUser}
@@ -186,6 +190,7 @@ export default function AppsBody({
           attendances={attendances}
           pools={pools}
           classPrograms={classPrograms}
+          loadingData={loadingData}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
           onAddSchedule={onAddSchedule}
@@ -205,6 +210,7 @@ export default function AppsBody({
           attendances={attendances}
           pools={pools}
           classPrograms={classPrograms}
+          loadingData={loadingData}
           onUpdateStudentStatus={onUpdateStudentStatus}
           onUpdateStudent={onUpdateStudent}
           onDeleteStudent={onDeleteStudent}
@@ -221,6 +227,7 @@ export default function AppsBody({
           attendances={attendances}
           pools={pools}
           classPrograms={classPrograms}
+          loadingData={loadingData}
           onUpdateCoachStatus={onUpdateCoachStatus}
           onUpdateCoach={onUpdateCoach}
           onDeleteCoach={onDeleteCoach}
@@ -262,6 +269,7 @@ export default function AppsBody({
           invoices={invoices}
           attendances={attendances}
           schedules={schedules}
+          loadingData={loadingData}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
           onRefresh={onRefresh}

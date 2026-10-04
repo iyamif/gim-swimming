@@ -41,6 +41,7 @@ interface DashboardOverviewTabProps {
   schedules?: ScheduleSession[];
   attendances?: AttendanceRecord[];
   notifications?: AdminNotification[];
+  loadingData?: boolean;
   onMarkNotificationRead?: (id: number | string) => Promise<void>;
   onClearAllNotifications?: () => Promise<void>;
   onRefresh?: () => Promise<void>;
@@ -56,6 +57,7 @@ export default function DashboardOverviewTab({
   schedules = [],
   attendances = [],
   notifications = [],
+  loadingData = false,
   onMarkNotificationRead,
   onClearAllNotifications,
   onRefresh,

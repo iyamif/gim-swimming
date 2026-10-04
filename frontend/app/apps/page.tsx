@@ -1403,6 +1403,7 @@ export default function AppsPage() {
             schedules={schedules}
             attendances={attendances}
             notifications={notifications}
+            loadingData={loadingData}
             showInstallBtn={showInstallBtn}
             onInstallClick={handleInstallClick}
             onLogout={handleLogout}
