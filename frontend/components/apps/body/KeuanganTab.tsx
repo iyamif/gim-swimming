@@ -22,11 +22,8 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
-  Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  Layers,
-  FileCheck2,
   Sparkles,
 } from "lucide-react";
 
@@ -353,39 +350,6 @@ export default function KeuanganTab({
       ? Math.round((activeMonthNetProfit / activeMonthTotalIncome) * 100)
       : 0;
 
-  // Current Month (Bulan Berjalan) Totals for Quick Compare
-  const currentMonthPaidInvoices = useMemo(() => {
-    return paidInvoices.filter((inv) => getInvoiceMonthKey(inv) === currentMonthKey);
-  }, [paidInvoices, currentMonthKey]);
-
-  const currentMonthStudentIncome = useMemo(() => {
-    return currentMonthPaidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-  }, [currentMonthPaidInvoices]);
-
-  const currentMonthManualIncome = useMemo(() => {
-    return manualTransactions
-      .filter((t) => t.type === "income" && getMonthKeyFromDate(t.date) === currentMonthKey)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-  }, [manualTransactions, currentMonthKey]);
-
-  const currentMonthCoachPayrolls = useMemo(() => {
-    return calculateCoachPayrollForMonth(currentMonthKey);
-  }, [currentMonthKey, coaches, schedules, attendances, now]);
-
-  const currentMonthCoachExpense = useMemo(() => {
-    return currentMonthCoachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
-  }, [currentMonthCoachPayrolls]);
-
-  const currentMonthManualExpense = useMemo(() => {
-    return manualTransactions
-      .filter((t) => t.type === "expense" && getMonthKeyFromDate(t.date) === currentMonthKey)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-  }, [manualTransactions, currentMonthKey]);
-
-  const currentMonthTotalIncome = currentMonthStudentIncome + currentMonthManualIncome;
-  const currentMonthTotalExpense = currentMonthCoachExpense + currentMonthManualExpense;
-  const currentMonthNetProfit = currentMonthTotalIncome - currentMonthTotalExpense;
-
   // Monthly Financial Data for Bar Chart (Rolling 6 Months - Pure Database Aggregations, No Duplications)
   const monthlyChartData = useMemo(() => {
     return rollingMonths.map((m) => {
@@ -507,235 +471,174 @@ export default function KeuanganTab({
   };
 
   return (
-    <div className="space-y-4 pb-28 bg-[#f8fafc] min-h-full font-sans">
+    <div className="space-y-3.5 sm:space-y-4 pb-28 sm:pb-24 bg-[#f8fafc] min-h-full font-sans antialiased">
       {/* ==========================================
-          1. TOP VIBRANT BLUE HEADER (FULL WIDTH)
+          1. TOP VIBRANT BLUE HEADER (RESPONSIVE PWA)
           ========================================== */}
-      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 overflow-hidden rounded-none">
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(1.25rem,calc(env(safe-area-inset-top)+0.5rem))] sm:pt-6 pb-10 sm:pb-12 px-4 sm:px-8 shadow-lg shadow-blue-700/15 overflow-hidden rounded-none">
         {/* Subtle Concentric Decorative Rings */}
-        <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15 pointer-events-none" />
-        <div className="absolute -top-4 -right-4 h-44 w-44 rounded-full border border-white/20 pointer-events-none" />
-        <div className="absolute top-2 right-2 h-28 w-28 rounded-full border border-white/25 pointer-events-none" />
+        <div className="absolute -top-10 -right-10 h-52 w-52 rounded-full border border-white/10 pointer-events-none" />
+        <div className="absolute -top-4 -right-4 h-36 w-36 rounded-full border border-white/15 pointer-events-none" />
 
-        {/* Ambient Depth Glow */}
-        <div className="absolute -bottom-10 right-0 h-44 w-44 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
+        {/* Ambient Glow */}
+        <div className="absolute -bottom-10 right-0 h-36 w-36 rounded-full bg-blue-500/25 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-10 left-10 h-32 w-32 rounded-full bg-cyan-400/15 blur-2xl pointer-events-none" />
 
-        <div className="max-w-3xl mx-auto relative z-10 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto relative z-10 flex items-center justify-between gap-2.5">
           {/* Title: Keuangan & Subtitle */}
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-1.5 leading-tight">
               <span>Keuangan</span>
-              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-cyan-100 border border-white/20">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-cyan-100 border border-white/20 shrink-0">
                 Admin
               </span>
             </h2>
-            <p className="text-xs text-cyan-100 font-medium mt-1">
-              Financial Overview, Arus Kas &amp; Rekapitulasi SPP Bulan Berjalan
+            <p className="text-[11px] sm:text-xs text-cyan-100/90 font-medium mt-0.5 truncate">
+              Arus Kas &amp; Rekapitulasi SPP Bulan Berjalan
             </p>
           </div>
 
           {/* Action Buttons: Periode & + Catat Transaksi */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => setShowPeriodModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold border border-white/20 backdrop-blur-xs transition cursor-pointer shadow-xs active:scale-95"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 text-white text-[11px] sm:text-xs font-bold border border-white/20 backdrop-blur-xs transition cursor-pointer shadow-2xs active:scale-95"
               title="Ganti Periode Bulan"
             >
-              <CalendarDays size={14} />
+              <CalendarDays size={13} className="shrink-0" />
               <span>{selectedPeriodObj.shortPeriod}</span>
             </button>
 
             <button
               onClick={() => setShowAddTransactionModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white text-blue-700 hover:bg-cyan-50 text-xs font-black transition cursor-pointer shadow-md active:scale-95"
-              title="Catat Pemasukan atau Pengeluaran Lainnya"
+              className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white text-blue-700 hover:bg-cyan-50 text-[11px] sm:text-xs font-black transition cursor-pointer shadow-sm active:scale-95"
+              title="Catat Pemasukan atau Pengeluaran"
             >
-              <Plus size={15} className="stroke-[3]" />
-              <span className="hidden sm:inline">Catat Transaksi</span>
+              <Plus size={14} className="stroke-[3] shrink-0" />
+              <span className="hidden sm:inline">Catat</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* ==========================================
-          MAIN CONTAINER (FLOATING CARDS)
+          MAIN CONTAINER (FLOATING CARDS - COMPACT PWA)
           ========================================== */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-4 -mt-8 sm:-mt-10 relative z-20">
+      <div className="max-w-3xl mx-auto px-3.5 sm:px-6 space-y-3.5 sm:space-y-4 -mt-6 sm:-mt-8 relative z-20">
         {/* ==========================================
-            SECTION 0: HIGHLIGHT RINGKASAN KEUANGAN BULAN BERJALAN (ADMIN SUMMARY)
+            SECTION 0: SIMPLE & COMPACT FINANCIAL SUMMARY
             ========================================== */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
-                <Wallet size={18} />
-              </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-black text-slate-900">
-                  Ringkasan Keuangan {selectedPeriodObj.fullLabel}
-                </h3>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {selectedMonthKey === currentMonthKey ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      Periode Bulan Berjalan (Aktif)
-                    </span>
-                  ) : (
-                    <span>Arsip Periode {selectedPeriodObj.shortPeriod}</span>
-                  )}
-                </p>
-              </div>
+        <div className="p-3.5 sm:p-4.5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-md shadow-slate-200/50 space-y-2.5 animate-fadeIn">
+          {/* Header row with Period & Status */}
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />
+              <h3 className="font-black text-slate-800 text-[11px] sm:text-xs truncate">
+                Ringkasan {selectedPeriodObj.fullLabel}
+              </h3>
+              {selectedMonthKey === currentMonthKey ? (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+                  Bulan Berjalan
+                </span>
+              ) : (
+                <button
+                  onClick={() => setSelectedMonthKey(currentMonthKey)}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 cursor-pointer transition shrink-0 flex items-center gap-0.5"
+                >
+                  <Sparkles size={10} />
+                  <span>Ke Bulan Ini</span>
+                </button>
+              )}
             </div>
 
-            {/* Quick Switcher to Current Month if viewing past archive */}
-            {selectedMonthKey !== currentMonthKey && (
-              <button
-                onClick={() => setSelectedMonthKey(currentMonthKey)}
-                className="px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-black transition cursor-pointer border border-blue-100 flex items-center gap-1"
-              >
-                <Sparkles size={12} />
-                <span>Kembali ke Bulan Berjalan</span>
-              </button>
-            )}
+            <button
+              onClick={() => setShowPeriodModal(true)}
+              className="text-[10px] text-blue-600 hover:text-blue-700 font-bold shrink-0 cursor-pointer"
+            >
+              Ubah Periode
+            </button>
           </div>
 
-          {/* 3 Metric Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* 1. TOTAL PEMASUKAN */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-emerald-100/90 space-y-2 relative overflow-hidden group">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">
-                  Total Pemasukan
+          {/* Compact 3-Column Stats Grid */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 text-center sm:text-left">
+            {/* 1. PEMASUKAN */}
+            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-emerald-50/60 border border-emerald-100/80 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] sm:text-[11px] font-black text-emerald-800 uppercase tracking-tight flex items-center gap-0.5 truncate">
+                  <ArrowUpRight size={12} className="stroke-[3] text-emerald-600 shrink-0 hidden sm:inline" />
+                  <span>Pemasukan</span>
                 </span>
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100/80 text-emerald-700">
-                  <ArrowUpRight size={15} className="stroke-[2.5]" />
-                </div>
+                <span className="text-[9px] font-bold text-emerald-700/80 hidden sm:inline">
+                  +{activeMonthPaidInvoices.length} SPP
+                </span>
               </div>
-
-              <div>
-                <p className="text-lg sm:text-xl font-black text-emerald-950 tracking-tight">
-                  {formatIDR(activeMonthTotalIncome)}
-                </p>
-                <p className="text-[10px] text-emerald-700 font-bold mt-0.5">
-                  +{activeMonthPaidInvoices.length} SPP Lunas
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-emerald-100/70 text-[10px] space-y-0.5 text-emerald-900/80 font-medium">
-                <div className="flex justify-between">
-                  <span>SPP Siswa:</span>
-                  <span className="font-bold">{formatIDR(activeMonthStudentIncome)}</span>
-                </div>
-                {activeMonthManualIncome > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-semibold">
-                    <span>Lainnya:</span>
-                    <span>+{formatIDR(activeMonthManualIncome)}</span>
-                  </div>
-                )}
-              </div>
+              <p className="text-[12px] sm:text-base font-black text-emerald-950 tracking-tight truncate" title={formatIDR(activeMonthTotalIncome)}>
+                {formatIDR(activeMonthTotalIncome)}
+              </p>
+              <p className="text-[9px] text-emerald-700 font-medium sm:hidden mt-0.5 truncate">
+                {activeMonthPaidInvoices.length} SPP Lunas
+              </p>
             </div>
 
-            {/* 2. TOTAL PENGELUARAN */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/80 to-orange-50/40 border border-amber-100/90 space-y-2 relative overflow-hidden group">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
-                  Total Pengeluaran
+            {/* 2. PENGELUARAN */}
+            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-amber-50/60 border border-amber-100/80 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] sm:text-[11px] font-black text-amber-800 uppercase tracking-tight flex items-center gap-0.5 truncate">
+                  <ArrowDownRight size={12} className="stroke-[3] text-amber-600 shrink-0 hidden sm:inline" />
+                  <span>Pengeluaran</span>
                 </span>
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700">
-                  <ArrowDownRight size={15} className="stroke-[2.5]" />
-                </div>
+                <span className="text-[9px] font-bold text-amber-700/80 hidden sm:inline">
+                  Honor &amp; Ops
+                </span>
               </div>
-
-              <div>
-                <p className="text-lg sm:text-xl font-black text-amber-950 tracking-tight">
-                  {formatIDR(activeMonthTotalExpense)}
-                </p>
-                <p className="text-[10px] text-amber-700 font-bold mt-0.5">
-                  Honor {coaches.length} Pelatih &amp; Ops
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-amber-100/70 text-[10px] space-y-0.5 text-amber-900/80 font-medium">
-                <div className="flex justify-between">
-                  <span>Honor Pelatih:</span>
-                  <span className="font-bold">{formatIDR(activeMonthCoachExpenses)}</span>
-                </div>
-                {activeMonthManualExpense > 0 && (
-                  <div className="flex justify-between text-amber-700 font-semibold">
-                    <span>Operasional:</span>
-                    <span>+{formatIDR(activeMonthManualExpense)}</span>
-                  </div>
-                )}
-              </div>
+              <p className="text-[12px] sm:text-base font-black text-amber-950 tracking-tight truncate" title={formatIDR(activeMonthTotalExpense)}>
+                {formatIDR(activeMonthTotalExpense)}
+              </p>
+              <p className="text-[9px] text-amber-700 font-medium sm:hidden mt-0.5 truncate">
+                Honor Pelatih
+              </p>
             </div>
 
-            {/* 3. SURPLUS / SISA SALDO */}
+            {/* 3. SISA KAS / NET */}
             <div
-              className={`p-4 rounded-2xl border space-y-2 relative overflow-hidden ${
+              className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl border flex flex-col justify-between ${
                 activeMonthNetProfit >= 0
-                  ? "bg-gradient-to-br from-blue-50/80 to-indigo-50/40 border-blue-100/90"
-                  : "bg-gradient-to-br from-rose-50/80 to-orange-50/40 border-rose-100/90"
+                  ? "bg-blue-50/60 border-blue-100/80 text-blue-950"
+                  : "bg-rose-50/60 border-rose-100/80 text-rose-950"
               }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-1 mb-1">
                 <span
-                  className={`text-[11px] font-black uppercase tracking-wider ${
+                  className={`text-[10px] sm:text-[11px] font-black uppercase tracking-tight flex items-center gap-0.5 truncate ${
                     activeMonthNetProfit >= 0 ? "text-blue-800" : "text-rose-800"
                   }`}
                 >
-                  Sisa Saldo / Margin
-                </span>
-                <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-xl ${
-                    activeMonthNetProfit >= 0
-                      ? "bg-blue-100/80 text-blue-700"
-                      : "bg-rose-100/80 text-rose-700"
-                  }`}
-                >
                   {activeMonthNetProfit >= 0 ? (
-                    <TrendingUp size={15} className="stroke-[2.5]" />
+                    <TrendingUp size={12} className="stroke-[3] text-blue-600 shrink-0 hidden sm:inline" />
                   ) : (
-                    <TrendingDown size={15} className="stroke-[2.5]" />
+                    <TrendingDown size={12} className="stroke-[3] text-rose-600 shrink-0 hidden sm:inline" />
                   )}
-                </div>
-              </div>
-
-              <div>
-                <p
-                  className={`text-lg sm:text-xl font-black tracking-tight ${
-                    activeMonthNetProfit >= 0 ? "text-blue-950" : "text-rose-950"
+                  <span>Sisa Kas</span>
+                </span>
+                <span
+                  className={`text-[9px] font-bold px-1 py-0.2 rounded hidden sm:inline ${
+                    activeMonthNetProfit >= 0 ? "text-emerald-700 bg-emerald-100/60" : "text-rose-700 bg-rose-100/60"
                   }`}
                 >
-                  {activeMonthNetProfit >= 0 ? "+" : ""}
-                  {formatIDR(activeMonthNetProfit)}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black ${
-                      activeMonthNetProfit >= 0
-                        ? "bg-emerald-100 text-emerald-800 border border-emerald-200/60"
-                        : "bg-rose-100 text-rose-800 border border-rose-200/60"
-                    }`}
-                  >
-                    {activeMonthNetProfit >= 0 ? "Surplus Kas" : "Defisit Kas"}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold">
-                    Margin {activeMonthProfitMargin}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-200/50 text-[10px] flex justify-between text-slate-600 font-medium">
-                <span>Rasio Bersih:</span>
-                <span className="font-black text-slate-800">
-                  {activeMonthTotalIncome > 0
-                    ? `${Math.round(
-                        (activeMonthNetProfit / activeMonthTotalIncome) * 100
-                      )}% dari Income`
-                    : "0%"}
+                  {activeMonthProfitMargin}%
                 </span>
               </div>
+              <p className="text-[12px] sm:text-base font-black tracking-tight truncate" title={formatIDR(activeMonthNetProfit)}>
+                {activeMonthNetProfit >= 0 ? "+" : ""}
+                {formatIDR(activeMonthNetProfit)}
+              </p>
+              <p
+                className={`text-[9px] font-bold sm:hidden mt-0.5 truncate ${
+                  activeMonthNetProfit >= 0 ? "text-emerald-700" : "text-rose-700"
+                }`}
+              >
+                {activeMonthNetProfit >= 0 ? "Surplus" : "Defisit"} ({activeMonthProfitMargin}%)
+              </p>
             </div>
           </div>
         </div>
@@ -743,72 +646,47 @@ export default function KeuanganTab({
         {/* ==========================================
             CARD 1: FINANCIAL OVERVIEW & 6-MONTH CHART
             ========================================== */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 space-y-5 animate-fadeIn">
-          {/* Top Title & Period Selector */}
-          <div className="flex items-start justify-between">
+        <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3 sm:space-y-4 animate-fadeIn">
+          {/* Top Title & Legend */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900">
-                Financial Overview (6 Bulan Terakhir)
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                Financial Overview (6 Bulan)
               </h3>
-              <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                Perbandingan Arus Kas Bulanan: Income vs Expenses
+              <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                Income vs Expenses bulanan
               </p>
             </div>
 
-            <button
-              onClick={() => setShowPeriodModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-50 hover:bg-cyan-50 text-slate-600 hover:text-cyan-700 border border-slate-200/80 transition cursor-pointer shadow-2xs"
-              title="Pilih Periode Keuangan"
-            >
-              <CalendarDays size={16} />
-            </button>
-          </div>
-
-          {/* Income & Expenses Subheader + Legend */}
-          <div className="flex items-center justify-between flex-wrap gap-2 border-t border-slate-100 pt-3">
-            <h4 className="text-xs sm:text-sm font-black text-slate-900">
-              Grafik Arus Kas Bulanan
-            </h4>
-
-            <div className="flex items-center gap-4 text-xs font-bold">
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-blue-600 shadow-2xs" />
+            <div className="flex items-center gap-3 text-[10px] sm:text-xs font-bold">
+              <div className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm bg-blue-600 shadow-2xs" />
                 <span className="text-slate-700">Income</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-amber-500 shadow-2xs" />
-                <span className="text-slate-700">Expenses</span>
+              <div className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 shadow-2xs" />
+                <span className="text-slate-700">Expense</span>
               </div>
             </div>
           </div>
 
           {/* Vertical Bar Chart Container (Dynamic 6 Months Rolling) */}
-          <div className="pt-2">
-            <div className="relative h-56 sm:h-64 flex items-end justify-between gap-1.5 sm:gap-3 pb-8 pt-6 px-2 sm:px-4 bg-slate-50/70 rounded-2xl border border-slate-100">
+          <div className="pt-1">
+            <div className="relative h-44 sm:h-56 flex items-end justify-between gap-1 sm:gap-2 pb-6 pt-5 px-1.5 sm:px-3 bg-slate-50/70 rounded-xl sm:rounded-2xl border border-slate-100">
               {/* Background Grid Lines & Y-Axis Labels */}
-              <div className="absolute inset-x-2 sm:inset-x-4 top-6 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
+              <div className="absolute inset-x-2 sm:inset-x-3 top-5 bottom-6 flex flex-col justify-between pointer-events-none opacity-40">
                 <div className="border-b border-slate-300 border-dashed w-full relative">
-                  <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
+                  <span className="absolute -top-3 -left-0.5 text-[8px] sm:text-[9px] font-bold text-slate-400">
                     {formatShortK(maxChartValue)}
                   </span>
                 </div>
                 <div className="border-b border-slate-300 border-dashed w-full relative">
-                  <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
-                    {formatShortK(maxChartValue * 0.75)}
-                  </span>
-                </div>
-                <div className="border-b border-slate-300 border-dashed w-full relative">
-                  <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
+                  <span className="absolute -top-3 -left-0.5 text-[8px] sm:text-[9px] font-bold text-slate-400">
                     {formatShortK(maxChartValue * 0.5)}
                   </span>
                 </div>
-                <div className="border-b border-slate-300 border-dashed w-full relative">
-                  <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
-                    {formatShortK(maxChartValue * 0.25)}
-                  </span>
-                </div>
                 <div className="border-b border-slate-300 w-full relative">
-                  <span className="absolute -top-3.5 -left-1 text-[9px] font-bold text-slate-400">
+                  <span className="absolute -top-3 -left-0.5 text-[8px] sm:text-[9px] font-bold text-slate-400">
                     0
                   </span>
                 </div>
@@ -831,38 +709,30 @@ export default function KeuanganTab({
                   <div
                     key={idx}
                     onClick={() => setSelectedMonthKey(item.key)}
-                    className={`flex-1 flex flex-col items-center justify-end h-full relative group z-10 cursor-pointer p-1 rounded-xl transition ${
-                      isSelected ? "bg-blue-100/30 ring-2 ring-blue-500/30" : "hover:bg-slate-100/50"
+                    className={`flex-1 flex flex-col items-center justify-end h-full relative group z-10 cursor-pointer p-0.5 rounded-lg transition ${
+                      isSelected ? "bg-blue-100/35 ring-1.5 ring-blue-500/40" : "hover:bg-slate-100/50"
                     }`}
                   >
                     {/* Tooltip on Hover */}
-                    <div className="absolute -top-16 bg-slate-900 text-white text-[9px] py-2 px-3 rounded-xl opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap shadow-xl z-30 space-y-0.5">
+                    <div className="absolute -top-14 bg-slate-900 text-white text-[9px] py-1.5 px-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap shadow-xl z-30 space-y-0.5">
                       <p className="font-black text-white">
-                        {item.month} ({item.fullPeriod}) {item.isCurrent ? "• Bulan Ini" : ""}:
+                        {item.month} ({item.fullPeriod}):
                       </p>
                       <p className="text-cyan-300 font-bold">
-                        Income: {formatIDR(item.income)} (SPP: {formatIDR(item.studentIncome)})
+                        Income: {formatIDR(item.income)}
                       </p>
                       <p className="text-amber-300 font-bold">
-                        Expense: {formatIDR(item.expenses)} (Gaji: {formatIDR(item.coachExpense)})
-                      </p>
-                      <p
-                        className={`font-black pt-0.5 border-t border-slate-700 ${
-                          item.income >= item.expenses ? "text-emerald-400" : "text-rose-400"
-                        }`}
-                      >
-                        Net: {item.income >= item.expenses ? "+" : ""}
-                        {formatIDR(item.income - item.expenses)}
+                        Expense: {formatIDR(item.expenses)}
                       </p>
                     </div>
 
-                    {/* Dual Bars Wrapper with h-full */}
-                    <div className="flex items-end justify-center gap-1 sm:gap-2 w-full max-w-[40px] h-full pb-0.5">
+                    {/* Dual Bars Wrapper */}
+                    <div className="flex items-end justify-center gap-0.5 sm:gap-1.5 w-full max-w-[28px] sm:max-w-[36px] h-full pb-0.5">
                       {/* Income Bar (Blue) */}
                       <div
-                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                        className={`w-1/2 rounded-t-sm sm:rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
                           incomeHeight > 0
-                            ? "bg-gradient-to-t from-blue-700 via-blue-600 to-blue-500 shadow-xs"
+                            ? "bg-gradient-to-t from-blue-700 via-blue-600 to-blue-500 shadow-2xs"
                             : "bg-slate-200/60"
                         }`}
                         style={{ height: `${Math.max(2, incomeHeight)}%` }}
@@ -871,9 +741,9 @@ export default function KeuanganTab({
 
                       {/* Expense Bar (Amber / Orange) */}
                       <div
-                        className={`w-1/2 rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
+                        className={`w-1/2 rounded-t-sm sm:rounded-t-md transition-all duration-500 group-hover:brightness-110 cursor-pointer ${
                           expenseHeight > 0
-                            ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-xs"
+                            ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-400 shadow-2xs"
                             : "bg-slate-200/60"
                         }`}
                         style={{ height: `${Math.max(2, expenseHeight)}%` }}
@@ -883,8 +753,8 @@ export default function KeuanganTab({
 
                     {/* Month Label */}
                     <span
-                      className={`absolute -bottom-6 text-[10px] sm:text-xs font-black transition ${
-                        isSelected ? "text-blue-700 underline" : "text-slate-600"
+                      className={`absolute -bottom-5 text-[9px] sm:text-[11px] font-black transition ${
+                        isSelected ? "text-blue-700 underline font-black" : "text-slate-600"
                       }`}
                     >
                       {item.month}
@@ -899,97 +769,91 @@ export default function KeuanganTab({
         {/* ==========================================
             CARD 2: TRANSACTION HISTORY & REKAP PERIODE
             ========================================== */}
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-              <span>Transaction History &amp; Penggajian ({selectedPeriodObj.shortPeriod})</span>
+            <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1">
+              <span>Transaction History ({selectedPeriodObj.shortPeriod})</span>
             </h3>
-            <span className="text-[11px] text-slate-400 font-semibold">
-              Klik untuk rincian transaksi
+            <span className="text-[10px] text-slate-400 font-medium">
+              Rincian SPP &amp; Honor
             </span>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {/* Item 1: Payment received */}
             <div
               onClick={() => setShowPaymentReceivedModal(true)}
-              className="p-4 sm:p-4.5 rounded-3xl bg-white hover:bg-slate-50/80 border border-slate-100 shadow-sm flex items-center justify-between gap-3 cursor-pointer transition active:scale-98"
+              className="p-3.5 sm:p-4 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-100 shadow-2xs flex items-center justify-between gap-2.5 cursor-pointer transition active:scale-98"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100 shadow-2xs">
-                  <CreditCard size={18} />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100">
+                  <CreditCard size={17} />
                 </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                    <span>Payment received</span>
-                    <span className="text-[10px] font-bold text-slate-400">
-                      ({selectedPeriodObj.shortPeriod})
-                    </span>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                    Payment received
                   </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    {activeMonthPaidInvoices.length} transaksi SPP lunas periode ini
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                    {activeMonthPaidInvoices.length} transaksi SPP lunas
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-emerald-100">
                   +{formatIDR(activeMonthStudentIncome)}
                 </span>
-                <ChevronRight size={16} className="text-slate-400" />
+                <ChevronRight size={14} className="text-slate-400" />
               </div>
             </div>
 
             {/* Item 2: Coach payment */}
             <div
               onClick={() => setShowCoachPaymentModal(true)}
-              className="p-4 sm:p-4.5 rounded-3xl bg-white hover:bg-slate-50/80 border border-slate-100 shadow-sm flex items-center justify-between gap-3 cursor-pointer transition active:scale-98"
+              className="p-3.5 sm:p-4 rounded-2xl bg-white hover:bg-slate-50/80 border border-slate-100 shadow-2xs flex items-center justify-between gap-2.5 cursor-pointer transition active:scale-98"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 shrink-0 border border-cyan-100 shadow-2xs">
-                  <Handshake size={18} />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 shrink-0 border border-cyan-100">
+                  <Handshake size={17} />
                 </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                    <span>Coach payment</span>
-                    <span className="text-[10px] font-bold text-slate-400">
-                      ({selectedPeriodObj.shortPeriod})
-                    </span>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                    Coach payment
                   </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Honor &amp; insentif {coaches.length || activeMonthCoachPayrolls.length} pelatih renang
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
+                    Honor {coaches.length || activeMonthCoachPayrolls.length} pelatih renang
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-amber-100">
                   -{formatIDR(activeMonthCoachExpenses)}
                 </span>
-                <ChevronRight size={16} className="text-slate-400" />
+                <ChevronRight size={14} className="text-slate-400" />
               </div>
             </div>
 
             {/* Item 3 (If any): Manual Transactions recorded */}
             {manualTransactions.length > 0 && (
-              <div className="p-4 rounded-3xl bg-white border border-slate-100 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-black text-slate-700">
-                  <span>Transaksi Manual Tercatat ({manualTransactions.length})</span>
-                  <span className="text-[10px] text-slate-400 font-medium">PostgreSQL Database</span>
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between text-[11px] sm:text-xs font-black text-slate-700">
+                  <span>Transaksi Manual ({manualTransactions.length})</span>
+                  <span className="text-[9px] text-slate-400 font-normal">Database</span>
                 </div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-1.5 max-h-44 overflow-y-auto">
                   {manualTransactions.map((tx) => (
                     <div
                       key={tx.id}
-                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
+                      className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
                     >
-                      <div>
-                        <p className="text-xs font-black text-slate-900">{tx.title}</p>
-                        <p className="text-[10px] text-slate-400">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate">{tx.title}</p>
+                        <p className="text-[9px] sm:text-[10px] text-slate-400">
                           {tx.category} • {tx.date}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span
                           className={`text-xs font-black ${
                             tx.type === "income" ? "text-emerald-600" : "text-amber-600"
@@ -1017,58 +881,58 @@ export default function KeuanganTab({
         </div>
 
         {/* ==========================================
-            PENDING CONFIRMATION ALERT (JIKA ADA BUKTI TRANSFER BARU)
+            PENDING CONFIRMATION ALERT (BUKTI TRANSFER BARU)
             ========================================== */}
         {pendingInvoices.length > 0 && (
-          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 shadow-sm space-y-3 animate-fadeIn">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 shadow-2xs space-y-2.5 animate-fadeIn">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={16} className="text-amber-600" />
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle size={15} className="text-amber-600 shrink-0" />
                 <h4 className="text-xs sm:text-sm font-black text-amber-950">
-                  Perlu Konfirmasi Pembayaran ({pendingInvoices.length})
+                  Perlu Konfirmasi ({pendingInvoices.length})
                 </h4>
               </div>
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                Menunggu Review
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                Review
               </span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {pendingInvoices.map((inv) => (
                 <div
                   key={inv.id}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-white border border-amber-100 shadow-2xs flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap"
+                  className="p-2.5 sm:p-3 rounded-xl bg-white border border-amber-100 shadow-2xs flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap"
                 >
-                  <div>
-                    <p className="text-xs font-black text-slate-900">{inv.name}</p>
-                    <p className="text-[11px] text-slate-500 font-medium">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 capitalize truncate">{inv.name}</p>
+                    <p className="text-[10px] text-slate-500 font-medium truncate">
                       {inv.desc} • <span className="font-bold text-amber-900">{formatIDR(inv.amount)}</span>
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+                  <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
                     {inv.uploadReceipt && (
                       <button
                         onClick={() => setSelectedReceiptInvoice(inv)}
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                        className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-0.5"
                         title="Lihat Bukti Transfer"
                       >
-                        <Eye size={12} />
+                        <Eye size={11} />
                         <span>Bukti</span>
                       </button>
                     )}
                     <button
                       onClick={() => onVerifyPayment(inv.id, true)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold transition cursor-pointer shadow-xs flex items-center gap-0.5"
                     >
-                      <Check size={12} />
+                      <Check size={11} />
                       <span>Terima</span>
                     </button>
                     <button
                       onClick={() => onVerifyPayment(inv.id, false)}
-                      className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition cursor-pointer border border-rose-200 flex items-center gap-1"
+                      className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold transition cursor-pointer border border-rose-200 flex items-center gap-0.5"
                     >
-                      <X size={12} />
+                      <X size={11} />
                       <span>Tolak</span>
                     </button>
                   </div>
@@ -1081,22 +945,22 @@ export default function KeuanganTab({
         {/* ==========================================
             CARD 3: STUDENT SPP PAYMENT STATUS
             ========================================== */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
+        <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h3 className="text-sm sm:text-base font-black text-slate-900">
-                Student SPP Payment Status
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                Student SPP Status
               </h3>
-              <p className="text-xs text-slate-400 font-medium">
-                Daftar &amp; Status Tagihan SPP Siswa ({paidInvoices.length}/{invoices.length} Lunas)
+              <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                {paidInvoices.length}/{invoices.length} Lunas
               </p>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl text-[10px] font-bold">
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 sm:p-1 rounded-xl text-[10px] font-bold overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setStatusFilter("ALL")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                className={`px-2 py-1 rounded-lg transition cursor-pointer shrink-0 ${
                   statusFilter === "ALL"
                     ? "bg-white text-blue-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
@@ -1106,7 +970,7 @@ export default function KeuanganTab({
               </button>
               <button
                 onClick={() => setStatusFilter("PAID")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                className={`px-2 py-1 rounded-lg transition cursor-pointer shrink-0 ${
                   statusFilter === "PAID"
                     ? "bg-white text-emerald-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
@@ -1116,7 +980,7 @@ export default function KeuanganTab({
               </button>
               <button
                 onClick={() => setStatusFilter("PENDING")}
-                className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                className={`px-2 py-1 rounded-lg transition cursor-pointer shrink-0 ${
                   statusFilter === "PENDING"
                     ? "bg-white text-amber-600 shadow-2xs font-black"
                     : "text-slate-500 hover:text-slate-900"
@@ -1134,43 +998,42 @@ export default function KeuanganTab({
               placeholder="Cari nama siswa atau tagihan..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3.5 py-2.5 pl-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-3 py-2 pl-8 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
-            <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+            <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
           </div>
 
           {/* Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-100 shadow-2xs">
+          <div className="overflow-hidden rounded-xl border border-slate-100 shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-black">
-                    <th className="py-3 px-3.5">Name</th>
-                    <th className="py-3 px-3">Tagihan</th>
-                    <th className="py-3 px-3">Amount</th>
-                    <th className="py-3 px-3.5 text-right">Status</th>
+                  <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-black text-[11px]">
+                    <th className="py-2.5 px-3">Name</th>
+                    <th className="py-2.5 px-2.5">Tagihan</th>
+                    <th className="py-2.5 px-2.5">Amount</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {filteredInvoices.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-400 italic">
-                        Tidak ada data tagihan SPP yang sesuai filter.
+                      <td colSpan={4} className="py-6 text-center text-slate-400 italic text-xs">
+                        Tidak ada data tagihan SPP.
                       </td>
                     </tr>
                   ) : (
                     filteredInvoices.map((inv) => {
                       const isPaid = inv.status === "Lunas";
                       const isPending = inv.status === "Belum Dibayar";
-                      const isConfirm = inv.status === "Menunggu Konfirmasi";
 
                       return (
                         <tr
@@ -1181,27 +1044,27 @@ export default function KeuanganTab({
                           }}
                         >
                           {/* Name */}
-                          <td className="py-3.5 px-3.5">
-                            <p className="font-black text-slate-900 capitalize">{inv.name}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">
+                          <td className="py-2.5 px-3">
+                            <p className="font-black text-slate-900 capitalize text-xs">{inv.name}</p>
+                            <p className="text-[9px] text-slate-400 font-medium">
                               ID: {inv.studentId || inv.id}
                             </p>
                           </td>
 
                           {/* Tagihan / Desc */}
-                          <td className="py-3.5 px-3 text-slate-500 font-medium whitespace-nowrap">
-                            {inv.desc || "SPP Bulanan Renang"}
+                          <td className="py-2.5 px-2.5 text-slate-500 font-medium text-xs whitespace-nowrap">
+                            {inv.desc || "SPP Bulanan"}
                           </td>
 
                           {/* Amount */}
-                          <td className="py-3.5 px-3 font-bold text-slate-800 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 font-bold text-slate-800 text-xs whitespace-nowrap">
                             {formatIDR(inv.amount)}
                           </td>
 
                           {/* Status Badge */}
-                          <td className="py-3.5 px-3.5 text-right whitespace-nowrap">
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black ${
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black ${
                                 isPaid
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                   : isPending
@@ -1227,55 +1090,55 @@ export default function KeuanganTab({
           MODAL: + CATAT TRANSAKSI (POSTGRESQL DB)
           ========================================== */}
       {showAddTransactionModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div
             onClick={() => setShowAddTransactionModal(false)}
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
           />
-          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
-                  <Plus size={20} className="stroke-[3]" />
+          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl space-y-3.5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <Plus size={18} className="stroke-[3]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
                     Catat Transaksi Keuangan
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
                     Input Pemasukan atau Pengeluaran ke Database
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowAddTransactionModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs transition cursor-pointer"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
 
-            <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
+            <form onSubmit={handleAddTransactionSubmit} className="space-y-3">
               {formError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
-                  <AlertTriangle size={14} />
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-1.5">
+                  <AlertTriangle size={13} className="shrink-0" />
                   <span>{formError}</span>
                 </div>
               )}
 
               {/* Transaction Type Segmented Toggle */}
               <div>
-                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                <label className="block text-[11px] font-black text-slate-700 mb-1">
                   Jenis Transaksi
                 </label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl">
+                <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl">
                   <button
                     type="button"
                     onClick={() => {
                       setTxType("income");
                       setTxCategory(incomeCategories[0]);
                     }}
-                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`py-2 rounded-lg text-xs font-black transition cursor-pointer flex items-center justify-center gap-1 ${
                       txType === "income"
                         ? "bg-white text-blue-600 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
@@ -1289,7 +1152,7 @@ export default function KeuanganTab({
                       setTxType("expense");
                       setTxCategory(expenseCategories[0]);
                     }}
-                    className={`py-2.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`py-2 rounded-lg text-xs font-black transition cursor-pointer flex items-center justify-center gap-1 ${
                       txType === "expense"
                         ? "bg-white text-amber-600 shadow-2xs"
                         : "text-slate-500 hover:text-slate-900"
@@ -1302,13 +1165,13 @@ export default function KeuanganTab({
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-black text-slate-700 mb-1">
+                <label className="block text-[11px] font-black text-slate-700 mb-1">
                   Kategori
                 </label>
                 <select
                   value={txCategory}
                   onChange={(e) => setTxCategory(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {(txType === "income" ? incomeCategories : expenseCategories).map((cat) => (
                     <option key={cat} value={cat}>
@@ -1320,31 +1183,31 @@ export default function KeuanganTab({
 
               {/* Title */}
               <div>
-                <label className="block text-xs font-black text-slate-700 mb-1">
+                <label className="block text-[11px] font-black text-slate-700 mb-1">
                   Judul Transaksi
                 </label>
                 <input
                   type="text"
                   placeholder={
                     txType === "income"
-                      ? "Contoh: Pendaftaran Siswa Baru, Penjualan Kacamata"
-                      : "Contoh: Sewa 3 Jalur Kolam, Beli Pelampung"
+                      ? "Contoh: Pendaftaran Siswa Baru"
+                      : "Contoh: Sewa Jalur Kolam"
                   }
                   value={txTitle}
                   onChange={(e) => setTxTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               {/* Amount & Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Nominal */}
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1">
+                  <label className="block text-[11px] font-black text-slate-700 mb-1">
                     Nominal (Rp)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                    <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">
                       Rp
                     </span>
                     <input
@@ -1352,36 +1215,36 @@ export default function KeuanganTab({
                       placeholder="500000"
                       value={txAmount}
                       onChange={(e) => setTxAmount(e.target.value)}
-                      className="w-full px-3.5 py-2.5 pl-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 pl-8 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
                 {/* Date */}
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1">
-                    Tanggal Transaksi
+                  <label className="block text-[11px] font-black text-slate-700 mb-1">
+                    Tanggal
                   </label>
                   <input
                     type="date"
                     value={txDate}
                     onChange={(e) => setTxDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-xs font-black text-slate-700 mb-1">
-                  Catatan / Keterangan (Opsional)
+                <label className="block text-[11px] font-black text-slate-700 mb-1">
+                  Catatan (Opsional)
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Keterangan tambahan transaksi..."
+                  placeholder="Keterangan tambahan..."
                   value={txNotes}
                   onChange={(e) => setTxNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1390,16 +1253,16 @@ export default function KeuanganTab({
                 <button
                   type="button"
                   onClick={() => setShowAddTransactionModal(false)}
-                  className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingTx}
-                  className="px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition cursor-pointer shadow-md shadow-blue-600/20 disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition cursor-pointer shadow-sm disabled:opacity-50"
                 >
-                  {isSubmittingTx ? "Menyimpan..." : "Simpan Transaksi"}
+                  {isSubmittingTx ? "Menyimpan..." : "Simpan"}
                 </button>
               </div>
             </form>
@@ -1408,46 +1271,42 @@ export default function KeuanganTab({
       )}
 
       {/* ==========================================
-          MODAL: PAYMENT RECEIVED (DETAIL PEMBAYARAN MASUK)
+          MODAL: PAYMENT RECEIVED (DETAIL SPP MASUK)
           ========================================== */}
       {showPaymentReceivedModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div
             onClick={() => setShowPaymentReceivedModal(false)}
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
           />
-          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-5 my-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
-                  <CreditCard size={18} />
+          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3.5 my-auto max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <CreditCard size={17} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    Payment Received
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
+                    Payment Received (SPP)
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    {modalViewAllTime ? (
-                      <span>Semua Periode ({paidInvoices.length} Transaksi)</span>
-                    ) : (
-                      <span>Periode: {selectedPeriodObj.fullLabel}</span>
-                    )}
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+                    {modalViewAllTime ? "Semua Periode" : selectedPeriodObj.fullLabel}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowPaymentReceivedModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs transition cursor-pointer"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
 
-            {/* Switch between Periode Ini and Semua */}
-            <div className="flex items-center justify-between bg-slate-100 p-1 rounded-2xl">
+            {/* Toggle Periode Ini vs Semua */}
+            <div className="flex items-center justify-between bg-slate-100 p-0.5 rounded-xl text-xs">
               <button
                 onClick={() => setModalViewAllTime(false)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                   !modalViewAllTime ? "bg-white text-blue-700 shadow-2xs font-black" : "text-slate-600"
                 }`}
               >
@@ -1455,21 +1314,21 @@ export default function KeuanganTab({
               </button>
               <button
                 onClick={() => setModalViewAllTime(true)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                   modalViewAllTime ? "bg-white text-blue-700 shadow-2xs font-black" : "text-slate-600"
                 }`}
               >
-                Semua Periode ({paidInvoices.length})
+                Semua ({paidInvoices.length})
               </button>
             </div>
 
             {/* Total Display */}
-            <div className="p-3.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl flex items-center justify-between">
+            <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-bold text-emerald-800">
+                <span className="text-[10px] font-bold text-emerald-800">
                   Total Penerimaan SPP:
                 </span>
-                <p className="text-base font-black text-emerald-950">
+                <p className="text-sm sm:text-base font-black text-emerald-950">
                   {formatIDR(
                     modalViewAllTime
                       ? paidInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0)
@@ -1477,33 +1336,33 @@ export default function KeuanganTab({
                   )}
                 </p>
               </div>
-              <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800">
-                {(modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).length} Transaksi Lunas
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
+                {(modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).length} Transaksi
               </span>
             </div>
 
-            <div className="space-y-2 max-h-72 overflow-y-auto">
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
               {(modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).length === 0 ? (
                 <p className="text-xs text-slate-400 italic py-6 text-center">
-                  Belum ada transaksi pembayaran SPP yang tercatat lunas di periode ini.
+                  Belum ada transaksi SPP lunas di periode ini.
                 </p>
               ) : (
                 (modalViewAllTime ? paidInvoices : activeMonthPaidInvoices).map((inv) => (
                   <div
                     key={inv.id}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3"
+                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
                   >
-                    <div>
-                      <p className="text-xs font-black text-slate-900 capitalize">{inv.name}</p>
-                      <p className="text-[10px] text-slate-400">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-slate-900 capitalize truncate">{inv.name}</p>
+                      <p className="text-[9px] text-slate-400 truncate">
                         {inv.desc || "SPP Bulanan"} {inv.date ? `• ${inv.date}` : ""}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-xs font-black text-emerald-600">
                         +{formatIDR(inv.amount)}
                       </p>
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                      <span className="text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
                         Lunas
                       </span>
                     </div>
@@ -1515,7 +1374,7 @@ export default function KeuanganTab({
             <div className="pt-2 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowPaymentReceivedModal(false)}
-                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
                 Tutup
               </button>
@@ -1528,100 +1387,78 @@ export default function KeuanganTab({
           MODAL: COACH PAYMENT (PENGGAJIAN PELATIH)
           ========================================== */}
       {showCoachPaymentModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div
             onClick={() => setShowCoachPaymentModal(false)}
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
           />
-          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-5 my-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100">
-                  <Handshake size={18} />
+          <div className="relative z-10 w-full max-w-lg bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3.5 my-auto max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-100">
+                  <Handshake size={17} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
                     Coach Payment
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Rekap Honor Pelatih Periode {selectedPeriodObj.fullLabel}
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+                    Rekap Honor Pelatih ({selectedPeriodObj.shortPeriod})
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowCoachPaymentModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs transition cursor-pointer"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
 
             {/* Total Coach Payment Display */}
-            <div className="p-3.5 bg-amber-50/70 border border-amber-100 rounded-2xl flex items-center justify-between">
+            <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-xl flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-bold text-amber-800">
-                  Total Honor Pelatih ({selectedPeriodObj.shortPeriod}):
+                <span className="text-[10px] font-bold text-amber-800">
+                  Total Honor ({selectedPeriodObj.shortPeriod}):
                 </span>
-                <p className="text-base font-black text-amber-950">
+                <p className="text-sm sm:text-base font-black text-amber-950">
                   {formatIDR(activeMonthCoachExpenses)}
                 </p>
               </div>
-              <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800">
-                {coaches.length} Pelatih Aktif
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
+                {coaches.length} Pelatih
               </span>
             </div>
 
-            <div className="space-y-3 max-h-72 overflow-y-auto">
+            <div className="space-y-2 max-h-60 overflow-y-auto">
               {activeMonthCoachPayrolls.map((c) => (
                 <div
                   key={c.id}
-                  className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2"
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-black text-slate-900">{c.name}</p>
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        {c.spec} •{" "}
-                        <span className="font-bold text-blue-700">
-                          Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi
-                        </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-slate-900 truncate">{c.name}</p>
+                      <p className="text-[10px] text-slate-500">
+                        {c.spec} • <span className="font-bold text-blue-700">Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi</span>
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-xs font-black text-amber-600">
                         -{formatIDR(c.totalHonor)}
                       </p>
-                      <span className="text-[9px] font-bold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
-                        {selectedPeriodObj.shortPeriod}
+                      <span className="text-[8px] font-bold text-slate-500 bg-slate-200/70 px-1.5 py-0.2 rounded">
+                        {c.sessionsCount} Sesi
                       </span>
                     </div>
                   </div>
 
                   {/* Calculation Formula Pill */}
-                  <div className="p-2 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between text-[10px] font-bold text-blue-900">
+                  <div className="p-1.5 rounded-lg bg-blue-50/70 border border-blue-100 flex items-center justify-between text-[9px] font-bold text-blue-900">
                     <span>
-                      Formula Gaji: {c.sessionsCount} Sesi × Rp {c.ratePerSession.toLocaleString("id-ID")}
+                      Formula: {c.sessionsCount} Sesi × Rp {c.ratePerSession.toLocaleString("id-ID")}
                     </span>
                     <span className="font-black text-blue-700">{formatIDR(c.totalHonor)}</span>
-                  </div>
-
-                  {/* Attendance Verification Benchmark Badge */}
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-[10px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-slate-600 font-semibold">
-                        Basis:{" "}
-                        <span className="font-bold text-slate-900">
-                          {c.verifiedCount > 0
-                            ? `${c.verifiedCount} Sesi Tervalidasi`
-                            : `${c.sessionsCount} Sesi Selesai`}
-                        </span>
-                      </span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-1">
-                      <MapPin size={10} />
-                      <span>GPS Radius ≤ 2km</span>
-                    </span>
                   </div>
                 </div>
               ))}
@@ -1630,7 +1467,7 @@ export default function KeuanganTab({
             <div className="pt-2 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowCoachPaymentModal(false)}
-                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
                 Tutup
               </button>
@@ -1643,13 +1480,13 @@ export default function KeuanganTab({
           MODAL: BUKTI TRANSFER & REVIEW
           ========================================== */}
       {selectedReceiptInvoice && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div
             onClick={() => setSelectedReceiptInvoice(null)}
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
           />
-          <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 my-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+          <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3.5 my-auto max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
               <div>
                 <h4 className="text-sm font-black text-slate-900">
                   Bukti Transfer SPP
@@ -1658,26 +1495,26 @@ export default function KeuanganTab({
               </div>
               <button
                 onClick={() => setSelectedReceiptInvoice(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-sm transition cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs transition cursor-pointer"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Nominal Transfer:</span>
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Nominal:</span>
                 <span className="font-black text-slate-900">
                   {formatIDR(selectedReceiptInvoice.amount)}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
+              <div className="flex justify-between">
                 <span className="text-slate-500">Nama Pengirim:</span>
                 <span className="font-bold text-slate-800">{selectedReceiptInvoice.name}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">File Bukti:</span>
-                <span className="font-mono text-cyan-700">
+              <div className="flex justify-between">
+                <span className="text-slate-500">File:</span>
+                <span className="font-mono text-cyan-700 truncate max-w-[180px]">
                   {selectedReceiptInvoice.uploadReceipt || "transfer_receipt.jpg"}
                 </span>
               </div>
@@ -1690,19 +1527,19 @@ export default function KeuanganTab({
                     onVerifyPayment(selectedReceiptInvoice.id, true);
                     setSelectedReceiptInvoice(null);
                   }}
-                  className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-1"
                 >
-                  <Check size={14} />
-                  <span>Terima Pembayaran</span>
+                  <Check size={13} />
+                  <span>Terima</span>
                 </button>
                 <button
                   onClick={() => {
                     onVerifyPayment(selectedReceiptInvoice.id, false);
                     setSelectedReceiptInvoice(null);
                   }}
-                  className="px-4 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-200 flex items-center justify-center gap-1.5"
+                  className="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition cursor-pointer border border-rose-200 flex items-center justify-center gap-1"
                 >
-                  <X size={14} />
+                  <X size={13} />
                   <span>Tolak</span>
                 </button>
               </div>
@@ -1715,21 +1552,21 @@ export default function KeuanganTab({
           MODAL: PILIH PERIODE
           ========================================== */}
       {showPeriodModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div
             onClick={() => setShowPeriodModal(false)}
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-xs"
           />
-          <div className="relative z-10 w-full max-w-sm bg-white border border-slate-100 rounded-3xl p-5 shadow-2xl space-y-4 my-auto">
+          <div className="relative z-10 w-full max-w-sm bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3.5 my-auto">
             <div className="border-b border-slate-100 pb-2">
-              <h4 className="text-sm font-black text-slate-900">
+              <h4 className="text-xs sm:text-sm font-black text-slate-900">
                 Pilih Periode Keuangan
               </h4>
-              <p className="text-[11px] text-slate-400">
-                Lihat arus kas dan rekapitulasi berdasarkan bulan
+              <p className="text-[10px] text-slate-400">
+                Pilih bulan untuk melihat rekapitulasi arus kas
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {rollingMonths.map((m) => (
                 <button
                   key={m.key}
@@ -1737,19 +1574,19 @@ export default function KeuanganTab({
                     setSelectedMonthKey(m.key);
                     setShowPeriodModal(false);
                   }}
-                  className={`p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-between ${
+                  className={`p-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-between ${
                     selectedMonthKey === m.key
-                      ? "bg-blue-600 text-white shadow-xs font-black"
+                      ? "bg-blue-600 text-white shadow-2xs font-black"
                       : "bg-slate-50 hover:bg-cyan-50 text-slate-700 border border-slate-100"
                   }`}
                 >
                   <span>{m.shortPeriod}</span>
                   {m.key === currentMonthKey && (
                     <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded-md ${
+                      className={`text-[8px] px-1 py-0.2 rounded ${
                         selectedMonthKey === m.key
                           ? "bg-white/20 text-white"
-                          : "bg-emerald-100 text-emerald-800"
+                          : "bg-emerald-100 text-emerald-800 font-bold"
                       }`}
                     >
                       Bulan Ini
@@ -1760,7 +1597,7 @@ export default function KeuanganTab({
             </div>
             <button
               onClick={() => setShowPeriodModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
             >
               Tutup
             </button>
