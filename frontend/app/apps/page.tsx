@@ -138,15 +138,36 @@ export default function AppsPage() {
   const loadAllData = useCallback(async (roleParam?: string, userParam?: string) => {
     try {
       const session = getAuthSession();
-      const role = roleParam || sessionRole || session.role || "";
-      const user = userParam || sessionUser || session.user || "";
+      const role = roleParam || session.role || "";
+      const user = userParam || session.user || "";
       const userKey = user || "global";
+
+      // Parallel fetch core database tables
+      const [
+        fetchedStudents,
+        fetchedCoaches,
+        fetchedSchedules,
+        fetchedInvoices,
+        fetchedAttendances,
+        fetchedFinancialTransactions,
+        fetchedPools,
+        fetchedClassPrograms,
+      ] = await Promise.all([
+        fetchStudents(),
+        fetchCoaches(),
+        fetchSchedules(),
+        fetchInvoices(),
+        fetchAttendances(),
+        fetchFinancialTransactions(),
+        fetchPools(),
+        fetchClassPrograms(),
+      ]);
 
       // If role is Orang Tua, find corresponding student name to accurately query notifications
       let queryName = user;
       if (role.toLowerCase().trim() === "orang tua") {
         const normalizedUser = user.toLowerCase();
-        const matched = students.find(
+        const matched = fetchedStudents.find(
           (s) =>
             s.name.toLowerCase().includes(normalizedUser) ||
             s.parent.toLowerCase().includes(normalizedUser) ||
@@ -157,28 +178,7 @@ export default function AppsPage() {
         }
       }
 
-      // Parallel fetch all 9 endpoints at once (Zero waterfall delay)
-      const [
-        fetchedStudents,
-        fetchedCoaches,
-        fetchedSchedules,
-        fetchedInvoices,
-        fetchedAttendances,
-        fetchedFinancialTransactions,
-        fetchedPools,
-        fetchedClassPrograms,
-        fetchedNotifications,
-      ] = await Promise.all([
-        fetchStudents(),
-        fetchCoaches(),
-        fetchSchedules(),
-        fetchInvoices(),
-        fetchAttendances(),
-        fetchFinancialTransactions(),
-        fetchPools(),
-        fetchClassPrograms(),
-        fetchNotifications(role, queryName),
-      ]);
+      const fetchedNotifications = await fetchNotifications(role, queryName);
 
       setStudents(fetchedStudents);
       setCoaches(fetchedCoaches);
@@ -214,7 +214,7 @@ export default function AppsPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [sessionRole, sessionUser, students]);
+  }, []);
 
   // Silent background reload handler: refreshes data seamlessly without blocking overlay
   const handleSilentReload = useCallback(async () => {
@@ -493,7 +493,7 @@ export default function AppsPage() {
       isSubscribed = false;
       clearInterval(intervalId);
     };
-  }, [sessionRole, sessionUser, students]);
+  }, [sessionRole, sessionUser]);
 
   useEffect(() => {
     // Register Service Worker in the browser with auto-update handling
@@ -632,8 +632,12 @@ export default function AppsPage() {
     setShowInstallBtn(false);
   };
 
-  // Authenticate user session on mount & fetch real DB data
+  // Authenticate user session on mount & fetch real DB data (Runs strictly once on mount)
+  const initialAuthDoneRef = useRef(false);
   useEffect(() => {
+    if (initialAuthDoneRef.current) return;
+    initialAuthDoneRef.current = true;
+
     setMounted(true);
     const { user, role, token } = getAuthSession();
 
