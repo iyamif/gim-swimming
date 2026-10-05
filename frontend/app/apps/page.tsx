@@ -98,24 +98,16 @@ export default function AppsPage() {
   // Navigation tab state (for Admin & Pelatih only)
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // REAL DATABASE STATES (Loaded from instant local cache so UI opens in <0.05s)
-  const initialCache = useRef(
-    typeof window !== "undefined"
-      ? getCachedAppData(getAuthSession().user || "global") || getCachedAppData("global")
-      : null
-  ).current;
-
-  const [students, setStudents] = useState<Student[]>(() => initialCache?.students || []);
-  const [coaches, setCoaches] = useState<Coach[]>(() => initialCache?.coaches || []);
-  const [invoices, setInvoices] = useState<Invoice[]>(() => initialCache?.invoices || []);
-  const [schedules, setSchedules] = useState<ScheduleSession[]>(() => initialCache?.schedules || []);
-  const [attendances, setAttendances] = useState<AttendanceRecord[]>(() => initialCache?.attendances || []);
-  const [notifications, setNotifications] = useState<AdminNotification[]>(() => initialCache?.notifications || []);
-  const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>(
-    () => initialCache?.financialTransactions || []
-  );
-  const [pools, setPools] = useState<PoolVenue[]>(() => initialCache?.pools || []);
-  const [classPrograms, setClassPrograms] = useState<ClassProgram[]>(() => initialCache?.classPrograms || []);
+  // REAL DATABASE STATES (Loaded cleanly upon initial app open)
+  const [students, setStudents] = useState<Student[]>([]);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleSession[]>([]);
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>([]);
+  const [pools, setPools] = useState<PoolVenue[]>([]);
+  const [classPrograms, setClassPrograms] = useState<ClassProgram[]>([]);
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -154,7 +146,7 @@ export default function AppsPage() {
       let queryName = user;
       if (role.toLowerCase().trim() === "orang tua") {
         const normalizedUser = user.toLowerCase();
-        const matched = (students.length > 0 ? students : initialCache?.students || []).find(
+        const matched = students.find(
           (s) =>
             s.name.toLowerCase().includes(normalizedUser) ||
             s.parent.toLowerCase().includes(normalizedUser) ||
@@ -222,7 +214,7 @@ export default function AppsPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [initialCache?.students, sessionRole, sessionUser, students]);
+  }, [sessionRole, sessionUser, students]);
 
   // Silent background reload handler: refreshes data seamlessly without blocking overlay
   const handleSilentReload = useCallback(async () => {

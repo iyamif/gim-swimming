@@ -32,6 +32,7 @@ interface KehadiranTabProps {
   attendances?: AttendanceRecord[];
   sessionUser?: string;
   sessionRole?: string;
+  loadingData?: boolean;
   onRefresh?: () => Promise<void>;
   setActiveTab?: (tab: string) => void;
 }
@@ -43,6 +44,7 @@ export default function KehadiranTab({
   attendances = [],
   sessionUser = "",
   sessionRole = "admin",
+  loadingData = false,
   onRefresh,
   setActiveTab,
 }: KehadiranTabProps) {
@@ -394,7 +396,23 @@ export default function KehadiranTab({
         {/* SUBTAB JADWAL */}
         {activeSubTab === "jadwal" && (
           <div className="space-y-3">
-            {filteredSchedules.length === 0 ? (
+            {loadingData ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm animate-pulse space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-16 bg-slate-200 rounded-full" />
+                      <div className="h-4 w-28 bg-slate-200 rounded" />
+                    </div>
+                    <div className="h-5 w-48 bg-slate-200 rounded" />
+                    <div className="flex gap-4">
+                      <div className="h-4 w-24 bg-slate-200 rounded" />
+                      <div className="h-4 w-24 bg-slate-200 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredSchedules.length === 0 ? (
               <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center shadow-sm">
                 <CalendarDays size={40} className="mx-auto text-slate-300 mb-2" />
                 <p className="text-slate-700 font-bold text-sm">Tidak ada jadwal sesi ditemukan</p>
@@ -471,7 +489,19 @@ export default function KehadiranTab({
         {/* SUBTAB RIWAYAT PRESENSI */}
         {activeSubTab === "history" && (
           <div className="space-y-3">
-            {filteredAttendanceHistory.length === 0 ? (
+            {loadingData ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm animate-pulse flex items-center gap-3.5">
+                    <div className="h-11 w-11 rounded-2xl bg-slate-200 shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 w-32 bg-slate-200 rounded" />
+                      <div className="h-3 w-48 bg-slate-200 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredAttendanceHistory.length === 0 ? (
               <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center shadow-sm">
                 <ClipboardList size={40} className="mx-auto text-slate-300 mb-2" />
                 <p className="text-slate-700 font-bold text-sm">Belum ada riwayat presensi tercatat</p>

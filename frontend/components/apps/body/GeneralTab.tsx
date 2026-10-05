@@ -106,9 +106,6 @@ export default function GeneralTab({
       ]);
       setPools(poolData);
       setPrograms(progData);
-      if (onRefresh) {
-        onRefresh().catch(() => {});
-      }
     } catch (err) {
       console.error("Error loading master general data:", err);
     } finally {

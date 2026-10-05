@@ -257,6 +257,7 @@ export default function AppsBody({
           attendances={attendances}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
+          loadingData={loadingData}
           setActiveTab={setActiveTab}
           onRefresh={onRefresh}
         />
