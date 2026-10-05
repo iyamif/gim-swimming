@@ -116,14 +116,7 @@ export default function AppsPage() {
   );
   const [pools, setPools] = useState<PoolVenue[]>(() => initialCache?.pools || []);
   const [classPrograms, setClassPrograms] = useState<ClassProgram[]>(() => initialCache?.classPrograms || []);
-  const [loadingData, setLoadingData] = useState<boolean>(() => {
-    const hasData =
-      initialCache &&
-      ((initialCache.students && initialCache.students.length > 0) ||
-        (initialCache.coaches && initialCache.coaches.length > 0) ||
-        (initialCache.schedules && initialCache.schedules.length > 0));
-    return !hasData;
-  });
+  const [loadingData, setLoadingData] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Real-time Notification State & Tracking Refs
@@ -496,65 +489,19 @@ export default function AppsPage() {
             return latestNotifications;
           });
         }
-        // Sync students & coaches periodically during poll to immediately detect status changes (e.g. account deactivation)
-        if (role.toLowerCase().trim() === "orang tua") {
-          const freshStudents = await fetchStudents();
-          if (isSubscribed && freshStudents && freshStudents.length > 0) {
-            setStudents(freshStudents);
-          }
-        } else if (role.toLowerCase().trim() === "pelatih") {
-          const freshCoaches = await fetchCoaches();
-          if (isSubscribed && freshCoaches && freshCoaches.length > 0) {
-            setCoaches(freshCoaches);
-          }
-        }
       } catch (err) {
         // Silent error handling for background polling
       }
     };
 
-    // Polling interval: every 3.5s while idle
-    const intervalId = setInterval(performSilentPoll, 3500);
-
-    // Immediate reload when tab becomes active / focused / screen unlocked / PWA resumed
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        lastHiddenTimeRef.current = Date.now();
-      } else if (document.visibilityState === "visible") {
-        const timeHidden = Date.now() - lastHiddenTimeRef.current;
-        if (lastHiddenTimeRef.current > 0 && timeHidden > 2000) {
-          handleSilentReload();
-        } else {
-          performSilentPoll();
-        }
-      }
-    };
-
-    const handleWindowFocus = () => {
-      const timeHidden = Date.now() - lastHiddenTimeRef.current;
-      if (lastHiddenTimeRef.current > 0 && timeHidden > 2000) {
-        handleSilentReload();
-      }
-    };
-
-    const handleOnline = () => {
-      handleSilentReload();
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleWindowFocus);
-    window.addEventListener("pageshow", handleWindowFocus);
-    window.addEventListener("online", handleOnline);
+    // Polling interval: every 4s while idle for real-time notifications
+    const intervalId = setInterval(performSilentPoll, 4000);
 
     return () => {
       isSubscribed = false;
       clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleWindowFocus);
-      window.removeEventListener("pageshow", handleWindowFocus);
-      window.removeEventListener("online", handleOnline);
     };
-  }, [handleSilentReload, sessionRole, sessionUser, students]);
+  }, [sessionRole, sessionUser, students]);
 
   useEffect(() => {
     // Register Service Worker in the browser with auto-update handling
@@ -1299,16 +1246,25 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Centered Floating Loading Screen Overlay during Initial Cold Start (only when no cache data is present) */}
-        {loadingData && students.length === 0 && coaches.length === 0 && schedules.length === 0 && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/80 backdrop-blur-xs pointer-events-auto transition-all duration-300 animate-fadeIn">
-            <div className="flex flex-col items-center justify-center space-y-3 scale-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/icon.png"
-                alt="Loading"
-                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
-              />
+        {/* Full-screen Loading Overlay during Initial Cold Start */}
+        {loadingData && (
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md pointer-events-auto transition-all duration-300">
+            <div className="flex flex-col items-center justify-center space-y-4 max-w-xs text-center px-4">
+              <div className="relative flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icon.png"
+                  alt="GIM Swimming"
+                  className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
+                />
+                <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-md border-2 border-white">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-slate-900 tracking-tight">GIM Swimming Club</h3>
+                <p className="text-xs text-slate-500 font-medium animate-pulse">Menyiapkan data aplikasi...</p>
+              </div>
             </div>
           </div>
         )}
@@ -1445,16 +1401,25 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      {/* Centered Floating Loading Screen Overlay during Initial Cold Start (only when no cache data is present) */}
-      {loadingData && students.length === 0 && coaches.length === 0 && schedules.length === 0 && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/80 backdrop-blur-xs pointer-events-auto transition-all duration-300 animate-fadeIn">
-          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icon.png"
-              alt="Loading"
-              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
-            />
+      {/* Full-screen Loading Overlay during Initial Cold Start */}
+      {loadingData && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md pointer-events-auto transition-all duration-300">
+          <div className="flex flex-col items-center justify-center space-y-4 max-w-xs text-center px-4">
+            <div className="relative flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icon.png"
+                alt="GIM Swimming"
+                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
+              />
+              <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-md border-2 border-white">
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 tracking-tight">GIM Swimming Club</h3>
+              <p className="text-xs text-slate-500 font-medium animate-pulse">Menyiapkan data aplikasi...</p>
+            </div>
           </div>
         </div>
       )}
