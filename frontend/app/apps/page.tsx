@@ -1253,9 +1253,6 @@ export default function AppsPage() {
                   alt="GIM Swimming"
                   className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
                 />
-                <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-md border-2 border-white">
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                </div>
               </div>
               <div className="space-y-1">
                 <h3 className="text-base font-black text-slate-900 tracking-tight">GIM Swimming Club</h3>
@@ -1408,9 +1405,6 @@ export default function AppsPage() {
                 alt="GIM Swimming"
                 className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
               />
-              <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-md border-2 border-white">
-                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              </div>
             </div>
             <div className="space-y-1">
               <h3 className="text-base font-black text-slate-900 tracking-tight">GIM Swimming Club</h3>
