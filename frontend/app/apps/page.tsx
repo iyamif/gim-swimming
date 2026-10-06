@@ -1307,17 +1307,15 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      {activeTab !== "create" && activeTab !== "register" && (
-        <MobileBottomNav
-          navItems={navItems}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          sessionUser={sessionUser}
-          sessionRole={sessionRole}
-          notifications={notifications}
-          onLogout={handleLogout}
-        />
-      )}
+      <MobileBottomNav
+        navItems={navItems}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        sessionUser={sessionUser}
+        sessionRole={sessionRole}
+        notifications={notifications}
+        onLogout={handleLogout}
+      />
 
       <main
         className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[#f8fafc]"

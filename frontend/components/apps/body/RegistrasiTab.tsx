@@ -262,7 +262,7 @@ export default function RegistrasiTab({
   };
 
   return (
-    <div className="space-y-4 pb-16 sm:pb-20 bg-[#f8fafc] min-h-full">
+    <div className="space-y-4 pb-32 sm:pb-36 md:pb-16 bg-[#f8fafc] min-h-full">
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (MATCHING DASHBOARD)
           ========================================== */}
