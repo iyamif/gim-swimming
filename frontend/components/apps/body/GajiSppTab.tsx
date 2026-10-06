@@ -1340,6 +1340,12 @@ export default function GajiSppTab({
                               <p className="text-xs text-slate-500">
                                 {item.coach.spec || "Instruktur Renang"} • {item.coach.class || "Prestasi"}
                               </p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                                  <Calendar size={11} className="text-blue-600 shrink-0" />
+                                  <span>Bayaran: {selectedMonth}</span>
+                                </span>
+                              </div>
                             </div>
                           </div>
 
@@ -1356,22 +1362,31 @@ export default function GajiSppTab({
                           )}
                         </div>
 
-                        <div className="bg-slate-50 p-3.5 rounded-xl space-y-2 text-xs">
-                          <div className="flex justify-between items-center text-slate-600">
+                        <div className="bg-slate-50 p-3.5 rounded-xl space-y-2 text-xs border border-slate-100">
+                          <div className="flex justify-between items-center text-slate-600 gap-2">
+                            <span className="flex items-center gap-1 min-w-0">
+                              <Calendar size={12} className="text-blue-600 shrink-0" />
+                              <span className="truncate">Bulan Bayaran:</span>
+                            </span>
+                            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 shrink-0">
+                              {selectedMonth}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-600 gap-2">
                             <span>Sesi Selesai Mengajar:</span>
-                            <span className="font-bold text-slate-900">
+                            <span className="font-bold text-slate-900 shrink-0">
                               {item.completedSessions} Sesi
                             </span>
                           </div>
-                          <div className="flex justify-between items-center text-slate-600">
+                          <div className="flex justify-between items-center text-slate-600 gap-2">
                             <span>Honor per Sesi:</span>
-                            <span className="font-bold text-slate-900">
+                            <span className="font-bold text-slate-900 shrink-0">
                               Rp {item.payPerSession.toLocaleString("id-ID")}
                             </span>
                           </div>
-                          <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black text-slate-900">
-                            <span>Total Gaji Periode Ini:</span>
-                            <span className="text-blue-700 text-base">
+                          <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black text-slate-900 gap-2">
+                            <span className="min-w-0 truncate">Total Gaji ({selectedMonth}):</span>
+                            <span className="text-blue-700 text-base shrink-0">
                               Rp {item.totalAmount.toLocaleString("id-ID")}
                             </span>
                           </div>
