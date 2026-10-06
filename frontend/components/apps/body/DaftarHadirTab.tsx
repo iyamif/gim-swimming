@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Student, Coach, ScheduleSession, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import { formatWaNumber } from "@/lib/utils";
 import SwipeableRow from "../SwipeableRow";
 
 interface DaftarHadirTabProps {
@@ -1462,7 +1463,7 @@ export default function DaftarHadirTab({
                 {/* Actions */}
                 <div className="pt-2 border-t border-slate-100 space-y-2">
                   <a
-                    href={`https://wa.me/${(selectedStudent.phone || "6281234567890").replace(/\D/g, "")}?text=Halo%20Orang%20Tua%20dari%20${encodeURIComponent(selectedStudent.name)},%20konfirmasi%20dari%20Akademi%20GIM%20Swimming`}
+                    href={`https://wa.me/${formatWaNumber(selectedStudent.phone) || "6281234567890"}?text=Halo%20Orang%20Tua%20dari%20${encodeURIComponent(selectedStudent.name)},%20konfirmasi%20dari%20Akademi%20GIM%20Swimming`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-2 border border-emerald-200 cursor-pointer"

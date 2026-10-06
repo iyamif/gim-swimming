@@ -16,6 +16,7 @@ import {
   requestPasswordResetOTP,
   resetPasswordWithOTP,
 } from "../../../lib/api";
+import { formatWaNumber } from "@/lib/utils";
 import {
   isFaceIdEnabledForUser,
   enableFaceIdForUser,
@@ -2037,7 +2038,7 @@ export default function ParentBody({
                   )}
 
                   <a
-                    href={`https://wa.me/${(todaySession || upcomingSession)?.coach?.phone || coach.phone}?text=Halo%20${(todaySession || upcomingSession)?.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
+                    href={`https://wa.me/${formatWaNumber((todaySession || upcomingSession)?.coach?.phone || coach.phone)}?text=Halo%20${(todaySession || upcomingSession)?.coach?.name || coach.name},%20saya%20orang%20tua%20dari%20${student.name}%20ingin%20bertanya%20mengenai%20jadwal%20latihan%20renang`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 border border-slate-200/80 shrink-0 cursor-pointer"
@@ -4244,7 +4245,7 @@ export default function ParentBody({
 
                         {schedule.coach.phone && (
                           <a
-                            href={`https://wa.me/${schedule.coach.phone}?text=Halo%20${schedule.coach.name},%20konfirmasi%20jadwal%20latihan%20renang%20untuk%20${student.name}`}
+                            href={`https://wa.me/${formatWaNumber(schedule.coach.phone)}?text=Halo%20${schedule.coach.name},%20konfirmasi%20jadwal%20latihan%20renang%20untuk%20${student.name}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"

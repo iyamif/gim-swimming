@@ -29,6 +29,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { ScheduleSession, Student, Coach, PoolVenue, ClassProgram, AttendanceRecord } from "../types";
+import { formatWaNumber } from "@/lib/utils";
 
 const MONTH_NAMES_INDO = [
   "Januari",
@@ -2098,7 +2099,7 @@ export default function JadwalTab({
 
                   {sch.coachPhone && (
                     <a
-                      href={`https://wa.me/${sch.coachPhone}?text=Halo%20${sch.coachName},%20konfirmasi%20jadwal%20latihan%20renang`}
+                      href={`https://wa.me/${formatWaNumber(sch.coachPhone)}?text=Halo%20${sch.coachName},%20konfirmasi%20jadwal%20latihan%20renang`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

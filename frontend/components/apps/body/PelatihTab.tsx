@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Coach, ScheduleSession, Student, AttendanceRecord, PoolVenue, ClassProgram } from "../types";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import { formatWaNumber } from "@/lib/utils";
 import SwipeableRow from "../SwipeableRow";
 
 interface PelatihTabProps {
@@ -1102,7 +1103,7 @@ export default function PelatihTab({
 
               {selectedCoach.phone && (
                 <a
-                  href={`https://wa.me/${selectedCoach.phone.replace(/[^0-9]/g, "")}?text=Halo%20Coach%20${selectedCoach.name},%20konfirmasi%20dari%20Akademi%20GIM%20Swimming`}
+                  href={`https://wa.me/${formatWaNumber(selectedCoach.phone)}?text=Halo%20Coach%20${selectedCoach.name},%20konfirmasi%20dari%20Akademi%20GIM%20Swimming`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-2 border border-emerald-200 cursor-pointer"

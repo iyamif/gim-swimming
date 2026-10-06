@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, AdminNotification } from "../types";
 import EditProfileModal from "../EditProfileModal";
 import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import { formatWaNumber } from "@/lib/utils";
 import {
   Clock,
   Calendar,
@@ -1272,7 +1273,7 @@ export default function DashboardOverviewTab({
 
                         {schedule.coach.phone && (
                           <a
-                            href={`https://wa.me/${schedule.coach.phone}?text=Halo%20${schedule.coach.name},%20konfirmasi%20jadwal%20latihan%20renang`}
+                            href={`https://wa.me/${formatWaNumber(schedule.coach.phone)}?text=Halo%20${schedule.coach.name},%20konfirmasi%20jadwal%20latihan%20renang`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 text-[10px] font-bold transition flex items-center gap-1.5 cursor-pointer"
