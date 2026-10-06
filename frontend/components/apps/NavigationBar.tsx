@@ -283,6 +283,12 @@ export function MobileBottomNav({
   const isAdmin = (sessionRole || "").toLowerCase().trim() === "admin";
   const isPelatih = (sessionRole || "").toLowerCase().trim() === "pelatih";
 
+  // Hide bottom navigation bar on full-page form views (such as register / create)
+  // so the navigation bar does not float above mobile keyboard when filling inputs
+  if (activeTab === "create" || activeTab === "register") {
+    return null;
+  }
+
   // Check if today coach has already checked in/out (from local storage or event flag)
   const isCoachCheckedIn = false; // dynamically passed if available or defaults
 

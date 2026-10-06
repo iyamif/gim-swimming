@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Users,
   Check,
+  ArrowLeft,
 } from "lucide-react";
 import { Coach, PoolVenue, ClassProgram } from "../types";
 
@@ -261,11 +262,11 @@ export default function RegistrasiTab({
   };
 
   return (
-    <div className="space-y-4 pb-36 sm:pb-32 md:pb-16 bg-[#f8fafc] min-h-full">
+    <div className="space-y-4 pb-16 sm:pb-20 bg-[#f8fafc] min-h-full">
       {/* ==========================================
           1. TOP VIBRANT BLUE HEADER (MATCHING DASHBOARD)
           ========================================== */}
-      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3rem,calc(env(safe-area-inset-top)+0.75rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 rounded-none">
+      <div className="relative w-full bg-[#1d4ed8] text-white pt-[max(3.5rem,calc(env(safe-area-inset-top)+1rem))] sm:pt-6 pb-12 sm:pb-14 px-5 sm:px-8 shadow-xl shadow-blue-700/15 rounded-none">
         {/* Subtle Decorative Background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-10 -right-10 h-60 w-60 rounded-full border border-white/15" />
@@ -275,7 +276,7 @@ export default function RegistrasiTab({
           <div className="absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
         </div>
 
-        <div className="max-w-2xl mx-auto flex items-center justify-between relative z-30">
+        <div className="max-w-2xl mx-auto flex items-center justify-between relative z-30 gap-3">
           <div>
             <p className="text-xs font-medium text-cyan-100 leading-tight">
               ADMINISTRATOR • GIM SWIMMING
@@ -284,6 +285,17 @@ export default function RegistrasiTab({
               Registrasi Anggota Baru
             </h2>
           </div>
+
+          {setActiveTab && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("dashboard")}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold transition backdrop-blur-md border border-white/20 cursor-pointer shadow-sm shrink-0"
+            >
+              <ArrowLeft size={14} />
+              <span>Kembali</span>
+            </button>
+          )}
         </div>
       </div>
 
