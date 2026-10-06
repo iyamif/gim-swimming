@@ -27,6 +27,7 @@ import {
   Plus,
   Waves,
   MapPin,
+  Users,
 } from "lucide-react";
 import {
   verifyInvoicePayment,
@@ -442,78 +443,105 @@ export default function GajiSppTab({
   const countUnpaid = invoices.filter((i) => i.status === "Belum Dibayar").length;
 
   // Coach Calculations for Admin (REAL DB ONLY)
+  // OPTION 1: Filter to ONLY coaches who have active schedules, attended sessions, or payroll in the selected month
   const coachCalculations = useMemo(() => {
-    return coaches.map((coach) => {
-      const coachClean = cleanCoachName(coach.name);
-      const coachIdStr = String(coach.id);
+    return coaches
+      .map((coach) => {
+        const coachClean = cleanCoachName(coach.name);
+        const coachIdStr = String(coach.id);
 
-      const coachAttendances = attendances.filter((att) => {
-        const isCoach =
-          att.person_type === "coach" ||
-          att.user_role === "pelatih" ||
-          String(att.person_id) === coachIdStr ||
-          (coachClean && cleanCoachName(att.person_name) === coachClean);
+        const coachAttendances = attendances.filter((att) => {
+          const isCoach =
+            att.person_type === "coach" ||
+            att.user_role === "pelatih" ||
+            String(att.person_id) === coachIdStr ||
+            (coachClean && cleanCoachName(att.person_name) === coachClean);
 
-        const isValidStatus =
-          att.status === "Hadir" || att.status === "Terlambat" || att.status === "Selesai";
+          const isValidStatus =
+            att.status === "Hadir" || att.status === "Terlambat" || att.status === "Selesai";
 
-        if (!isCoach || !isValidStatus) return false;
+          if (!isCoach || !isValidStatus) return false;
 
-        if (att.date) {
-          const d = new Date(att.date);
-          if (!isNaN(d.getTime())) {
-            return (
-              d.getMonth() === parseSelectedMonthRange.monthIdx &&
-              d.getFullYear() === parseSelectedMonthRange.year
-            );
+          if (att.date) {
+            const d = new Date(att.date);
+            if (!isNaN(d.getTime())) {
+              return (
+                d.getMonth() === parseSelectedMonthRange.monthIdx &&
+                d.getFullYear() === parseSelectedMonthRange.year
+              );
+            }
           }
-        }
-        return false;
+          return false;
+        });
+
+        // Distinct sessions
+        const distinctMap = new Map<string, typeof coachAttendances[0]>();
+        coachAttendances.forEach((att) => {
+          const key = att.schedule_id
+            ? `sch-${att.schedule_id}`
+            : `att-${att.date}-${att.time_start || ""}`;
+          if (!distinctMap.has(key) || att.status === "Selesai") {
+            distinctMap.set(key, att);
+          }
+        });
+
+        const existingPr = payrolls.find(
+          (p) =>
+            (String(p.coach_id) === coachIdStr ||
+              cleanCoachName(p.coach_name) === coachClean) &&
+            (!p.month || p.month === selectedMonth)
+        );
+
+        // Check if coach has scheduled sessions in the selected month
+        const hasScheduleInMonth = (schedules || []).some((s) => {
+          const matchCoach =
+            String(s.coachId) === coachIdStr ||
+            (s.coachName && cleanCoachName(s.coachName) === coachClean) ||
+            (coachClean && cleanCoachName(s.coachName).includes(coachClean)) ||
+            (coachClean && coachClean.includes(cleanCoachName(s.coachName)));
+          if (!matchCoach) return false;
+          if (s.date) {
+            const d = new Date(s.date);
+            if (!isNaN(d.getTime())) {
+              return (
+                d.getMonth() === parseSelectedMonthRange.monthIdx &&
+                d.getFullYear() === parseSelectedMonthRange.year
+              );
+            }
+          }
+          return false;
+        });
+
+        const completedSessions = existingPr ? existingPr.total_sessions : distinctMap.size;
+        const payPerSession = coach.pay_per_session || coach.payPerSession || 100000;
+        const baseTotal = completedSessions * payPerSession;
+
+        const status = existingPr
+          ? existingPr.status
+          : completedSessions > 0
+            ? "Pending"
+            : "Belum Ada Sesi";
+        const bonus = existingPr?.bonus_amount || 0;
+        const finalAmount = existingPr ? existingPr.total_amount : baseTotal + bonus;
+
+        return {
+          coach,
+          completedSessions,
+          payPerSession,
+          bonus,
+          totalAmount: finalAmount,
+          status,
+          payrollId: existingPr?.id || null,
+          approvedAt: existingPr?.approved_at,
+          notes: existingPr?.notes || "",
+          hasScheduleInMonth,
+        };
+      })
+      .filter((item) => {
+        // Option 1: Only display coaches who have completed sessions > 0, existing payroll record, or active schedule in this month
+        return item.completedSessions > 0 || item.payrollId !== null || item.hasScheduleInMonth;
       });
-
-      // Distinct sessions
-      const distinctMap = new Map<string, typeof coachAttendances[0]>();
-      coachAttendances.forEach((att) => {
-        const key = att.schedule_id
-          ? `sch-${att.schedule_id}`
-          : `att-${att.date}-${att.time_start || ""}`;
-        if (!distinctMap.has(key) || att.status === "Selesai") {
-          distinctMap.set(key, att);
-        }
-      });
-
-      const existingPr = payrolls.find(
-        (p) =>
-          (String(p.coach_id) === coachIdStr ||
-            cleanCoachName(p.coach_name) === coachClean) &&
-          (!p.month || p.month === selectedMonth)
-      );
-
-      const completedSessions = existingPr ? existingPr.total_sessions : distinctMap.size;
-      const payPerSession = coach.pay_per_session || coach.payPerSession || 100000;
-      const baseTotal = completedSessions * payPerSession;
-
-      const status = existingPr
-        ? existingPr.status
-        : completedSessions > 0
-          ? "Pending"
-          : "Belum Ada Sesi";
-      const bonus = existingPr?.bonus_amount || 0;
-      const finalAmount = existingPr ? existingPr.total_amount : baseTotal + bonus;
-
-      return {
-        coach,
-        completedSessions,
-        payPerSession,
-        bonus,
-        totalAmount: finalAmount,
-        status,
-        payrollId: existingPr?.id || null,
-        approvedAt: existingPr?.approved_at,
-        notes: existingPr?.notes || "",
-      };
-    });
-  }, [coaches, attendances, payrolls, parseSelectedMonthRange, selectedMonth]);
+  }, [coaches, attendances, payrolls, schedules, parseSelectedMonthRange, selectedMonth]);
 
   const totalPayrollExpense = useMemo(() => {
     return coachCalculations.reduce((acc, curr) => acc + curr.totalAmount, 0);
@@ -1124,7 +1152,7 @@ export default function GajiSppTab({
                   }`}
               >
                 <Banknote size={16} />
-                <span>Gaji Pelatih ({coaches.length})</span>
+                <span>Gaji Pelatih ({coachCalculations.length})</span>
               </button>
             </div>
 
@@ -1317,6 +1345,18 @@ export default function GajiSppTab({
                         <div className="h-9 w-full bg-slate-100 rounded-xl animate-pulse" />
                       </div>
                     ))}
+                  </div>
+                ) : coachCalculations.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-8 text-center space-y-2 shadow-sm">
+                    <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                      <Users size={24} />
+                    </div>
+                    <p className="text-sm font-black text-slate-800">
+                      Belum Ada Jadwal / Sesi Pelatih Bulan Ini
+                    </p>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Tidak ada pelatih yang memiliki jadwal atau sesi mengajar pada periode {selectedMonth}.
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
