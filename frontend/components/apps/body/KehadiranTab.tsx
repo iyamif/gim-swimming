@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { ScheduleSession, Coach, Student, AttendanceRecord } from "../types";
 import {
   CalendarDays,
@@ -77,6 +77,36 @@ export default function KehadiranTab({
 
   // Photo Verification Lightbox state
   const [selectedPhotoRecord, setSelectedPhotoRecord] = useState<AttendanceRecord | null>(null);
+
+  // Helper to resolve attendance verification photo (from direct record or profile avatar fallback)
+  const getAttendancePhoto = useCallback(
+    (att: AttendanceRecord): string | undefined => {
+      if (att.photo && att.photo.trim().length > 0) return att.photo;
+      if (att.person_type === "student") {
+        const s = students.find(
+          (st) =>
+            String(st.id) === String(att.person_id) ||
+            (st.user_id && String(st.user_id) === String(att.user_id)) ||
+            st.name.toLowerCase().trim() === att.person_name.toLowerCase().trim() ||
+            att.person_name.toLowerCase().includes(st.name.toLowerCase().trim()) ||
+            st.name.toLowerCase().includes(att.person_name.toLowerCase().trim())
+        );
+        if (s?.avatar && s.avatar.trim().length > 0) return s.avatar;
+      } else if (att.person_type === "coach") {
+        const c = coaches.find(
+          (co) =>
+            String(co.id) === String(att.person_id) ||
+            (co.user_id && String(co.user_id) === String(att.user_id)) ||
+            co.name.toLowerCase().trim() === att.person_name.toLowerCase().trim() ||
+            att.person_name.toLowerCase().includes(co.name.toLowerCase().trim()) ||
+            co.name.toLowerCase().includes(att.person_name.toLowerCase().trim())
+        );
+        if (c?.avatar && c.avatar.trim().length > 0) return c.avatar;
+      }
+      return undefined;
+    },
+    [students, coaches]
+  );
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -515,6 +545,7 @@ export default function KehadiranTab({
                 const isLate = att.status === "Terlambat" || att.is_late;
                 const isIzin = att.status === "Izin" || att.status === "Sakit";
                 const isAlpha = att.status === "Tidak Hadir" || att.status === "Alpa";
+                const photoUrl = getAttendancePhoto(att);
 
                 return (
                   <div
@@ -522,14 +553,14 @@ export default function KehadiranTab({
                     className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-blue-200 transition"
                   >
                     <div className="flex items-start gap-3.5">
-                      {att.photo ? (
+                      {photoUrl ? (
                         <div
-                          onClick={() => setSelectedPhotoRecord(att)}
+                          onClick={() => setSelectedPhotoRecord({ ...att, photo: photoUrl })}
                           className="relative h-13 w-13 rounded-2xl overflow-hidden cursor-pointer group shrink-0 border-2 border-cyan-400 shadow-sm hover:ring-2 hover:ring-cyan-400/50 transition"
                           title="Klik untuk melihat foto verifikasi presensi"
                         >
                           <img
-                            src={att.photo}
+                            src={photoUrl}
                             alt={`Foto ${att.person_name}`}
                             className="h-full w-full object-cover group-hover:scale-110 transition duration-200"
                           />
@@ -537,7 +568,7 @@ export default function KehadiranTab({
                             <Maximize2 size={16} />
                           </div>
                           <span className="absolute bottom-0 inset-x-0 bg-cyan-600/90 text-white text-[8px] font-black text-center py-0.5 uppercase tracking-tighter">
-                            Foto Kolam
+                            {att.person_type === "coach" ? "Foto Pelatih" : "Foto Siswa"}
                           </span>
                         </div>
                       ) : (
@@ -561,9 +592,9 @@ export default function KehadiranTab({
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                             {att.person_type === "coach" ? "Pelatih" : "Siswa"}
                           </span>
-                          {att.photo && (
+                          {photoUrl && (
                             <button
-                              onClick={() => setSelectedPhotoRecord(att)}
+                              onClick={() => setSelectedPhotoRecord({ ...att, photo: photoUrl })}
                               className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100 transition cursor-pointer"
                             >
                               <Camera size={11} />
@@ -834,9 +865,9 @@ export default function KehadiranTab({
 
             {/* Photo Viewport */}
             <div className="relative bg-slate-950 flex items-center justify-center min-h-[280px] max-h-[55vh] overflow-hidden">
-              {selectedPhotoRecord.photo ? (
+              {getAttendancePhoto(selectedPhotoRecord) || selectedPhotoRecord.photo ? (
                 <img
-                  src={selectedPhotoRecord.photo}
+                  src={getAttendancePhoto(selectedPhotoRecord) || selectedPhotoRecord.photo}
                   alt={`Bukti Presensi ${selectedPhotoRecord.person_name}`}
                   className="w-full h-auto max-h-[55vh] object-contain"
                 />

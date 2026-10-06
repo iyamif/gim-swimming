@@ -645,7 +645,13 @@ export default function CoachCameraPresensi({
     if (!activeSchedule) return;
     setIsSubmitting(true);
     try {
-      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
+      const matchedCoach = coaches.find(
+        (c) =>
+          (c.id && c.id === activeSchedule?.coachId) ||
+          (sessionUser && c.name.toLowerCase().includes(sessionUser.toLowerCase().trim())) ||
+          (activeSchedule?.coachName && c.name.toLowerCase().includes(activeSchedule.coachName.toLowerCase().trim()))
+      );
+      const photoToSend = snapshotOverride || capturedPhotoUrl || matchedCoach?.avatar || undefined;
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
@@ -784,7 +790,13 @@ export default function CoachCameraPresensi({
     if (!activeSchedule) return;
     setIsSubmitting(true);
     try {
-      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
+      const matchedCoach = coaches.find(
+        (c) =>
+          (c.id && c.id === activeSchedule?.coachId) ||
+          (sessionUser && c.name.toLowerCase().includes(sessionUser.toLowerCase().trim())) ||
+          (activeSchedule?.coachName && c.name.toLowerCase().includes(activeSchedule.coachName.toLowerCase().trim()))
+      );
+      const photoToSend = snapshotOverride || capturedPhotoUrl || matchedCoach?.avatar || undefined;
       const todayIsoStr = new Date().toISOString().split("T")[0];
 
       const studentNamesList =

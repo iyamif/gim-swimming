@@ -290,6 +290,36 @@ export default function AbsensiTab({
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("ALL");
   const [selectedPhotoRecord, setSelectedPhotoRecord] = useState<AttendanceRecord | null>(null);
 
+  // Helper to resolve attendance verification photo (from direct record or profile avatar fallback)
+  const getAttendancePhoto = useCallback(
+    (att: AttendanceRecord): string | undefined => {
+      if (att.photo && att.photo.trim().length > 0) return att.photo;
+      if (att.person_type === "student") {
+        const s = students.find(
+          (st) =>
+            String(st.id) === String(att.person_id) ||
+            (st.user_id && String(st.user_id) === String(att.user_id)) ||
+            st.name.toLowerCase().trim() === att.person_name.toLowerCase().trim() ||
+            att.person_name.toLowerCase().includes(st.name.toLowerCase().trim()) ||
+            st.name.toLowerCase().includes(att.person_name.toLowerCase().trim())
+        );
+        if (s?.avatar && s.avatar.trim().length > 0) return s.avatar;
+      } else if (att.person_type === "coach") {
+        const c = coaches.find(
+          (co) =>
+            String(co.id) === String(att.person_id) ||
+            (co.user_id && String(co.user_id) === String(att.user_id)) ||
+            co.name.toLowerCase().trim() === att.person_name.toLowerCase().trim() ||
+            att.person_name.toLowerCase().includes(co.name.toLowerCase().trim()) ||
+            co.name.toLowerCase().includes(att.person_name.toLowerCase().trim())
+        );
+        if (c?.avatar && c.avatar.trim().length > 0) return c.avatar;
+      }
+      return undefined;
+    },
+    [students, coaches]
+  );
+
   // Determine if coach is already checked in for active schedule
   const isCoachCheckedIn = useMemo(() => {
     if (!activeSchedule) return false;
@@ -1218,6 +1248,7 @@ export default function AbsensiTab({
               filteredHistory.map((att) => {
                 const isCoach = att.person_type === "coach";
                 const isLate = att.is_late || att.status === "Terlambat";
+                const photoUrl = getAttendancePhoto(att);
 
                 return (
                   <div
@@ -1226,14 +1257,14 @@ export default function AbsensiTab({
                   >
                     <div className="flex items-start justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-3">
-                        {att.photo ? (
+                        {photoUrl ? (
                           <div
-                            onClick={() => setSelectedPhotoRecord(att)}
+                            onClick={() => setSelectedPhotoRecord({ ...att, photo: photoUrl })}
                             className="relative h-11 w-11 rounded-2xl overflow-hidden cursor-pointer group shrink-0 border-2 border-cyan-400 shadow-sm hover:ring-2 hover:ring-cyan-400/50 transition"
                             title="Klik untuk melihat foto verifikasi presensi"
                           >
                             <img
-                              src={att.photo}
+                              src={photoUrl}
                               alt={`Foto ${att.person_name}`}
                               className="h-full w-full object-cover group-hover:scale-110 transition duration-200"
                             />
@@ -1264,13 +1295,13 @@ export default function AbsensiTab({
                             >
                               {isCoach ? "Pelatih" : "Siswa"}
                             </span>
-                            {att.photo && (
+                            {photoUrl && (
                               <button
-                                onClick={() => setSelectedPhotoRecord(att)}
+                                onClick={() => setSelectedPhotoRecord({ ...att, photo: photoUrl })}
                                 className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100 transition cursor-pointer"
                               >
                                 <Camera size={10} />
-                                <span>Foto Kolam</span>
+                                <span>{isCoach ? "Foto Pelatih" : "Foto Siswa"}</span>
                               </button>
                             )}
                             <span className="text-[10px] text-slate-400 font-medium">
@@ -1445,9 +1476,9 @@ export default function AbsensiTab({
 
             {/* Photo Viewport */}
             <div className="relative bg-slate-950 flex items-center justify-center min-h-[280px] max-h-[55vh] overflow-hidden">
-              {selectedPhotoRecord.photo ? (
+              {getAttendancePhoto(selectedPhotoRecord) || selectedPhotoRecord.photo ? (
                 <img
-                  src={selectedPhotoRecord.photo}
+                  src={getAttendancePhoto(selectedPhotoRecord) || selectedPhotoRecord.photo}
                   alt={`Bukti Presensi ${selectedPhotoRecord.person_name}`}
                   className="w-full h-auto max-h-[55vh] object-contain"
                 />

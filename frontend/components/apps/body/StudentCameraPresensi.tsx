@@ -437,7 +437,7 @@ export default function StudentCameraPresensi({
 
     setIsSubmitting(true);
     try {
-      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
+      const photoToSend = snapshotOverride || capturedPhotoUrl || student.avatar || undefined;
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
@@ -474,7 +474,7 @@ export default function StudentCameraPresensi({
 
     setIsSubmitting(true);
     try {
-      const photoToSend = snapshotOverride || capturedPhotoUrl || undefined;
+      const photoToSend = snapshotOverride || capturedPhotoUrl || student.avatar || undefined;
       if (onCheckInAttendance) {
         await onCheckInAttendance({
           schedule_id: activeSchedule.id,
