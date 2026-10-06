@@ -6,6 +6,7 @@ import {
   AttendanceRecord,
   ScheduleSession,
   FinancialTransaction,
+  CoachPayroll,
 } from "../types";
 import {
   CalendarDays,
@@ -35,6 +36,7 @@ interface KeuanganTabProps {
   schedules?: ScheduleSession[];
   attendances?: AttendanceRecord[];
   financialTransactions?: FinancialTransaction[];
+  payrolls?: CoachPayroll[];
   loadingData?: boolean;
   onAddFinancialTransaction?: (data: {
     type: "income" | "expense";
@@ -88,6 +90,7 @@ export default function KeuanganTab({
   schedules = [],
   attendances = [],
   financialTransactions = [],
+  payrolls = [],
   loadingData = false,
   onAddFinancialTransaction,
   onDeleteFinancialTransaction,
@@ -257,22 +260,44 @@ export default function KeuanganTab({
     return s === "belum dibayar" || s === "belum bayar" || s === "unpaid" || s === "pending";
   };
 
+  // Helper to match CoachPayroll records with target monthKey (YYYY-MM)
+  const isPayrollMatchingMonth = (p: CoachPayroll, targetMonthKey: string) => {
+    if (!p.month) return false;
+    const pMonth = p.month.trim().toLowerCase();
+    if (pMonth.includes(targetMonthKey)) return true;
+    const [yStr, mStr] = targetMonthKey.split("-");
+    const mIdx = parseInt(mStr, 10) - 1;
+    const yNum = parseInt(yStr, 10);
+    if (mIdx >= 0 && mIdx < 12) {
+      const mFull = MONTH_NAMES_FULL[mIdx].toLowerCase();
+      const mShort = MONTH_NAMES_SHORT[mIdx].toLowerCase();
+      if ((pMonth.includes(mFull) || pMonth.includes(mShort)) && pMonth.includes(String(yNum))) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Invoices categorization
   const pendingInvoices = useMemo(() => invoices.filter((i) => isPendingConfirm(i.status)), [invoices]);
   const paidInvoices = useMemo(() => invoices.filter((i) => isPaid(i.status)), [invoices]);
   const unpaidInvoices = useMemo(() => invoices.filter((i) => isUnpaid(i.status)), [invoices]);
 
-  // Filter financial transactions to exclude duplicate auto-recorded SPP invoices
+  // Filter financial transactions to exclude auto-recorded SPP invoices and auto-recorded Coach Payrolls
   const manualTransactions = useMemo(() => {
     return financialTransactions.filter((t) => {
       const isAutoSpp =
         t.category === "SPP Siswa" ||
         (t.notes && t.notes.toLowerCase().includes("auto-recorded dari approval spp"));
-      return !isAutoSpp;
+      const isAutoGaji =
+        t.category === "Gaji Pelatih" ||
+        (t.notes && t.notes.toLowerCase().includes("auto-recorded dari approval gaji"));
+      return !isAutoSpp && !isAutoGaji;
     });
   }, [financialTransactions]);
 
   // Dynamic Coach Payments calculation for any specified month key
+  // PERATURAN: Hanya honor/gaji yang telah di-ACC/approve oleh Admin yang masuk ke perhitungan keuangan.
   const calculateCoachPayrollForMonth = (monthKey: string) => {
     return coaches.map((c, idx) => {
       const coachSchedules = schedules.filter((s) => {
@@ -302,14 +327,29 @@ export default function KeuanganTab({
         return isCoachPerson && isValidStatus && matchMonth;
       });
 
-      const sessionsCount = Math.max(
-        completedSchedules.length,
-        verifiedCoachAttendances.length,
-        coachSchedules.length > 0 ? coachSchedules.length : 0
+      const matchingPr = payrolls.find(
+        (p) =>
+          (String(p.coach_id) === String(c.id) ||
+            p.coach_name?.toLowerCase().trim() === c.name.toLowerCase().trim() ||
+            c.name.toLowerCase().includes(p.coach_name?.toLowerCase().trim() || "")) &&
+          isPayrollMatchingMonth(p, monthKey)
       );
 
-      const ratePerSession = c.pay_per_session || c.payPerSession || 100000;
-      const totalHonor = sessionsCount * ratePerSession;
+      const sessionsCount = matchingPr
+        ? matchingPr.total_sessions
+        : Math.max(
+            completedSchedules.length,
+            verifiedCoachAttendances.length,
+            coachSchedules.length > 0 ? coachSchedules.length : 0
+          );
+
+      const ratePerSession =
+        matchingPr?.pay_per_session || c.pay_per_session || c.payPerSession || 100000;
+      const isApproved = matchingPr?.status === "Approved";
+
+      // Aturan: Sebelum di-ACC admin, totalHonor = 0 (tidak masuk perhitungan keuangan).
+      const approvedHonor = isApproved ? (matchingPr.total_amount || sessionsCount * ratePerSession) : 0;
+      const estimatedHonor = sessionsCount * ratePerSession + (matchingPr?.bonus_amount || 0);
 
       return {
         id: c.id || `coach-${idx}`,
@@ -321,8 +361,16 @@ export default function KeuanganTab({
         completedSchedulesCount: completedSchedules.length,
         sessionsCount,
         ratePerSession,
-        totalHonor,
-        status: "Sudah Ditransfer" as const,
+        totalHonor: approvedHonor, // HANYA honor disetujui yang masuk perhitungan keuangan
+        estimatedHonor,
+        isApproved,
+        status: isApproved
+          ? ("Approved" as const)
+          : sessionsCount > 0
+            ? ("Pending" as const)
+            : ("Belum Ada Sesi" as const),
+        approvedAt: matchingPr?.approved_at,
+        notes: matchingPr?.notes || "",
         recentAttendances: verifiedCoachAttendances.slice(0, 5),
       };
     });
@@ -331,7 +379,15 @@ export default function KeuanganTab({
   // Selected Month Breakdown Calculations
   const activeMonthCoachPayrolls = useMemo(() => {
     return calculateCoachPayrollForMonth(selectedMonthKey);
-  }, [selectedMonthKey, coaches, schedules, attendances, now]);
+  }, [selectedMonthKey, coaches, schedules, attendances, payrolls, now]);
+
+  const activeMonthApprovedCoachesCount = useMemo(() => {
+    return activeMonthCoachPayrolls.filter((c) => c.isApproved).length;
+  }, [activeMonthCoachPayrolls]);
+
+  const activeMonthPendingCoachesCount = useMemo(() => {
+    return activeMonthCoachPayrolls.filter((c) => !c.isApproved && c.sessionsCount > 0).length;
+  }, [activeMonthCoachPayrolls]);
 
   const activeMonthCoachExpenses = useMemo(() => {
     return activeMonthCoachPayrolls.reduce((acc, curr) => acc + curr.totalHonor, 0);
@@ -415,6 +471,7 @@ export default function KeuanganTab({
     coaches,
     schedules,
     attendances,
+    payrolls,
     currentMonthKey,
     selectedMonthKey,
     now,
@@ -887,11 +944,20 @@ export default function KeuanganTab({
                   <Handshake size={17} />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
-                    Coach payment
-                  </h4>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                      Coach payment
+                    </h4>
+                    {activeMonthPendingCoachesCount > 0 && (
+                      <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                        {activeMonthPendingCoachesCount} Menunggu ACC
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">
-                    Honor {coaches.length || activeMonthCoachPayrolls.length} pelatih renang
+                    {activeMonthApprovedCoachesCount > 0
+                      ? `${activeMonthApprovedCoachesCount} pelatih telah di-ACC (masuk keuangan)`
+                      : "Belum ada honor pelatih yang di-ACC"}
                   </p>
                 </div>
               </div>
@@ -1491,16 +1557,42 @@ export default function KeuanganTab({
             <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-xl flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-amber-800">
-                  Total Honor ({selectedPeriodObj.shortPeriod}):
+                  Total Honor Disetujui ({selectedPeriodObj.shortPeriod}):
                 </span>
                 <p className="text-sm sm:text-base font-black text-amber-950">
                   {formatIDR(activeMonthCoachExpenses)}
                 </p>
               </div>
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
-                {coaches.length} Pelatih
-              </span>
+              <div className="text-right">
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
+                  {activeMonthApprovedCoachesCount} Disetujui
+                </span>
+                {activeMonthPendingCoachesCount > 0 && (
+                  <span className="block text-[9px] font-bold text-amber-700 mt-0.5">
+                    {activeMonthPendingCoachesCount} Menunggu ACC
+                  </span>
+                )}
+              </div>
             </div>
+
+            {activeMonthPendingCoachesCount > 0 && (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[10px] sm:text-[11px] flex items-center justify-between gap-2">
+                <span>
+                  Sesi pelatih yang belum di-ACC admin <strong>tidak masuk</strong> ke perhitungan keuangan.
+                </span>
+                {setActiveTab && (
+                  <button
+                    onClick={() => {
+                      setShowCoachPaymentModal(false);
+                      setActiveTab("gaji_spp");
+                    }}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[9px] whitespace-nowrap cursor-pointer transition shrink-0"
+                  >
+                    Buka Menu Gaji/SPP
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {activeMonthCoachPayrolls.map((c) => (
@@ -1510,14 +1602,29 @@ export default function KeuanganTab({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xs font-black text-slate-900 truncate">{c.name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs font-black text-slate-900 truncate">{c.name}</p>
+                        {c.isApproved ? (
+                          <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                            Disetujui Admin
+                          </span>
+                        ) : c.sessionsCount > 0 ? (
+                          <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
+                            Menunggu ACC
+                          </span>
+                        ) : (
+                          <span className="text-[8px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-600">
+                            Belum Ada Sesi
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-500">
                         {c.spec} • <span className="font-bold text-blue-700">Rp {c.ratePerSession.toLocaleString("id-ID")}/sesi</span>
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs font-black text-amber-600">
-                        -{formatIDR(c.totalHonor)}
+                      <p className={`text-xs font-black ${c.isApproved ? "text-amber-600" : "text-slate-400"}`}>
+                        {c.isApproved ? `-${formatIDR(c.totalHonor)}` : "Rp 0"}
                       </p>
                       <span className="text-[8px] font-bold text-slate-500 bg-slate-200/70 px-1.5 py-0.2 rounded">
                         {c.sessionsCount} Sesi
@@ -1526,11 +1633,18 @@ export default function KeuanganTab({
                   </div>
 
                   {/* Calculation Formula Pill */}
-                  <div className="p-1.5 rounded-lg bg-blue-50/70 border border-blue-100 flex items-center justify-between text-[9px] font-bold text-blue-900">
+                  <div className={`p-1.5 rounded-lg border flex items-center justify-between text-[9px] font-bold ${
+                    c.isApproved
+                      ? "bg-blue-50/70 border-blue-100 text-blue-900"
+                      : "bg-slate-100 border-slate-200 text-slate-600"
+                  }`}>
                     <span>
                       Formula: {c.sessionsCount} Sesi × Rp {c.ratePerSession.toLocaleString("id-ID")}
+                      {!c.isApproved && c.sessionsCount > 0 && " (Belum di-ACC • Belum masuk keuangan)"}
                     </span>
-                    <span className="font-black text-blue-700">{formatIDR(c.totalHonor)}</span>
+                    <span className={`font-black ${c.isApproved ? "text-blue-700" : "text-slate-500"}`}>
+                      {c.isApproved ? formatIDR(c.totalHonor) : `Rp 0 (Est: ${formatIDR(c.estimatedHonor)})`}
+                    </span>
                   </div>
                 </div>
               ))}

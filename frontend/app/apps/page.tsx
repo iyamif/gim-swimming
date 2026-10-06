@@ -34,6 +34,7 @@ import {
   deleteFinancialTransaction,
   fetchPools,
   fetchClassPrograms,
+  fetchCoachPayrolls,
 } from "../../lib/api";
 import {
   Student,
@@ -47,6 +48,7 @@ import {
   FinancialTransaction,
   PoolVenue,
   ClassProgram,
+  CoachPayroll,
 } from "../../components/apps/types";
 import IOSInstallModal from "../../components/apps/IOSInstallModal";
 import DeactivatedAccountModal from "../../components/apps/DeactivatedAccountModal";
@@ -108,6 +110,7 @@ export default function AppsPage() {
   const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>([]);
   const [pools, setPools] = useState<PoolVenue[]>([]);
   const [classPrograms, setClassPrograms] = useState<ClassProgram[]>([]);
+  const [payrolls, setPayrolls] = useState<CoachPayroll[]>([]);
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -152,6 +155,7 @@ export default function AppsPage() {
         fetchedFinancialTransactions,
         fetchedPools,
         fetchedClassPrograms,
+        fetchedPayrolls,
       ] = await Promise.all([
         fetchStudents(),
         fetchCoaches(),
@@ -161,6 +165,7 @@ export default function AppsPage() {
         fetchFinancialTransactions(),
         fetchPools(),
         fetchClassPrograms(),
+        fetchCoachPayrolls(),
       ]);
 
       // If role is Orang Tua, find corresponding student name to accurately query notifications
@@ -188,6 +193,7 @@ export default function AppsPage() {
       setFinancialTransactions(fetchedFinancialTransactions);
       setPools(fetchedPools);
       setClassPrograms(fetchedClassPrograms);
+      setPayrolls(fetchedPayrolls);
       setNotifications(fetchedNotifications);
 
       // Seed known notifications set on initial load so we don't trigger toast for existing notifications
@@ -205,6 +211,7 @@ export default function AppsPage() {
           financialTransactions: fetchedFinancialTransactions,
           pools: fetchedPools,
           classPrograms: fetchedClassPrograms,
+          payrolls: fetchedPayrolls,
           notifications: fetchedNotifications,
         },
         userKey
@@ -1374,6 +1381,7 @@ export default function AppsPage() {
             onUpdateCoachStatus={handleUpdateCoachStatus}
             onDeleteCoach={handleDeleteCoach}
             financialTransactions={financialTransactions}
+            payrolls={payrolls}
             pools={pools}
             classPrograms={classPrograms}
             onAddFinancialTransaction={handleAddFinancialTransaction}

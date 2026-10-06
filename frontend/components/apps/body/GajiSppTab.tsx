@@ -43,6 +43,7 @@ interface GajiSppTabProps {
   invoices: Invoice[];
   attendances?: AttendanceRecord[];
   schedules?: ScheduleSession[];
+  payrolls?: CoachPayroll[];
   loadingData?: boolean;
   sessionUser?: string;
   sessionRole?: string;
@@ -75,6 +76,7 @@ export default function GajiSppTab({
   invoices = [],
   attendances = [],
   schedules = [],
+  payrolls: initialPayrolls = [],
   loadingData = false,
   sessionUser = "",
   sessionRole = "admin",
@@ -115,9 +117,15 @@ export default function GajiSppTab({
   const [manualSubmitting, setManualSubmitting] = useState(false);
 
   // Coach Payroll State (from backend)
-  const [payrolls, setPayrolls] = useState<CoachPayroll[]>([]);
+  const [payrolls, setPayrolls] = useState<CoachPayroll[]>(initialPayrolls);
   const [loadingPayrolls, setLoadingPayrolls] = useState(false);
   const [approvingPayrollId, setApprovingPayrollId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialPayrolls.length > 0) {
+      setPayrolls(initialPayrolls);
+    }
+  }, [initialPayrolls]);
 
   // Selected Slip Modal State
   const [selectedSlipData, setSelectedSlipData] = useState<{

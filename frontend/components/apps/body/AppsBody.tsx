@@ -9,6 +9,7 @@ import {
   FinancialTransaction,
   PoolVenue,
   ClassProgram,
+  CoachPayroll,
 } from "../types";
 import DashboardOverviewTab from "./DashboardOverviewTab";
 import KeuanganTab from "./KeuanganTab";
@@ -95,6 +96,7 @@ interface AppsBodyProps {
   }) => Promise<void> | void;
   onDeleteCoach?: (coachId: string) => Promise<void> | void;
   financialTransactions?: FinancialTransaction[];
+  payrolls?: CoachPayroll[];
   onAddFinancialTransaction?: (data: {
     type: "income" | "expense";
     category: string;
@@ -120,6 +122,7 @@ export default function AppsBody({
   financialTransactions = [],
   pools = [],
   classPrograms = [],
+  payrolls = [],
   loadingData = false,
   onAddFinancialTransaction,
   onDeleteFinancialTransaction,
@@ -173,6 +176,7 @@ export default function AppsBody({
           schedules={schedules}
           attendances={attendances}
           financialTransactions={financialTransactions}
+          payrolls={payrolls}
           loadingData={loadingData}
           onAddFinancialTransaction={onAddFinancialTransaction}
           onDeleteFinancialTransaction={onDeleteFinancialTransaction}

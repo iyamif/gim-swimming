@@ -8,6 +8,7 @@ import {
   FinancialTransaction,
   PoolVenue,
   ClassProgram,
+  CoachPayroll,
 } from "../components/apps/types";
 
 const APP_CACHE_KEY_PREFIX = "gim_cache_v1";
@@ -22,6 +23,7 @@ export interface CachedAppData {
   financialTransactions?: FinancialTransaction[];
   pools?: PoolVenue[];
   classPrograms?: ClassProgram[];
+  payrolls?: CoachPayroll[];
   cachedAt?: number;
 }
 
