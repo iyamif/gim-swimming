@@ -69,7 +69,28 @@ const MONTH_NAMES_ID = [
 ];
 
 const cleanCoachName = (name: string) =>
-  (name || "").toLowerCase().replace(/^coach\s+/i, "").trim();
+  (name || "")
+    .toLowerCase()
+    .replace(/^(coach|kak|pelatih)\s+/i, "")
+    .trim();
+
+const parseDateMonthYear = (dateStr?: string) => {
+  if (!dateStr) return null;
+  const cleanStr = dateStr.split("T")[0];
+  const parts = cleanStr.split("-");
+  if (parts.length >= 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    if (!isNaN(y) && !isNaN(m)) {
+      return { monthIdx: m, year: y };
+    }
+  }
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    return { monthIdx: d.getMonth(), year: d.getFullYear() };
+  }
+  return null;
+};
 
 export default function GajiSppTab({
   students = [],
@@ -242,25 +263,33 @@ export default function GajiSppTab({
 
       // Filter real DB attendances
       const matched = attendances.filter((att) => {
-        const isCoachPerson =
+        const isCoachType =
           att.person_type === "coach" ||
           att.user_role === "pelatih" ||
+          !att.person_type;
+
+        if (!isCoachType) return false;
+
+        const attCoachClean = cleanCoachName(att.person_name);
+        const matchesCoach =
           String(att.person_id) === coachIdStr ||
-          (coachClean && cleanCoachName(att.person_name) === coachClean) ||
-          (normalizedUser && cleanCoachName(att.person_name) === normalizedUser);
+          (coachClean && attCoachClean === coachClean) ||
+          (coachClean && attCoachClean && attCoachClean.includes(coachClean)) ||
+          (coachClean && attCoachClean && coachClean.includes(attCoachClean)) ||
+          (normalizedUser && attCoachClean === normalizedUser);
+
+        if (!matchesCoach) return false;
 
         const isValidStatus =
           att.status === "Hadir" ||
           att.status === "Terlambat" ||
           att.status === "Selesai";
 
-        if (!isCoachPerson || !isValidStatus) return false;
+        if (!isValidStatus) return false;
 
-        if (att.date) {
-          const d = new Date(att.date);
-          if (!isNaN(d.getTime())) {
-            return d.getMonth() === targetMonthIdx && d.getFullYear() === targetYear;
-          }
+        const dateParsed = parseDateMonthYear(att.date);
+        if (dateParsed) {
+          return dateParsed.monthIdx === targetMonthIdx && dateParsed.year === targetYear;
         }
         return false;
       });
@@ -320,7 +349,7 @@ export default function GajiSppTab({
       (p) =>
         (String(p.coach_id) === String(currentCoach.id) ||
           cleanCoachName(p.coach_name) === cleanCoachName(currentCoach.name)) &&
-        (!p.month || p.month === selectedMonth)
+        p.month === selectedMonth
     );
 
     // Strictly real session count: 0 if coach hasn't completed any sessions yet
@@ -443,7 +472,7 @@ export default function GajiSppTab({
   const countUnpaid = invoices.filter((i) => i.status === "Belum Dibayar").length;
 
   // Coach Calculations for Admin (REAL DB ONLY)
-  // OPTION 1: Filter to ONLY coaches who have active schedules, attended sessions, or payroll in the selected month
+  // Filter to ONLY coaches who have active schedules, attended sessions, or payroll in the selected month
   const coachCalculations = useMemo(() => {
     return coaches
       .map((coach) => {
@@ -451,25 +480,33 @@ export default function GajiSppTab({
         const coachIdStr = String(coach.id);
 
         const coachAttendances = attendances.filter((att) => {
-          const isCoach =
+          const isCoachType =
             att.person_type === "coach" ||
             att.user_role === "pelatih" ||
+            !att.person_type;
+
+          if (!isCoachType) return false;
+
+          const attCoachClean = cleanCoachName(att.person_name);
+          const matchesCoach =
             String(att.person_id) === coachIdStr ||
-            (coachClean && cleanCoachName(att.person_name) === coachClean);
+            (coachClean && attCoachClean === coachClean) ||
+            (coachClean && attCoachClean && attCoachClean.includes(coachClean)) ||
+            (coachClean && attCoachClean && coachClean.includes(attCoachClean));
+
+          if (!matchesCoach) return false;
 
           const isValidStatus =
             att.status === "Hadir" || att.status === "Terlambat" || att.status === "Selesai";
 
-          if (!isCoach || !isValidStatus) return false;
+          if (!isValidStatus) return false;
 
-          if (att.date) {
-            const d = new Date(att.date);
-            if (!isNaN(d.getTime())) {
-              return (
-                d.getMonth() === parseSelectedMonthRange.monthIdx &&
-                d.getFullYear() === parseSelectedMonthRange.year
-              );
-            }
+          const dateParsed = parseDateMonthYear(att.date);
+          if (dateParsed) {
+            return (
+              dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
+              dateParsed.year === parseSelectedMonthRange.year
+            );
           }
           return false;
         });
@@ -489,25 +526,26 @@ export default function GajiSppTab({
           (p) =>
             (String(p.coach_id) === coachIdStr ||
               cleanCoachName(p.coach_name) === coachClean) &&
-            (!p.month || p.month === selectedMonth)
+            p.month === selectedMonth
         );
 
         // Check if coach has scheduled sessions in the selected month
         const hasScheduleInMonth = (schedules || []).some((s) => {
+          const sCoachClean = cleanCoachName(s.coachName);
           const matchCoach =
             String(s.coachId) === coachIdStr ||
-            (s.coachName && cleanCoachName(s.coachName) === coachClean) ||
-            (coachClean && cleanCoachName(s.coachName).includes(coachClean)) ||
-            (coachClean && coachClean.includes(cleanCoachName(s.coachName)));
+            (sCoachClean && sCoachClean === coachClean) ||
+            (coachClean && sCoachClean && sCoachClean.includes(coachClean)) ||
+            (coachClean && sCoachClean && coachClean.includes(sCoachClean));
+
           if (!matchCoach) return false;
-          if (s.date) {
-            const d = new Date(s.date);
-            if (!isNaN(d.getTime())) {
-              return (
-                d.getMonth() === parseSelectedMonthRange.monthIdx &&
-                d.getFullYear() === parseSelectedMonthRange.year
-              );
-            }
+
+          const dateParsed = parseDateMonthYear(s.date);
+          if (dateParsed) {
+            return (
+              dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
+              dateParsed.year === parseSelectedMonthRange.year
+            );
           }
           return false;
         });
@@ -538,8 +576,8 @@ export default function GajiSppTab({
         };
       })
       .filter((item) => {
-        // Option 1: Only display coaches who have completed sessions > 0, existing payroll record, or active schedule in this month
-        return item.completedSessions > 0 || item.payrollId !== null || item.hasScheduleInMonth;
+        // Only display coaches who have scheduled sessions in this month, OR completed sessions > 0, OR existing payroll in this month
+        return item.hasScheduleInMonth || item.completedSessions > 0 || item.payrollId !== null;
       });
   }, [coaches, attendances, payrolls, schedules, parseSelectedMonthRange, selectedMonth]);
 
