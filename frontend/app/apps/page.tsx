@@ -1114,6 +1114,37 @@ export default function AppsPage() {
     }
   };
 
+  // Helper for Full-screen Loading Overlay with Landing Page Backdrop
+  const renderLoadingOverlay = () => (
+    <>
+      <div className="fixed inset-0 z-[9998] bg-[#061827] overflow-hidden">
+        <main className="overflow-hidden bg-[#061827]">
+          <Navbar />
+          <Hero />
+          <About />
+        </main>
+      </div>
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#061827]/85 backdrop-blur-md pointer-events-auto transition-all duration-300 animate-fadeIn">
+        <div className="absolute inset-0 bg-gradient-to-b from-cyan-900/30 via-[#061827]/80 to-[#061827] pointer-events-none" />
+        <div className="relative z-10 flex flex-col items-center justify-center space-y-4 max-w-xs text-center px-4">
+          <div className="relative flex items-center justify-center">
+            <div className="absolute h-24 w-24 rounded-full bg-cyan-500/25 blur-xl animate-pulse" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon.png"
+              alt="GIM Swimming"
+              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-[0_10px_25px_rgba(6,182,212,0.5)]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-black text-white tracking-tight drop-shadow-md">GIM Swimming Club</h3>
+            <p className="text-xs text-cyan-300 font-medium animate-pulse tracking-wide">Menyiapkan data aplikasi...</p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
   // ==========================================
   // LOGGED OUT / NO SESSION VIEW: Landing Page Background
   // ==========================================
@@ -1131,17 +1162,7 @@ export default function AppsPage() {
           <Footer />
         </main>
 
-        {/* Floating Loading Overlay */}
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[4px] pointer-events-auto transition-all duration-300 animate-fadeIn">
-          <div className="flex flex-col items-center justify-center space-y-3 scale-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icon.png"
-              alt="Loading"
-              className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-2xl"
-            />
-          </div>
-        </div>
+        {renderLoadingOverlay()}
       </div>
     );
   }
@@ -1249,25 +1270,8 @@ export default function AppsPage() {
           onClose={() => setShowIOSPrompt(false)}
         />
 
-        {/* Full-screen Loading Overlay during Initial Cold Start */}
-        {loadingData && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md pointer-events-auto transition-all duration-300">
-            <div className="flex flex-col items-center justify-center space-y-4 max-w-xs text-center px-4">
-              <div className="relative flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/icon.png"
-                  alt="GIM Swimming"
-                  className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
-                />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-black text-slate-900 tracking-tight">GIM Swimming Club</h3>
-                <p className="text-xs text-slate-500 font-medium animate-pulse">Menyiapkan data aplikasi...</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Full-screen Loading Overlay with Landing Page Background during Initial Cold Start */}
+        {loadingData && renderLoadingOverlay()}
       </div>
     );
   }
@@ -1402,25 +1406,8 @@ export default function AppsPage() {
         onLogout={handleLogout}
       />
 
-      {/* Full-screen Loading Overlay during Initial Cold Start */}
-      {loadingData && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md pointer-events-auto transition-all duration-300">
-          <div className="flex flex-col items-center justify-center space-y-4 max-w-xs text-center px-4">
-            <div className="relative flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/icon.png"
-                alt="GIM Swimming"
-                className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-xl"
-              />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-black text-slate-900 tracking-tight">GIM Swimming Club</h3>
-              <p className="text-xs text-slate-500 font-medium animate-pulse">Menyiapkan data aplikasi...</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Full-screen Loading Overlay with Landing Page Background during Initial Cold Start */}
+      {loadingData && renderLoadingOverlay()}
     </div>
   );
 }
