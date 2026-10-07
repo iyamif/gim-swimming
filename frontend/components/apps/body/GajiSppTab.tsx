@@ -28,12 +28,14 @@ import {
   Waves,
   MapPin,
   Users,
+  RotateCcw,
 } from "lucide-react";
 import {
   verifyInvoicePayment,
   fetchCoachPayrolls,
   createOrUpdateCoachPayroll,
   approveCoachPayroll,
+  deleteCoachPayroll,
   createInvoice,
 } from "../../../lib/api";
 import SlipGajiModal from "./SlipGajiModal";
@@ -694,6 +696,35 @@ export default function GajiSppTab({
     } catch (err: any) {
       console.error("Approve payroll error:", err);
       alert(err.message || "Gagal menyetujui gaji pelatih.");
+    } finally {
+      setApprovingPayrollId(null);
+    }
+  };
+
+  // Handle Reset / Unapprove Coach Payroll (Admin)
+  const handleResetCoachPayroll = async (item: (typeof coachCalculations)[0]) => {
+    if (!item.payrollId) {
+      alert("Tidak ada data payroll yang dapat direset.");
+      return;
+    }
+
+    if (
+      !confirm(
+        `Apakah Anda yakin ingin membatalkan approval gaji Pelatih ${item.coach.name} untuk periode ${selectedMonth}?\n\nStatus akan dikembalikan ke Pending/Aktif agar sesi-sesi baru yang diajar pelatih ini dapat terhitung kembali.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setApprovingPayrollId(item.coach.id);
+      await deleteCoachPayroll(item.payrollId);
+      await loadPayrolls();
+      if (onRefresh) await onRefresh();
+      alert(`Approval gaji Pelatih ${item.coach.name} berhasil dibatalkan. Sesi mengajar baru akan terhitung kembali.`);
+    } catch (err: any) {
+      console.error("Reset payroll error:", err);
+      alert(err.message || "Gagal membatalkan approval gaji pelatih.");
     } finally {
       setApprovingPayrollId(null);
     }
@@ -1493,13 +1524,24 @@ export default function GajiSppTab({
                           </button>
 
                           {isApproved ? (
-                            <button
-                              disabled
-                              className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-xl text-xs font-bold cursor-default"
-                            >
-                              <Check size={15} />
-                              <span>Gaji Telah Cair</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                disabled
+                                className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-2 rounded-xl text-xs font-bold cursor-default"
+                              >
+                                <Check size={15} />
+                                <span>Gaji Telah Cair</span>
+                              </button>
+                              <button
+                                onClick={() => handleResetCoachPayroll(item)}
+                                disabled={approvingPayrollId === item.coach.id}
+                                title="Batalkan Approval / Reset Status Gaji"
+                                className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-2.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
+                              >
+                                <RotateCcw size={14} />
+                                <span>Reset</span>
+                              </button>
+                            </div>
                           ) : (
                             <button
                               onClick={() => handleApproveCoachPayroll(item)}

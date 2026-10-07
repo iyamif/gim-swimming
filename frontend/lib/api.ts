@@ -1618,5 +1618,22 @@ export async function approveCoachPayroll(
   }
 }
 
+export async function deleteCoachPayroll(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/payrolls/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const errJson = await res.json();
+      throw new Error(errJson.error || "Gagal membatalkan approval gaji pelatih");
+    }
+    return true;
+  } catch (err) {
+    console.error("deleteCoachPayroll error:", err);
+    throw err;
+  }
+}
+
 
 

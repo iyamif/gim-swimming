@@ -75,6 +75,7 @@ type AppService interface {
 	GetCoachPayrolls(ctx context.Context, month, role, username, userID string) ([]model.CoachPayroll, error)
 	CreateOrUpdateCoachPayroll(ctx context.Context, input *model.CreateCoachPayrollInput) (*model.CoachPayroll, error)
 	ApproveCoachPayroll(ctx context.Context, id string, notes string) (*model.CoachPayroll, error)
+	DeleteCoachPayroll(ctx context.Context, id string) error
 
 	// User Synchronization / Backfill
 	BackfillUserLinks(ctx context.Context) error
@@ -1923,6 +1924,10 @@ func (s *appService) ApproveCoachPayroll(ctx context.Context, id string, notes s
 	}
 
 	return payroll, nil
+}
+
+func (s *appService) DeleteCoachPayroll(ctx context.Context, id string) error {
+	return s.payrollRepo.DeleteByID(ctx, id)
 }
 
 // BackfillUserLinks ensures existing coaches and students are associated with user accounts and synced

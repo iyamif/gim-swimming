@@ -1091,4 +1091,21 @@ func (h *AppHandler) ApproveCoachPayroll(c *gin.Context) {
 	})
 }
 
+// DeleteCoachPayroll handles DELETE /api/v1/payrolls/:id
+func (h *AppHandler) DeleteCoachPayroll(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.appService.DeleteCoachPayroll(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Pencairan gaji pelatih berhasil dibatalkan/dihapus",
+	})
+}
+
 

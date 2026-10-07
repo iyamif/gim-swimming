@@ -203,6 +203,7 @@ func SetupRoutes(
 			payrollGroup.GET("", appHandler.GetCoachPayrolls)
 			payrollGroup.POST("", appHandler.CreateOrUpdateCoachPayroll)
 			payrollGroup.PATCH("/:id/approve", appHandler.ApproveCoachPayroll)
+			payrollGroup.DELETE("/:id", appHandler.DeleteCoachPayroll)
 		}
 
 		// Role-based Verification Test Endpoints
