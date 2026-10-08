@@ -259,6 +259,7 @@ export default function AppsBody({
           coaches={coaches}
           students={students}
           attendances={attendances}
+          classPrograms={classPrograms}
           sessionUser={sessionUser}
           sessionRole={sessionRole}
           loadingData={loadingData}

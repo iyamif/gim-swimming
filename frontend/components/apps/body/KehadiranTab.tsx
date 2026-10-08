@@ -23,6 +23,7 @@ import {
   Camera,
   Maximize2,
 } from "lucide-react";
+import { ScheduleSession, Coach, Student, AttendanceRecord, ClassProgram } from "../types";
 import { overrideAttendance } from "../../../lib/api";
 
 interface KehadiranTabProps {
@@ -30,6 +31,7 @@ interface KehadiranTabProps {
   coaches?: Coach[];
   students?: Student[];
   attendances?: AttendanceRecord[];
+  classPrograms?: ClassProgram[];
   sessionUser?: string;
   sessionRole?: string;
   loadingData?: boolean;
@@ -42,6 +44,7 @@ export default function KehadiranTab({
   coaches = [],
   students = [],
   attendances = [],
+  classPrograms = [],
   sessionUser = "",
   sessionRole = "admin",
   loadingData = false,
@@ -397,10 +400,20 @@ export default function KehadiranTab({
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="ALL">Semua Kelas</option>
-                <option value="Prestasi">Prestasi</option>
-                <option value="Reguler">Reguler</option>
-                <option value="Private">Private</option>
-                <option value="Pemula (Water Safety)">Pemula</option>
+                {classPrograms && classPrograms.length > 0 ? (
+                  classPrograms.map((p) => (
+                    <option key={p.id || p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Prestasi">Prestasi</option>
+                    <option value="Reguler">Reguler</option>
+                    <option value="Private Class">Private Class</option>
+                    <option value="Baby Swim / Pemula">Baby Swim / Pemula</option>
+                  </>
+                )}
               </select>
             </div>
           )}

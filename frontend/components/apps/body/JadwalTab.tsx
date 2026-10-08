@@ -240,12 +240,12 @@ export default function JadwalTab({
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth()); // 0-11
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Available Programs & Pools from Master Data
+  // Available Programs & Pools from Master Data (100% Dynamic from Admin Master Data)
   const availablePrograms = useMemo(() => {
     if (classPrograms && classPrograms.length > 0) {
       return classPrograms.map((p) => p.name);
     }
-    return ["Private Class", "Kids Swimming", "Prestasi"];
+    return ["Prestasi", "Reguler", "Private Class", "Baby Swim / Pemula"];
   }, [classPrograms]);
 
   const availablePools = useMemo(() => {
@@ -1045,7 +1045,13 @@ export default function JadwalTab({
   }, [schedules, isCoachRole, sessionUser, coaches]);
 
   const filteredSchedules = relevantSchedules.filter((sch) => {
-    const matchClass = filterClass === "Semua" || sch.class === filterClass;
+    const matchClass =
+      filterClass === "Semua" ||
+      sch.class === filterClass ||
+      (sch.class && filterClass && (
+        sch.class.toLowerCase().includes(filterClass.toLowerCase()) ||
+        filterClass.toLowerCase().includes(sch.class.toLowerCase())
+      ));
     const matchSearch =
       (sch.coachName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (sch.studentNames || []).some((name) =>
