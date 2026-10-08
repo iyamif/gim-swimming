@@ -1768,7 +1768,7 @@ export default function JadwalTab({
                   onClick={() => setShowAddModal(false)}
                   className="py-2.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
                 >
-                  Batal / Kembali
+                  Batal
                 </button>
                 <button
                   type="submit"
@@ -1797,7 +1797,7 @@ export default function JadwalTab({
                   ) : (
                     <>
                       <Plus size={14} />
-                      <span>Simpan &amp; Tambahkan Jadwal</span>
+                      <span>Simpan</span>
                     </>
                   )}
                 </button>
