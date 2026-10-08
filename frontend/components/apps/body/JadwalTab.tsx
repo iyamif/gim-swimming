@@ -642,6 +642,9 @@ export default function JadwalTab({
   // Real-time detection of coach conflict for Create Modal
   const conflictingSchedules = (() => {
     if (!formCoachName.trim() || !formTimeStart || !formTimeEnd) return [];
+    // Validasi bentrok jadwal pelatih TIDAK BERLAKU untuk program grup / multi-murid (misal: Prestasi)
+    if (!isSingleStudentClass(formClass)) return [];
+
     const targetClean = cleanName(formCoachName);
 
     const list: { date: string; session: ScheduleSession; index: number }[] = [];
@@ -650,6 +653,9 @@ export default function JadwalTab({
       if (!d) return;
       const match = schedules.find((s) => {
         if (s.date !== d) return false;
+
+        // Abaikan sesi lain yang juga merupakan program grup / Prestasi
+        if (!isSingleStudentClass(s.class || "")) return false;
 
         const sClean = cleanName(s.coachName);
         const isSameCoach =
@@ -674,12 +680,18 @@ export default function JadwalTab({
     if (!editingSchedule || !editCoachName.trim() || !editTimeStart || !editTimeEnd || !editDate) {
       return null;
     }
+    // Validasi bentrok jadwal pelatih TIDAK BERLAKU untuk program grup / multi-murid (misal: Prestasi)
+    if (!isSingleStudentClass(editClass)) return null;
+
     const targetClean = cleanName(editCoachName);
 
     return schedules.find((s) => {
       // Exclude the schedule currently being edited
       if (s.id === editingSchedule.id) return false;
       if (s.date !== editDate) return false;
+
+      // Abaikan sesi lain yang juga merupakan program grup / Prestasi
+      if (!isSingleStudentClass(s.class || "")) return false;
 
       const sClean = cleanName(s.coachName);
       const isSameCoach =
