@@ -1452,37 +1452,26 @@ export default function GajiSppTab({
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
                                   <Calendar size={11} className="text-blue-600 shrink-0" />
-                                  <span>Bayaran: {selectedMonth}</span>
+                                  <span>{selectedMonth}</span>
                                 </span>
                               </div>
                             </div>
                           </div>
 
                           {isApproved ? (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black border border-emerald-200 shrink-0">
-                              <CheckCircle2 size={13} />
-                              <span>Approved</span>
+                            <span title="Gaji Telah Cair" className="p-2 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                              <CheckCircle2 size={16} />
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-black border border-amber-200 shrink-0">
-                              <Clock size={13} />
-                              <span>Menunggu Approval</span>
+                            <span title="Menunggu Approval" className="p-2 rounded-full bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
+                              <Clock size={16} />
                             </span>
                           )}
                         </div>
 
-                        <div className="bg-slate-50 p-3.5 rounded-xl space-y-2 text-xs border border-slate-100">
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-2 text-xs border border-slate-100">
                           <div className="flex justify-between items-center text-slate-600 gap-2">
-                            <span className="flex items-center gap-1 min-w-0">
-                              <Calendar size={12} className="text-blue-600 shrink-0" />
-                              <span className="truncate">Bulan Bayaran:</span>
-                            </span>
-                            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 shrink-0">
-                              {selectedMonth}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-slate-600 gap-2">
-                            <span>Sesi Selesai Mengajar:</span>
+                            <span>Sesi Mengajar:</span>
                             <span className="font-bold text-slate-900 shrink-0">
                               {item.completedSessions} Sesi
                             </span>
@@ -1494,7 +1483,7 @@ export default function GajiSppTab({
                             </span>
                           </div>
                           <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black text-slate-900 gap-2">
-                            <span className="min-w-0 truncate">Total Gaji ({selectedMonth}):</span>
+                            <span className="min-w-0 truncate">Total Gaji:</span>
                             <span className="text-blue-700 text-base shrink-0">
                               Rp {item.totalAmount.toLocaleString("id-ID")}
                             </span>
