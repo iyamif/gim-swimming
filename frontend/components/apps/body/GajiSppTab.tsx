@@ -1447,7 +1447,7 @@ export default function GajiSppTab({
                                 {item.coach.name}
                               </h4>
                               <p className="text-xs text-slate-500">
-                                {item.coach.spec || "Instruktur Renang"} • {item.coach.class || "Prestasi"}
+                                {item.coach.class || "Pelatih Renang"}
                               </p>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
