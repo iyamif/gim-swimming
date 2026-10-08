@@ -849,30 +849,30 @@ export default function GajiSppTab({
                 <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-md space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Honor Bulan Ini ({selectedMonth})
+                      {selectedMonth} Payment
                     </span>
-                    <span
-                      className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-full ${currentCoachHonorCalculation.status === "Approved"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : currentCoachHonorCalculation.completedSessions > 0
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : "bg-slate-100 text-slate-600 border border-slate-200"
-                        }`}
-                    >
-                      {currentCoachHonorCalculation.status === "Approved" ? (
-                        <>
-                          <CheckCircle2 size={12} />
-                          <span>Sudah Dicairkan</span>
-                        </>
-                      ) : currentCoachHonorCalculation.completedSessions > 0 ? (
-                        <>
-                          <Clock size={12} />
-                          <span>Menunggu Approval</span>
-                        </>
-                      ) : (
-                        <span>Belum Ada Sesi</span>
-                      )}
-                    </span>
+                    {currentCoachHonorCalculation.status === "Approved" ? (
+                      <span
+                        title="Sudah Dicairkan"
+                        className="p-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0"
+                      >
+                        <CheckCircle2 size={14} />
+                      </span>
+                    ) : currentCoachHonorCalculation.completedSessions > 0 ? (
+                      <span
+                        title="Menunggu Approval"
+                        className="p-1.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 shrink-0"
+                      >
+                        <Clock size={14} />
+                      </span>
+                    ) : (
+                      <span
+                        title="Belum Ada Sesi"
+                        className="p-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0"
+                      >
+                        <Clock size={14} />
+                      </span>
+                    )}
                   </div>
 
                   {/* Big Number Amount (Real DB: Rp 0 jika belum ada sesi selesai) */}
