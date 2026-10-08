@@ -37,6 +37,8 @@ import {
   approveCoachPayroll,
   deleteCoachPayroll,
   createInvoice,
+  isImageAvatar,
+  getAvatarImageUrl,
 } from "../../../lib/api";
 import SlipGajiModal from "./SlipGajiModal";
 
@@ -92,6 +94,19 @@ const parseDateMonthYear = (dateStr?: string) => {
     return { monthIdx: d.getMonth(), year: d.getFullYear() };
   }
   return null;
+};
+
+const getCoachAvatar = (coach: Coach) => {
+  if (coach.avatar) return coach.avatar;
+  if (typeof window !== "undefined") {
+    const byName = localStorage.getItem(`gim_avatar_${coach.name}`);
+    if (byName) return byName;
+    const byLower = localStorage.getItem(`gim_avatar_${coach.name.toLowerCase()}`);
+    if (byLower) return byLower;
+    const byId = localStorage.getItem(`gim_avatar_${coach.id}`);
+    if (byId) return byId;
+  }
+  return "";
 };
 
 export default function GajiSppTab({
@@ -1430,18 +1445,29 @@ export default function GajiSppTab({
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {coachCalculations.map((item) => {
-                    const isApproved = item.status === "Approved";
+                      const isApproved = item.status === "Approved";
+                      const coachAvatar = getCoachAvatar(item.coach);
+                      const isImg = isImageAvatar(coachAvatar);
 
-                    return (
-                      <div
-                        key={item.coach.id}
-                        className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4 hover:border-blue-200 transition"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 font-black text-lg flex items-center justify-center shrink-0">
-                              {item.coach.name ? item.coach.name.charAt(0).toUpperCase() : "P"}
-                            </div>
+                      return (
+                        <div
+                          key={item.coach.id}
+                          className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between space-y-4 hover:border-blue-200 transition"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              {isImg && coachAvatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={getAvatarImageUrl(coachAvatar)}
+                                  alt={item.coach.name}
+                                  className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-slate-200 shadow-sm"
+                                />
+                              ) : (
+                                <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 font-black text-lg flex items-center justify-center shrink-0">
+                                  {item.coach.name ? item.coach.name.charAt(0).toUpperCase() : "P"}
+                                </div>
+                              )}
                             <div>
                               <h4 className="text-base font-black text-slate-900">
                                 {item.coach.name}
