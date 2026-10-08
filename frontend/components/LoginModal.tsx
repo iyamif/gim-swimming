@@ -208,10 +208,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           token: token,
           avatar: user?.avatar,
         });
-        setStep("success");
-        setTimeout(() => {
-          onLoginSuccess(user.username, user.role);
-        }, 1500);
+        onLoginSuccess(user.username, user.role);
       }
     } catch (err: any) {
       setLoading(false);
@@ -254,11 +251,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         avatar: currentUserData?.avatar,
       });
 
-      setStep("success");
-
-      setTimeout(() => {
-        onLoginSuccess(finalUser, finalRole);
-      }, 1500);
+      onLoginSuccess(finalUser, finalRole);
     } catch (err: any) {
       setSetupLoading(false);
       setSetupError(err.message || "Gagal menyimpan kata sandi baru.");
@@ -521,10 +514,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                 avatar: user.avatar || credential.avatar,
               });
               setCurrentUserData(user);
-              setStep("success");
-              setTimeout(() => {
-                onLoginSuccess(user.username || credential.username, user.role || credential.role);
-              }, 1200);
+              onLoginSuccess(user.username || credential.username, user.role || credential.role);
             })
             .catch(() => {
               // Fallback to default login
@@ -570,10 +560,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             token: token,
             avatar: user?.avatar || credential?.avatar,
           });
-          setStep("success");
-          setTimeout(() => {
-            onLoginSuccess(user.username, user.role);
-          }, 1200);
+          onLoginSuccess(user.username, user.role);
         }
       })
       .catch((err) => {
@@ -585,10 +572,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             token: credential.token,
             avatar: credential.avatar,
           });
-          setStep("success");
-          setTimeout(() => {
-            onLoginSuccess(credential.username, credential.role);
-          }, 1200);
+          onLoginSuccess(credential.username, credential.role);
         } else {
           setStep("login");
           setError(err.message || "Autentikasi biometrik gagal. Silakan masuk menggunakan kata sandi.");
