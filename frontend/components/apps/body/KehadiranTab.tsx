@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import { ScheduleSession, Coach, Student, AttendanceRecord } from "../types";
+import { ScheduleSession, Coach, Student, AttendanceRecord, ClassProgram } from "../types";
 import {
   CalendarDays,
   Calendar,
@@ -23,7 +23,6 @@ import {
   Camera,
   Maximize2,
 } from "lucide-react";
-import { ScheduleSession, Coach, Student, AttendanceRecord, ClassProgram } from "../types";
 import { overrideAttendance } from "../../../lib/api";
 
 interface KehadiranTabProps {
