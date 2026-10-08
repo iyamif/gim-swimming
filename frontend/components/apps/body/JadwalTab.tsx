@@ -642,10 +642,9 @@ export default function JadwalTab({
   // Real-time detection of coach conflict for Create Modal
   const conflictingSchedules = (() => {
     if (!formCoachName.trim() || !formTimeStart || !formTimeEnd) return [];
-    // Validasi bentrok jadwal pelatih TIDAK BERLAKU untuk program grup / multi-murid (misal: Prestasi)
-    if (!isSingleStudentClass(formClass)) return [];
 
     const targetClean = cleanName(formCoachName);
+    const isCurrentGroup = !isSingleStudentClass(formClass);
 
     const list: { date: string; session: ScheduleSession; index: number }[] = [];
 
@@ -654,15 +653,19 @@ export default function JadwalTab({
       const match = schedules.find((s) => {
         if (s.date !== d) return false;
 
-        // Abaikan sesi lain yang juga merupakan program grup / Prestasi
-        if (!isSingleStudentClass(s.class || "")) return false;
-
         const sClean = cleanName(s.coachName);
         const isSameCoach =
           (formCoachId && s.coachId && formCoachId !== "custom" && s.coachId === formCoachId) ||
           (targetClean && sClean === targetClean);
 
         if (!isSameCoach) return false;
+
+        const isExistingGroup = !isSingleStudentClass(s.class || "");
+
+        // Jika KEDUA jadwal adalah program grup (Prestasi), maka pelatih dapat mengajar bersamaan (tidak bentrok)
+        if (isCurrentGroup && isExistingGroup) {
+          return false;
+        }
 
         return isTimeOverlap(formTimeStart, formTimeEnd, s.timeStart, s.timeEnd);
       });
@@ -680,18 +683,14 @@ export default function JadwalTab({
     if (!editingSchedule || !editCoachName.trim() || !editTimeStart || !editTimeEnd || !editDate) {
       return null;
     }
-    // Validasi bentrok jadwal pelatih TIDAK BERLAKU untuk program grup / multi-murid (misal: Prestasi)
-    if (!isSingleStudentClass(editClass)) return null;
 
     const targetClean = cleanName(editCoachName);
+    const isCurrentGroup = !isSingleStudentClass(editClass);
 
     return schedules.find((s) => {
       // Exclude the schedule currently being edited
       if (s.id === editingSchedule.id) return false;
       if (s.date !== editDate) return false;
-
-      // Abaikan sesi lain yang juga merupakan program grup / Prestasi
-      if (!isSingleStudentClass(s.class || "")) return false;
 
       const sClean = cleanName(s.coachName);
       const isSameCoach =
@@ -699,6 +698,13 @@ export default function JadwalTab({
         (targetClean && sClean === targetClean);
 
       if (!isSameCoach) return false;
+
+      const isExistingGroup = !isSingleStudentClass(s.class || "");
+
+      // Jika KEDUA jadwal adalah program grup (Prestasi), maka pelatih dapat mengajar bersamaan (tidak bentrok)
+      if (isCurrentGroup && isExistingGroup) {
+        return false;
+      }
 
       return isTimeOverlap(editTimeStart, editTimeEnd, s.timeStart, s.timeEnd);
     });
