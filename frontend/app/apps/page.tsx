@@ -1124,9 +1124,8 @@ export default function AppsPage() {
           <About />
         </main>
       </div>
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#061827]/85 backdrop-blur-md pointer-events-auto transition-all duration-300 animate-fadeIn">
-        <div className="absolute inset-0 bg-gradient-to-b from-cyan-900/30 via-[#061827]/80 to-[#061827] pointer-events-none" />
-        <div className="relative z-10 flex flex-col items-center justify-center space-y-4 max-w-xs text-center px-4">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm pointer-events-auto transition-all duration-300 animate-fadeIn">
+        <div className="relative z-10 flex flex-col items-center justify-center px-4">
           <div className="relative flex items-center justify-center">
             <div className="absolute h-24 w-24 rounded-full bg-cyan-500/25 blur-xl animate-pulse" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1135,10 +1134,6 @@ export default function AppsPage() {
               alt="GIM Swimming"
               className="h-20 w-20 sm:h-24 sm:w-24 object-contain animate-float-movement drop-shadow-[0_10px_25px_rgba(6,182,212,0.5)]"
             />
-          </div>
-          <div className="space-y-1.5">
-            <h3 className="text-lg font-black text-white tracking-tight drop-shadow-md">GIM Swimming Club</h3>
-            <p className="text-xs text-cyan-300 font-medium animate-pulse tracking-wide">Menyiapkan data aplikasi...</p>
           </div>
         </div>
       </div>
