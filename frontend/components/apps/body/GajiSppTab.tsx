@@ -347,7 +347,9 @@ export default function GajiSppTab({
   const currentCoachHonorCalculation = useMemo(() => {
     if (!currentCoach) {
       return {
+        totalScheduledSessions: 0,
         completedSessions: 0,
+        absentSessions: 0,
         payPerSession: 100000,
         bonus: 0,
         totalAmount: 0,
@@ -360,6 +362,30 @@ export default function GajiSppTab({
 
     const payPerSession =
       currentCoach.pay_per_session || currentCoach.payPerSession || 100000;
+
+    const coachIdStr = String(currentCoach.id);
+    const coachClean = cleanCoachName(currentCoach.name);
+
+    // Count scheduled sessions in the selected month
+    const scheduledCount = (schedules || []).filter((s) => {
+      const sCoachClean = cleanCoachName(s.coachName);
+      const matchCoach =
+        String(s.coachId) === coachIdStr ||
+        (sCoachClean && sCoachClean === coachClean) ||
+        (coachClean && sCoachClean && sCoachClean.includes(coachClean)) ||
+        (coachClean && sCoachClean && coachClean.includes(sCoachClean));
+
+      if (!matchCoach) return false;
+
+      const dateParsed = parseDateMonthYear(s.date);
+      if (dateParsed) {
+        return (
+          dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
+          dateParsed.year === parseSelectedMonthRange.year
+        );
+      }
+      return false;
+    }).length;
 
     // Check if there is an existing payroll in database
     const existingPr = payrolls.find(
@@ -374,6 +400,9 @@ export default function GajiSppTab({
       ? existingPr.total_sessions
       : currentCoachSessionsThisMonth.length;
 
+    const totalScheduledSessions = Math.max(scheduledCount, sessionCount);
+    const absentSessions = Math.max(0, totalScheduledSessions - sessionCount);
+
     const baseAmount = sessionCount * payPerSession;
     const bonus = existingPr?.bonus_amount || 0;
     const totalAmount = existingPr ? existingPr.total_amount : baseAmount + bonus;
@@ -384,7 +413,9 @@ export default function GajiSppTab({
         : "Belum Ada Sesi";
 
     return {
+      totalScheduledSessions,
       completedSessions: sessionCount,
+      absentSessions,
       payPerSession,
       bonus,
       totalAmount,
@@ -393,7 +424,7 @@ export default function GajiSppTab({
       notes: existingPr?.notes || "",
       payrollId: existingPr?.id || null,
     };
-  }, [currentCoach, currentCoachSessionsThisMonth, payrolls, selectedMonth]);
+  }, [currentCoach, currentCoachSessionsThisMonth, payrolls, selectedMonth, schedules, parseSelectedMonthRange]);
 
   // Riwayat Slip Gaji Pelatih (REAL DB ONLY)
   const coachSlipHistory = useMemo(() => {
@@ -546,8 +577,8 @@ export default function GajiSppTab({
             p.month === selectedMonth
         );
 
-        // Check if coach has scheduled sessions in the selected month
-        const hasScheduleInMonth = (schedules || []).some((s) => {
+        // Check scheduled sessions count in the selected month
+        const scheduledSessionsCount = (schedules || []).filter((s) => {
           const sCoachClean = cleanCoachName(s.coachName);
           const matchCoach =
             String(s.coachId) === coachIdStr ||
@@ -565,9 +596,13 @@ export default function GajiSppTab({
             );
           }
           return false;
-        });
+        }).length;
 
+        const hasScheduleInMonth = scheduledSessionsCount > 0;
         const completedSessions = existingPr ? existingPr.total_sessions : distinctMap.size;
+        const totalScheduledSessions = Math.max(scheduledSessionsCount, completedSessions);
+        const absentSessions = Math.max(0, totalScheduledSessions - completedSessions);
+
         const payPerSession = coach.pay_per_session || coach.payPerSession || 100000;
         const baseTotal = completedSessions * payPerSession;
 
@@ -581,7 +616,9 @@ export default function GajiSppTab({
 
         return {
           coach,
+          totalScheduledSessions,
           completedSessions,
+          absentSessions,
           payPerSession,
           bonus,
           totalAmount: finalAmount,
@@ -890,9 +927,21 @@ export default function GajiSppTab({
                   {/* Calculation Breakdown (Real DB data) */}
                   <div className="bg-slate-50 p-3.5 rounded-2xl space-y-2 text-xs border border-slate-100">
                     <div className="flex justify-between items-center text-slate-600">
-                      <span>Kehadiran Mengajar:</span>
+                      <span>Total Sesi (Bulan Berjalan):</span>
                       <span className="font-bold text-slate-900">
+                        {currentCoachHonorCalculation.totalScheduledSessions} Sesi
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Kehadiran Mengajar:</span>
+                      <span className="font-bold text-emerald-700">
                         {currentCoachHonorCalculation.completedSessions} Sesi Selesai
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Tidak Hadir:</span>
+                      <span className={`font-bold ${currentCoachHonorCalculation.absentSessions > 0 ? "text-rose-600" : "text-slate-900"}`}>
+                        {currentCoachHonorCalculation.absentSessions} Sesi
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-slate-600">
@@ -1497,9 +1546,21 @@ export default function GajiSppTab({
 
                         <div className="bg-slate-50 p-3 rounded-xl space-y-2 text-xs border border-slate-100">
                           <div className="flex justify-between items-center text-slate-600 gap-2">
-                            <span>Sesi Mengajar:</span>
+                            <span>Total Sesi (Bulan Berjalan):</span>
                             <span className="font-bold text-slate-900 shrink-0">
+                              {item.totalScheduledSessions} Sesi
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-600 gap-2">
+                            <span>Kehadiran Mengajar:</span>
+                            <span className="font-bold text-emerald-700 shrink-0">
                               {item.completedSessions} Sesi
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-600 gap-2">
+                            <span>Tidak Hadir:</span>
+                            <span className={`font-bold shrink-0 ${item.absentSessions > 0 ? "text-rose-600" : "text-slate-900"}`}>
+                              {item.absentSessions} Sesi
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-slate-600 gap-2">
