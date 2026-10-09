@@ -217,6 +217,25 @@ export default function ParentBody({
   // Profile Sub-View Navigation: "main" | "profilku" | "password" | "notifikasi" | "faq" | "face-id"
   const [profileView, setProfileView] = useState<"main" | "profilku" | "password" | "notifikasi" | "faq" | "face-id">("main");
   const [profileLanguage, setProfileLanguage] = useState<"ID" | "EN">("ID");
+
+  // Notifications toggle state: ON (true) | OFF (false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("gim_notifications_enabled");
+      return saved !== null ? saved === "true" : true;
+    }
+    return true;
+  });
+
+  const handleToggleNotifications = (enable: boolean) => {
+    setNotificationsEnabled(enable);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gim_notifications_enabled", String(enable));
+      if (enable && "Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+    }
+  };
   const [showProfileLogoutModal, setShowProfileLogoutModal] = useState(false);
   const [showProfileEmojiDrawer, setShowProfileEmojiDrawer] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any>(null);
@@ -2833,19 +2852,38 @@ export default function ParentBody({
                     </div>
 
                     {/* 3. Notifikasi */}
-                    <button
-                      type="button"
-                      onClick={() => setProfileView("notifikasi")}
-                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 active:bg-slate-100 transition border-t border-slate-100 cursor-pointer"
-                    >
+                    <div className="w-full flex items-center justify-between px-6 py-3.5 border-t border-slate-100">
                       <div className="flex items-center gap-3.5">
                         <div className="text-slate-500">
                           <Bell size={20} strokeWidth={1.8} />
                         </div>
                         <span className="text-sm font-bold text-slate-700">Notifikasi</span>
                       </div>
-                      <ChevronRight size={18} className="text-slate-400" />
-                    </button>
+                      <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleNotifications(true)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-black transition cursor-pointer ${
+                            notificationsEnabled
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          ON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleNotifications(false)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-black transition cursor-pointer ${
+                            !notificationsEnabled
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          OFF
+                        </button>
+                      </div>
+                    </div>
 
                     {/* 4. Ubah Password */}
                     <button
