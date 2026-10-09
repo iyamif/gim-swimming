@@ -367,7 +367,7 @@ export default function KehadiranTab({
             <select
               value={selectedCoach}
               onChange={(e) => setSelectedCoach(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-full sm:w-auto max-w-full truncate"
             >
               <option value="ALL">Semua Pelatih ({coaches.length})</option>
               {coaches.map((c) => (
@@ -379,11 +379,11 @@ export default function KehadiranTab({
           )}
 
           {personType === "student" && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
               <select
                 value={selectedStudent}
                 onChange={(e) => setSelectedStudent(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 max-w-[170px]"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 flex-1 sm:flex-none max-w-full sm:max-w-[160px] truncate"
               >
                 <option value="ALL">Semua Siswa ({students.length})</option>
                 {students.map((s) => (
@@ -396,7 +396,7 @@ export default function KehadiranTab({
               <select
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 flex-1 sm:flex-none max-w-full sm:max-w-[140px] truncate"
               >
                 <option value="ALL">Semua Kelas</option>
                 {classPrograms && classPrograms.length > 0 ? (
