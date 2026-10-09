@@ -96,6 +96,29 @@ const parseDateMonthYear = (dateStr?: string) => {
   return null;
 };
 
+const isDatePastOrToday = (dateStr?: string) => {
+  if (!dateStr) return false;
+  const cleanStr = dateStr.split("T")[0];
+  const parts = cleanStr.split("-");
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  if (parts.length >= 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      const schDate = new Date(y, m, d, 23, 59, 59, 999);
+      return schDate.getTime() <= today.getTime();
+    }
+  }
+  const dObj = new Date(dateStr);
+  if (!isNaN(dObj.getTime())) {
+    return dObj.getTime() <= today.getTime();
+  }
+  return false;
+};
+
 const getCoachAvatar = (coach: Coach) => {
   if (coach.avatar) return coach.avatar;
   if (typeof window !== "undefined") {
@@ -366,8 +389,11 @@ export default function GajiSppTab({
     const coachIdStr = String(currentCoach.id);
     const coachClean = cleanCoachName(currentCoach.name);
 
-    // Count scheduled sessions in the selected month
-    const scheduledCount = (schedules || []).filter((s) => {
+    // Count scheduled sessions & due scheduled sessions in the selected month
+    let scheduledCount = 0;
+    let dueScheduledCount = 0;
+
+    (schedules || []).forEach((s) => {
       const sCoachClean = cleanCoachName(s.coachName);
       const matchCoach =
         String(s.coachId) === coachIdStr ||
@@ -375,9 +401,37 @@ export default function GajiSppTab({
         (coachClean && sCoachClean && sCoachClean.includes(coachClean)) ||
         (coachClean && sCoachClean && coachClean.includes(sCoachClean));
 
-      if (!matchCoach) return false;
+      if (!matchCoach) return;
 
       const dateParsed = parseDateMonthYear(s.date);
+      if (dateParsed) {
+        const inSelectedMonth =
+          dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
+          dateParsed.year === parseSelectedMonthRange.year;
+        if (inSelectedMonth) {
+          scheduledCount++;
+          if (isDatePastOrToday(s.date)) {
+            dueScheduledCount++;
+          }
+        }
+      }
+    });
+
+    // Check explicit absent attendance records
+    const explicitAbsentCount = (attendances || []).filter((att) => {
+      const matchCoach =
+        (String(att.person_id) === coachIdStr ||
+          cleanCoachName(att.person_name || "") === coachClean) &&
+        (att.person_type === "coach" || !att.person_type);
+      if (!matchCoach) return false;
+
+      const isAbsentStatus =
+        att.status === "Tidak Hadir" ||
+        att.status === "Alpa" ||
+        att.status === "Absen";
+      if (!isAbsentStatus) return false;
+
+      const dateParsed = parseDateMonthYear(att.date);
       if (dateParsed) {
         return (
           dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
@@ -401,7 +455,8 @@ export default function GajiSppTab({
       : currentCoachSessionsThisMonth.length;
 
     const totalScheduledSessions = Math.max(scheduledCount, sessionCount);
-    const absentSessions = Math.max(0, totalScheduledSessions - sessionCount);
+    const dueUnattended = Math.max(0, dueScheduledCount - sessionCount);
+    const absentSessions = Math.max(explicitAbsentCount, dueUnattended);
 
     const baseAmount = sessionCount * payPerSession;
     const bonus = existingPr?.bonus_amount || 0;
@@ -577,8 +632,11 @@ export default function GajiSppTab({
             p.month === selectedMonth
         );
 
-        // Check scheduled sessions count in the selected month
-        const scheduledSessionsCount = (schedules || []).filter((s) => {
+        // Count scheduled sessions & due scheduled sessions in the selected month
+        let scheduledSessionsCount = 0;
+        let dueScheduledCount = 0;
+
+        (schedules || []).forEach((s) => {
           const sCoachClean = cleanCoachName(s.coachName);
           const matchCoach =
             String(s.coachId) === coachIdStr ||
@@ -586,9 +644,37 @@ export default function GajiSppTab({
             (coachClean && sCoachClean && sCoachClean.includes(coachClean)) ||
             (coachClean && sCoachClean && coachClean.includes(sCoachClean));
 
-          if (!matchCoach) return false;
+          if (!matchCoach) return;
 
           const dateParsed = parseDateMonthYear(s.date);
+          if (dateParsed) {
+            const inSelectedMonth =
+              dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
+              dateParsed.year === parseSelectedMonthRange.year;
+            if (inSelectedMonth) {
+              scheduledSessionsCount++;
+              if (isDatePastOrToday(s.date)) {
+                dueScheduledCount++;
+              }
+            }
+          }
+        });
+
+        // Check explicit absent attendance records
+        const explicitAbsentCount = (attendances || []).filter((att) => {
+          const matchCoach =
+            (String(att.person_id) === coachIdStr ||
+              cleanCoachName(att.person_name || "") === coachClean) &&
+            (att.person_type === "coach" || !att.person_type);
+          if (!matchCoach) return false;
+
+          const isAbsentStatus =
+            att.status === "Tidak Hadir" ||
+            att.status === "Alpa" ||
+            att.status === "Absen";
+          if (!isAbsentStatus) return false;
+
+          const dateParsed = parseDateMonthYear(att.date);
           if (dateParsed) {
             return (
               dateParsed.monthIdx === parseSelectedMonthRange.monthIdx &&
@@ -601,7 +687,8 @@ export default function GajiSppTab({
         const hasScheduleInMonth = scheduledSessionsCount > 0;
         const completedSessions = existingPr ? existingPr.total_sessions : distinctMap.size;
         const totalScheduledSessions = Math.max(scheduledSessionsCount, completedSessions);
-        const absentSessions = Math.max(0, totalScheduledSessions - completedSessions);
+        const dueUnattended = Math.max(0, dueScheduledCount - completedSessions);
+        const absentSessions = Math.max(explicitAbsentCount, dueUnattended);
 
         const payPerSession = coach.pay_per_session || coach.payPerSession || 100000;
         const baseTotal = completedSessions * payPerSession;
