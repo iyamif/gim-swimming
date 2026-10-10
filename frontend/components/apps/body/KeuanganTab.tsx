@@ -26,6 +26,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Sparkles,
+  Download,
 } from "lucide-react";
 
 interface KeuanganTabProps {
@@ -545,6 +546,122 @@ export default function KeuanganTab({
     }
   };
 
+  // Handler: Export Total Income & Expense Breakdown to Excel CSV based on selected month
+  const handleExportExcel = () => {
+    const periodName = selectedPeriodObj.fullLabel;
+    const cleanPeriodStr = selectedPeriodObj.shortPeriod.replace(/\s+/g, "_");
+    const fileName = `Laporan_Keuangan_GIM_${cleanPeriodStr}.csv`;
+
+    const selectedManualIncomes = manualTransactions.filter(
+      (t) => t.type === "income" && getMonthKeyFromDate(t.date) === selectedMonthKey
+    );
+    const selectedManualExpenses = manualTransactions.filter(
+      (t) => t.type === "expense" && getMonthKeyFromDate(t.date) === selectedMonthKey
+    );
+
+    const csvRows: string[][] = [];
+
+    const pushRow = (...cols: (string | number)[]) => {
+      csvRows.push(
+        cols.map((col) => {
+          const str = String(col ?? "").replace(/"/g, '""');
+          return `"${str}"`;
+        })
+      );
+    };
+
+    // Document Header
+    pushRow("LAPORAN KEUANGAN GIM SWIMMING ACADEMY");
+    pushRow("Periode Bulan", periodName);
+    pushRow("Tanggal Export", new Date().toLocaleDateString("id-ID"));
+    pushRow("");
+
+    // Ringkasan Keuangan (Summary)
+    pushRow("=== RINGKASAN KEUANGAN ===");
+    pushRow("Kategori", "Jumlah (Rp)");
+    pushRow("Total Pemasukan (Income)", activeMonthTotalIncome);
+    pushRow("Total Pengeluaran (Expense)", activeMonthTotalExpense);
+    pushRow("Sisa Kas / Net Profit", activeMonthNetProfit);
+    pushRow("Margin Keuntungan", `${activeMonthProfitMargin}%`);
+    pushRow("");
+
+    // Rincian Pemasukan (Income Breakdown)
+    pushRow("=== RINCIAN PEMASUKAN ===");
+    pushRow("No", "Tanggal", "Kategori", "Nama Siswa / Item", "Deskripsi / Catatan", "Status", "Nominal (Rp)");
+
+    let incomeIdx = 1;
+    activeMonthPaidInvoices.forEach((inv) => {
+      pushRow(
+        incomeIdx++,
+        inv.date || inv.createdAt || "-",
+        "SPP Siswa",
+        inv.name || "Siswa",
+        inv.desc || "Pembayaran SPP",
+        inv.status || "Lunas",
+        inv.amount || 0
+      );
+    });
+
+    selectedManualIncomes.forEach((t) => {
+      pushRow(
+        incomeIdx++,
+        t.date || "-",
+        t.category || "Pemasukan Lainnya",
+        t.title || "-",
+        t.notes || "-",
+        "Terverifikasi",
+        t.amount || 0
+      );
+    });
+
+    pushRow("", "", "", "", "", "TOTAL PEMASUKAN", activeMonthTotalIncome);
+    pushRow("");
+
+    // Rincian Pengeluaran (Expense Breakdown)
+    pushRow("=== RINCIAN PENGELUARAN ===");
+    pushRow("No", "Tanggal", "Kategori", "Nama Pelatih / Item", "Rincian / Catatan", "Status", "Nominal (Rp)");
+
+    let expenseIdx = 1;
+    activeMonthCoachPayrolls.forEach((cp) => {
+      if (cp.totalHonor > 0 || cp.isApproved) {
+        pushRow(
+          expenseIdx++,
+          cp.approvedAt ? new Date(cp.approvedAt).toLocaleDateString("id-ID") : "-",
+          "Gaji Pelatih",
+          cp.name,
+          `${cp.sessionsCount} Sesi x Rp ${cp.ratePerSession.toLocaleString("id-ID")}`,
+          cp.status === "Approved" ? "Lunas / ACC" : cp.status,
+          cp.totalHonor
+        );
+      }
+    });
+
+    selectedManualExpenses.forEach((t) => {
+      pushRow(
+        expenseIdx++,
+        t.date || "-",
+        t.category || "Pengeluaran Lainnya",
+        t.title || "-",
+        t.notes || "-",
+        "Terverifikasi",
+        t.amount || 0
+      );
+    });
+
+    pushRow("", "", "", "", "", "TOTAL PENGELUARAN", activeMonthTotalExpense);
+
+    // CSV Blob Download with UTF-8 BOM for Microsoft Excel compatibility
+    const csvContent = "\uFEFF" + csvRows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-3.5 sm:space-y-4 pb-28 sm:pb-24 bg-[#f8fafc] min-h-full font-sans antialiased">
       {/* ==========================================
@@ -573,7 +690,7 @@ export default function KeuanganTab({
             </p>
           </div>
 
-          {/* Action Buttons: Periode & + Catat Transaksi */}
+          {/* Action Buttons: Periode, Export & + Catat Transaksi */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => setShowPeriodModal(true)}
@@ -582,6 +699,15 @@ export default function KeuanganTab({
             >
               <CalendarDays size={13} className="shrink-0" />
               <span>{selectedPeriodObj.shortPeriod}</span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-black border border-emerald-400/30 transition cursor-pointer shadow-2xs active:scale-95"
+              title="Export Laporan Keuangan ke Excel"
+            >
+              <Download size={13} className="shrink-0" />
+              <span>Export</span>
             </button>
 
             <button
