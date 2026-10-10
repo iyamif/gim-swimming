@@ -681,9 +681,6 @@ export default function KeuanganTab({
           <div className="min-w-0">
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-1.5 leading-tight">
               <span>Keuangan</span>
-              <span className="text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-cyan-100 border border-white/20 shrink-0">
-                Admin
-              </span>
             </h2>
             <p className="text-[11px] sm:text-xs text-cyan-100/90 font-medium mt-0.5 truncate">
               Arus Kas &amp; Rekapitulasi SPP Bulan Berjalan
