@@ -303,6 +303,17 @@ export default function TimelineFeed({
   };
 
   const handleDeletePost = async (postId: string) => {
+    const postToDelete = timelinePosts.find((p) => p.id === postId);
+    if (!postToDelete) return;
+
+    // Hanya user yang memposting yang bisa menghapus
+    const currentUserName = (sessionUser || "").trim().toLowerCase();
+    const postAuthor = (postToDelete.authorName || "").trim().toLowerCase();
+    if (!currentUserName || currentUserName !== postAuthor) {
+      alert("Hanya pengguna yang memposting yang dapat menghapus postingan ini.");
+      return;
+    }
+
     if (confirm("Apakah Anda yakin ingin menghapus postingan ini?")) {
       const updated = timelinePosts.filter((p) => p.id !== postId);
       savePostsToCache(updated);
@@ -427,9 +438,10 @@ export default function TimelineFeed({
         {timelinePosts.map((post) => {
           const userKey = sessionUser || "anonymous";
           const isLiked = (post.likedBy || []).includes(userKey);
+          // Hanya pengguna yang memposting postingan tersebut yang bisa menghapusnya
           const isAuthor =
-            post.authorName === sessionUser ||
-            isAdminRole;
+            Boolean(sessionUser) &&
+            post.authorName.trim().toLowerCase() === (sessionUser || "").trim().toLowerCase();
 
           return (
             <div
@@ -454,37 +466,25 @@ export default function TimelineFeed({
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-black text-slate-900 leading-tight">
-                        {post.authorName}
-                      </h4>
-                      <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.2 rounded-md">
-                        {post.authorRole}
-                      </span>
-                    </div>
+                    <h4 className="text-xs font-black text-slate-900 leading-tight">
+                      {post.authorName}
+                    </h4>
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {post.createdAt}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {post.category && (
-                    <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-100">
-                      {post.category}
-                    </span>
-                  )}
-                  {isAuthor && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePost(post.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer"
-                      title="Hapus Postingan"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
+                {isAuthor && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePost(post.id)}
+                    className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer"
+                    title="Hapus Postingan"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
 
               {/* Post Caption */}
