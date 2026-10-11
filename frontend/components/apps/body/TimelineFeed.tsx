@@ -98,7 +98,6 @@ export default function TimelineFeed({
 }: TimelineFeedProps) {
   const [timelinePosts, setTimelinePosts] = useState<TimelinePost[]>([]);
   const [postText, setPostText] = useState("");
-  const [postCategory, setPostCategory] = useState("Kegiatan Renang");
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
   const [isPosting, setIsPosting] = useState(false);
@@ -241,7 +240,7 @@ export default function TimelineFeed({
       caption: postText.trim(),
       mediaUrl: mediaPreview || undefined,
       mediaType: mediaType || undefined,
-      category: postCategory,
+      category: "",
       createdAt: "Baru saja",
       likes: 0,
       likedBy: [],
@@ -322,16 +321,11 @@ export default function TimelineFeed({
   return (
     <div className="p-5 md:p-6 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-4">
       {/* Section Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div>
-          <h3 className="text-sm font-black text-slate-900">Timeline &amp; Aktivitas</h3>
-          <p className="text-[11px] text-slate-400 font-medium">
-            Bagikan momen &amp; update kegiatan latihan renang Anda
-          </p>
-        </div>
-        <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100">
-          {timelinePosts.length} Postingan
-        </span>
+      <div className="border-b border-slate-100 pb-3">
+        <h3 className="text-sm font-black text-slate-900">Timeline &amp; Aktivitas</h3>
+        <p className="text-[11px] text-slate-400 font-medium">
+          Bagikan momen &amp; update kegiatan latihan renang Anda
+        </p>
       </div>
 
       {/* Hidden File Input for Media Upload */}
@@ -390,28 +384,16 @@ export default function TimelineFeed({
         )}
 
         {/* Post Action Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 text-xs font-bold transition cursor-pointer active:scale-95 shadow-2xs"
+              className="flex items-center justify-center h-8 w-8 rounded-xl bg-white border border-slate-200 text-blue-600 hover:text-blue-700 hover:border-blue-300 transition cursor-pointer active:scale-95 shadow-2xs"
+              title="Lampirkan Foto / Video"
             >
-              <Camera size={14} className="text-blue-600" />
-              <span>Foto / Video</span>
+              <Camera size={16} />
             </button>
-
-            <select
-              value={postCategory}
-              onChange={(e) => setPostCategory(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              <option value="Kegiatan Renang">Kegiatan Renang</option>
-              <option value="Latihan & Evaluasi">Latihan &amp; Evaluasi</option>
-              <option value="Ujian Renang">Ujian Renang</option>
-              <option value="Prestasi & Lomba">Prestasi &amp; Lomba</option>
-              <option value="Pengumuman">Pengumuman</option>
-            </select>
           </div>
 
           <div className="flex items-center gap-2">
@@ -487,9 +469,11 @@ export default function TimelineFeed({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-100">
-                    {post.category}
-                  </span>
+                  {post.category && (
+                    <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-100">
+                      {post.category}
+                    </span>
+                  )}
                   {isAuthor && (
                     <button
                       type="button"
