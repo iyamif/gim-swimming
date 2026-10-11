@@ -963,6 +963,56 @@ export default function ParentBody({
         student.name.toLowerCase().includes(a.person_name?.toLowerCase().trim() || ""))
   );
 
+  // Helper to determine if a schedule session is in the past (sudah lewat)
+  const isSchedulePast = (sch: ScheduleSession): boolean => {
+    if (sch.status === "Completed") return true;
+    // Check if attendance has already been recorded for this session & student
+    const hasAttended = studentAttendances.some(
+      (a) =>
+        (a.schedule_id && String(a.schedule_id) === String(sch.id)) ||
+        (a.date === sch.date && String(a.person_id) === String(student.id))
+    );
+    if (hasAttended) return true;
+
+    if (!sch.date) return false;
+    const currentNow = new Date();
+    const currentTodayISO = toLocalISO(currentNow);
+    if (sch.date < currentTodayISO) return true;
+    if (sch.date === currentTodayISO && sch.timeStart) {
+      const currentHHMM = `${String(currentNow.getHours()).padStart(2, "0")}:${String(currentNow.getMinutes()).padStart(2, "0")}`;
+      if (sch.timeStart <= currentHHMM) return true;
+    }
+    return false;
+  };
+
+  // Sesi latihan mendatang yang belum lewat dan bisa diajukan reschedule
+  const rescheduleableSchedules = useMemo(() => {
+    return studentSchedules.filter((s) => !isSchedulePast(s));
+  }, [studentSchedules, studentAttendances, todayISO]);
+
+  // Validasi apakah target waktu reschedule sudah lewat
+  const isTargetDateTimePast = () => {
+    if (!rescheduleTargetDate) return false;
+    const currentNow = new Date();
+    const currentTodayISO = toLocalISO(currentNow);
+    if (rescheduleTargetDate < currentTodayISO) return true;
+    if (rescheduleTargetDate === currentTodayISO && rescheduleTargetTime) {
+      const currentHHMM = `${String(currentNow.getHours()).padStart(2, "0")}:${String(currentNow.getMinutes()).padStart(2, "0")}`;
+      if (rescheduleTargetTime <= currentHHMM) return true;
+    }
+    return false;
+  };
+
+  // Reset sesi yang dipilih jika ternyata jadwalnya sudah lewat
+  useEffect(() => {
+    if (
+      rescheduleSessionId &&
+      !rescheduleableSchedules.some((s) => String(s.id) === String(rescheduleSessionId))
+    ) {
+      setRescheduleSessionId("");
+    }
+  }, [rescheduleSessionId, rescheduleableSchedules]);
+
   // Computed real session history from admin schedules & attendances (past and today)
   const parentStudentHistory = useMemo(() => {
     const pastAndTodaySchedules = studentSchedules.filter((s) => !s.date || s.date <= todayISO);
@@ -3922,15 +3972,32 @@ export default function ParentBody({
                     <select
                       value={rescheduleSessionId}
                       onChange={(e) => setRescheduleSessionId(e.target.value)}
-                      className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                      disabled={rescheduleableSchedules.length === 0}
+                      className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <option value="">-- Pilih Sesi Latihan --</option>
-                      {studentSchedules.map((s) => (
+                      <option value="">
+                        {rescheduleableSchedules.length === 0
+                          ? "-- Tidak ada sesi mendatang yang dapat di-reschedule --"
+                          : "-- Pilih Sesi Latihan --"}
+                      </option>
+                      {rescheduleableSchedules.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.title} ({s.date || "Jadwal"} • {s.timeStart}-{s.timeEnd} WIB di {s.poolArea})
                         </option>
                       ))}
                     </select>
+
+                    {rescheduleableSchedules.length === 0 && (
+                      <div className="mt-2.5 p-3.5 bg-amber-50 rounded-2xl border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2.5">
+                        <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Jadwal yang sudah lewat tidak dapat di-reschedule.</p>
+                          <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                            Hanya sesi latihan mendatang yang aktif yang dapat diajukan perubahan jadwal. Sesi latihan yang telah berlangsung atau lewat tidak dapat di-reschedule.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3959,6 +4026,13 @@ export default function ParentBody({
                     </div>
                   </div>
 
+                  {isTargetDateTimePast() && (
+                    <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+                      <AlertTriangle size={14} className="text-rose-600 shrink-0" />
+                      <span>Usulan tanggal atau jam baru tidak boleh waktu yang sudah lewat.</span>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1.5">
                       Alasan Reschedule <span className="text-rose-500">*</span>
@@ -3979,33 +4053,49 @@ export default function ParentBody({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setParentActiveTab("home")}
-                      className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isAccountInactive || !rescheduleTargetDate || !rescheduleReason.trim()}
-                      onClick={() => {
-                        if (isAccountInactive) return;
-                        const msg = `Halo Admin GIM Swimming,%0ASaya orang tua dari ${student.name} ingin mengajukan permohonan reschedule sesi latihan:%0A- Usulan Tanggal Baru: ${rescheduleTargetDate}%0A- Usulan Jam: ${rescheduleTargetTime} WIB%0A- Alasan: ${rescheduleReason}%0AMohon konfirmasinya. Terima kasih!`;
-                        window.open(`https://wa.me/628973180423?text=${msg}`, "_blank");
-                        setRescheduleSent(true);
-                      }}
-                      className={`flex-1 py-3 rounded-2xl text-white font-black text-xs transition flex items-center justify-center gap-1.5 ${
-                        isAccountInactive
-                          ? "bg-slate-300 cursor-not-allowed opacity-60"
-                          : "bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 cursor-pointer shadow-md disabled:opacity-50"
-                      }`}
-                    >
-                      <Send size={14} />
-                      <span>{isAccountInactive ? "Akun Non-Aktif" : "Kirim ke Admin (WA)"}</span>
-                    </button>
-                  </div>
+                  {(() => {
+                    const selectedScheduleToReschedule = rescheduleableSchedules.find(
+                      (s) => String(s.id) === String(rescheduleSessionId)
+                    );
+                    const canSubmitReschedule =
+                      !isAccountInactive &&
+                      rescheduleableSchedules.length > 0 &&
+                      Boolean(selectedScheduleToReschedule) &&
+                      Boolean(rescheduleTargetDate) &&
+                      Boolean(rescheduleReason.trim()) &&
+                      !isTargetDateTimePast();
+
+                    return (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setParentActiveTab("home")}
+                          className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canSubmitReschedule}
+                          onClick={() => {
+                            if (!canSubmitReschedule || !selectedScheduleToReschedule) return;
+                            const sessionInfo = `${selectedScheduleToReschedule.title} (${selectedScheduleToReschedule.date || "Jadwal"}, ${selectedScheduleToReschedule.timeStart}-${selectedScheduleToReschedule.timeEnd} WIB di ${selectedScheduleToReschedule.poolArea})`;
+                            const msg = `Halo Admin GIM Swimming,%0ASaya orang tua dari ${student.name} ingin mengajukan permohonan reschedule sesi latihan:%0A- Sesi Yang Di-reschedule: ${sessionInfo}%0A- Usulan Tanggal Baru: ${rescheduleTargetDate}%0A- Usulan Jam: ${rescheduleTargetTime} WIB%0A- Alasan: ${rescheduleReason.trim()}%0AMohon konfirmasinya. Terima kasih!`;
+                            window.open(`https://wa.me/628973180423?text=${msg}`, "_blank");
+                            setRescheduleSent(true);
+                          }}
+                          className={`flex-1 py-3 rounded-2xl text-white font-black text-xs transition flex items-center justify-center gap-1.5 ${
+                            !canSubmitReschedule
+                              ? "bg-slate-300 cursor-not-allowed opacity-60"
+                              : "bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 cursor-pointer shadow-md"
+                          }`}
+                        >
+                          <Send size={14} />
+                          <span>{isAccountInactive ? "Akun Non-Aktif" : "Kirim ke Admin (WA)"}</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
