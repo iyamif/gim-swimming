@@ -9,15 +9,47 @@ import {
   likeTimelinePost,
 } from "../../../lib/api";
 import {
-  Camera,
   Heart,
   Megaphone,
-  Send,
   Trash2,
   X,
   CreditCard,
   Loader2,
 } from "lucide-react";
+
+// Icon Camera Plus / Add Photo
+function CameraPlusIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      {/* Camera Body */}
+      <path
+        d="M4 6.5C2.62 6.5 1.5 7.62 1.5 9V17C1.5 18.38 2.62 19.5 4 19.5H13.5C13.2 18.7 13 17.88 13 17C13 13.96 15.46 11.5 18.5 11.5C19.42 11.5 20.28 11.73 21.03 12.13C21.32 11.19 21.5 10.13 21.5 9C21.5 7.62 20.38 6.5 19 6.5H16.83L15.41 5.09C14.79 4.46 13.94 4.11 13.06 4.11H8.94C8.06 4.11 7.21 4.46 6.59 5.09L5.17 6.5H4Z"
+        fill="currentColor"
+      />
+      {/* Lens Circle */}
+      <circle cx="10.5" cy="13" r="3.2" stroke="white" strokeWidth="1.6" />
+      {/* Flash dot */}
+      <circle cx="16.5" cy="8.5" r="0.8" fill="white" />
+      {/* Plus Badge with white outline ring */}
+      <circle cx="18" cy="18" r="4.5" fill="white" />
+      <circle cx="18" cy="18" r="3.6" fill="currentColor" />
+      {/* Plus symbol */}
+      <path
+        d="M18 15.8V20.2M15.8 18H20.2"
+        stroke="white"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export const DEFAULT_TIMELINE_POSTS: TimelinePost[] = [
   {
@@ -400,10 +432,10 @@ export default function TimelineFeed({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center h-8 w-8 rounded-xl bg-white border border-slate-200 text-blue-600 hover:text-blue-700 hover:border-blue-300 transition cursor-pointer active:scale-95 shadow-2xs"
-              title="Lampirkan Foto / Video"
+              className="flex items-center justify-center h-9 w-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-900 transition cursor-pointer active:scale-95 border border-slate-200/80 shadow-2xs"
+              title="Tambah Foto / Video"
             >
-              <Camera size={16} />
+              <CameraPlusIcon size={20} />
             </button>
           </div>
 
@@ -426,8 +458,8 @@ export default function TimelineFeed({
               onClick={() => handleCreatePost()}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black transition cursor-pointer shadow-md shadow-blue-600/20 active:scale-95 disabled:opacity-50"
             >
-              {isPosting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-              <span>{isPosting ? "Mengirim..." : "Posting"}</span>
+              {isPosting && <Loader2 size={13} className="animate-spin" />}
+              <span>Share</span>
             </button>
           </div>
         </div>
