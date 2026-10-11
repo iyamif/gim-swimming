@@ -1108,4 +1108,93 @@ func (h *AppHandler) DeleteCoachPayroll(c *gin.Context) {
 	})
 }
 
+// GetTimelinePosts handles GET /api/v1/timeline-posts
+func (h *AppHandler) GetTimelinePosts(c *gin.Context) {
+	posts, err := h.appService.GetTimelinePosts(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Gagal mengambil postingan timeline: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    posts,
+	})
+}
+
+// CreateTimelinePost handles POST /api/v1/timeline-posts
+func (h *AppHandler) CreateTimelinePost(c *gin.Context) {
+	var input model.CreateTimelinePostInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Format data postingan tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	post, err := h.appService.CreateTimelinePost(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Gagal membuat postingan timeline: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Postingan berhasil dibagikan di timeline",
+		"data":    post,
+	})
+}
+
+// DeleteTimelinePost handles DELETE /api/v1/timeline-posts/:id
+func (h *AppHandler) DeleteTimelinePost(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.appService.DeleteTimelinePost(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Gagal menghapus postingan: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Postingan berhasil dihapus",
+	})
+}
+
+// ToggleLikeTimelinePost handles POST /api/v1/timeline-posts/:id/like
+func (h *AppHandler) ToggleLikeTimelinePost(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		Username string `json:"username"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	username := req.Username
+	if username == "" {
+		username = "anonymous"
+	}
+
+	post, err := h.appService.ToggleLikeTimelinePost(c.Request.Context(), id, username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Gagal menyukai postingan: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    post,
+	})
+}
+
+
 

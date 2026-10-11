@@ -206,6 +206,15 @@ func SetupRoutes(
 			payrollGroup.DELETE("/:id", appHandler.DeleteCoachPayroll)
 		}
 
+		// Timeline Posts (Linimasa Kegiatan Renang) Endpoints
+		timelineGroup := v1.Group("/timeline-posts")
+		{
+			timelineGroup.GET("", appHandler.GetTimelinePosts)
+			timelineGroup.POST("", appHandler.CreateTimelinePost)
+			timelineGroup.DELETE("/:id", appHandler.DeleteTimelinePost)
+			timelineGroup.POST("/:id/like", appHandler.ToggleLikeTimelinePost)
+		}
+
 		// Role-based Verification Test Endpoints
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.AuthMiddleware(authService), middleware.RequireRoles(model.RoleAdmin))

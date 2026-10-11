@@ -77,6 +77,12 @@ type AppService interface {
 	ApproveCoachPayroll(ctx context.Context, id string, notes string) (*model.CoachPayroll, error)
 	DeleteCoachPayroll(ctx context.Context, id string) error
 
+	// Timeline Posts (Linimasa Kegiatan Renang)
+	GetTimelinePosts(ctx context.Context) ([]model.TimelinePost, error)
+	CreateTimelinePost(ctx context.Context, input *model.CreateTimelinePostInput) (*model.TimelinePost, error)
+	DeleteTimelinePost(ctx context.Context, id string) error
+	ToggleLikeTimelinePost(ctx context.Context, id string, username string) (*model.TimelinePost, error)
+
 	// User Synchronization / Backfill
 	BackfillUserLinks(ctx context.Context) error
 }
@@ -92,6 +98,7 @@ type appService struct {
 	poolRepo       repository.PoolRepository
 	classProgRepo  repository.ClassProgramRepository
 	payrollRepo    repository.CoachPayrollRepository
+	timelineRepo   repository.TimelinePostRepository
 	pushService    PushService
 }
 
@@ -107,6 +114,7 @@ func NewAppService(
 	poolRepo repository.PoolRepository,
 	classProgRepo repository.ClassProgramRepository,
 	payrollRepo repository.CoachPayrollRepository,
+	timelineRepo repository.TimelinePostRepository,
 	pushService PushService,
 ) AppService {
 	return &appService{
@@ -120,6 +128,7 @@ func NewAppService(
 		poolRepo:       poolRepo,
 		classProgRepo:  classProgRepo,
 		payrollRepo:    payrollRepo,
+		timelineRepo:   timelineRepo,
 		pushService:    pushService,
 	}
 }
@@ -2004,3 +2013,42 @@ func formatRupiah(amount float64) string {
 	}
 	return string(res)
 }
+
+// GetTimelinePosts returns all timeline posts ordered newest first
+func (s *appService) GetTimelinePosts(ctx context.Context) ([]model.TimelinePost, error) {
+	return s.timelineRepo.FindAll(ctx)
+}
+
+// CreateTimelinePost creates a new community post on the timeline
+func (s *appService) CreateTimelinePost(ctx context.Context, input *model.CreateTimelinePostInput) (*model.TimelinePost, error) {
+	post := &model.TimelinePost{
+		AuthorName:   input.AuthorName,
+		AuthorRole:   input.AuthorRole,
+		AuthorAvatar: input.AuthorAvatar,
+		Caption:      input.Caption,
+		MediaURL:     input.MediaURL,
+		MediaType:    input.MediaType,
+		Category:     input.Category,
+		Likes:        0,
+		LikedBy:      []string{},
+	}
+	if post.Category == "" {
+		post.Category = "Kegiatan Renang"
+	}
+	err := s.timelineRepo.Create(ctx, post)
+	if err != nil {
+		return nil, err
+	}
+	return post, nil
+}
+
+// DeleteTimelinePost removes a post by ID
+func (s *appService) DeleteTimelinePost(ctx context.Context, id string) error {
+	return s.timelineRepo.Delete(ctx, id)
+}
+
+// ToggleLikeTimelinePost toggles like status for a user
+func (s *appService) ToggleLikeTimelinePost(ctx context.Context, id string, username string) (*model.TimelinePost, error) {
+	return s.timelineRepo.ToggleLike(ctx, id, username)
+}
+

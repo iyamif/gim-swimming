@@ -245,6 +245,30 @@ func runMigrations() error {
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS timeline_posts (
+		id SERIAL PRIMARY KEY,
+		author_name VARCHAR(255) NOT NULL,
+		author_role VARCHAR(100) NOT NULL,
+		author_avatar TEXT DEFAULT '',
+		caption TEXT DEFAULT '',
+		media_url TEXT DEFAULT '',
+		media_type VARCHAR(20) DEFAULT '',
+		category VARCHAR(100) DEFAULT 'Kegiatan Renang',
+		likes INT DEFAULT 0,
+		liked_by TEXT DEFAULT '[]',
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
+	-- Seed default timeline posts if none exist
+	INSERT INTO timeline_posts (author_name, author_role, caption, category, likes, liked_by)
+	SELECT 'GIM Swimming Academy', 'Official Admin', 'Ujian Kenaikan Tingkatan Renang akan dilaksanakan serentak pada tanggal 14 September 2026 di Kolam Utama A. Mohon pelatih dan orang tua menyiapkan kesiapan siswa.', 'Ujian Renang', 12, '[]'
+	WHERE NOT EXISTS (SELECT 1 FROM timeline_posts WHERE author_name = 'GIM Swimming Academy');
+
+	INSERT INTO timeline_posts (author_name, author_role, caption, category, likes, liked_by)
+	SELECT 'Coach Insan', 'Pelatih Renang', 'Sesi latihan sore ini berjalan lancar! Peningkatan teknik gaya dada anak-anak kelompok Prestasi makin solid. Tetap semangat berlatih! 🏊‍♂️', 'Kegiatan Renang', 8, '[]'
+	WHERE NOT EXISTS (SELECT 1 FROM timeline_posts WHERE author_name = 'Coach Insan');
+
 	-- Seed default pools if none exist
 	INSERT INTO pools (name, address, latitude, longitude, radius_meters)
 	SELECT 'Hotel Nalendra Plaza Subang', 'Jl. Mayjen Sutoyo No.7, Subang', -6.565630, 107.761040, 250

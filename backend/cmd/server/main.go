@@ -59,6 +59,7 @@ func main() {
 	poolRepo := repository.NewPoolRepository(pgDB)
 	classProgRepo := repository.NewClassProgramRepository(pgDB)
 	payrollRepo := repository.NewCoachPayrollRepository(pgDB)
+	timelineRepo := repository.NewTimelinePostRepository(pgDB)
 	pushRepo := repository.NewPushRepository(pgDB)
 
 	// Seed database with default data if tables are empty
@@ -69,7 +70,7 @@ func main() {
 	// Services
 	authService := service.NewAuthService(userRepo, studentRepo, coachRepo, cfg.JWTSecret)
 	pushService := service.NewPushService(cfg, pushRepo, attendanceRepo)
-	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, financialRepo, poolRepo, classProgRepo, payrollRepo, pushService)
+	appService := service.NewAppService(userRepo, studentRepo, coachRepo, scheduleRepo, invoiceRepo, attendanceRepo, financialRepo, poolRepo, classProgRepo, payrollRepo, timelineRepo, pushService)
 
 	// Backfill any unlinked students/coaches to users
 	_ = appService.BackfillUserLinks(context.Background())

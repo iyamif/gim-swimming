@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { TimelinePost } from "../types";
-import { isImageAvatar, getAvatarImageUrl } from "../../../lib/api";
+import {
+  isImageAvatar,
+  getAvatarImageUrl,
+  fetchTimelinePosts,
+  createTimelinePost,
+  deleteTimelinePost,
+  likeTimelinePost,
+} from "../../../lib/api";
 import {
   Camera,
   Heart,
@@ -9,6 +16,7 @@ import {
   Trash2,
   X,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 
 export const DEFAULT_TIMELINE_POSTS: TimelinePost[] = [
@@ -31,6 +39,43 @@ export const DEFAULT_TIMELINE_POSTS: TimelinePost[] = [
     likes: 8,
   },
 ];
+
+// Helper to compress images for lightweight transmission & storage (~30-50KB)
+function compressImage(file: File, maxDimension = 800, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve("");
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => resolve((e.target?.result as string) || "");
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve((e.target?.result as string) || "");
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = (e.target?.result as string) || "";
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface TimelineFeedProps {
   sessionUser?: string;
@@ -56,6 +101,7 @@ export default function TimelineFeed({
   const [postCategory, setPostCategory] = useState("Kegiatan Renang");
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
+  const [isPosting, setIsPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const normalizedRole = (sessionRole || "").toLowerCase().trim();
@@ -63,24 +109,45 @@ export default function TimelineFeed({
   const isAdminRole = normalizedRole === "admin";
   const isParentRole = normalizedRole === "orang tua" || normalizedRole === "parent" || normalizedRole === "siswa";
 
-  const loadPosts = () => {
-    if (typeof window === "undefined") return;
-    try {
-      const saved = localStorage.getItem("gim_timeline_posts");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setTimelinePosts(parsed);
-          return;
+  const loadPosts = useCallback(async () => {
+    // 1. Instantly load from local storage cache
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("gim_timeline_posts");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setTimelinePosts(parsed);
+          }
         }
+      } catch (e) {
+        console.warn("Error reading timeline posts cache:", e);
       }
-    } catch (e) {
-      console.warn("Error reading timeline posts:", e);
     }
-    setTimelinePosts(DEFAULT_TIMELINE_POSTS);
-  };
 
-  const savePosts = (posts: TimelinePost[]) => {
+    // 2. Fetch real-time posts from server API (shared across all devices & roles)
+    try {
+      const serverPosts = await fetchTimelinePosts();
+      if (Array.isArray(serverPosts) && serverPosts.length > 0) {
+        setTimelinePosts(serverPosts);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("gim_timeline_posts", JSON.stringify(serverPosts));
+          } catch (e) {
+            // Storage quota limit fallback
+          }
+        }
+        return;
+      }
+    } catch (err) {
+      // Offline fallback
+    }
+
+    // Fallback if empty
+    setTimelinePosts((prev) => (prev.length > 0 ? prev : DEFAULT_TIMELINE_POSTS));
+  }, []);
+
+  const savePostsToCache = (posts: TimelinePost[]) => {
     setTimelinePosts(posts);
     if (typeof window !== "undefined") {
       try {
@@ -101,13 +168,15 @@ export default function TimelineFeed({
 
     window.addEventListener("gim_timeline_updated", handleSync);
     window.addEventListener("storage", handleSync);
+    window.addEventListener("focus", handleSync);
     return () => {
       window.removeEventListener("gim_timeline_updated", handleSync);
       window.removeEventListener("storage", handleSync);
+      window.removeEventListener("focus", handleSync);
     };
-  }, []);
+  }, [loadPosts]);
 
-  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -119,13 +188,23 @@ export default function TimelineFeed({
       return;
     }
 
-    setMediaType(isVideo ? "video" : "image");
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      setMediaPreview(evt.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (isVideo) {
+      if (file.size > 20 * 1024 * 1024) {
+        alert("Ukuran video maksimal 20MB.");
+        return;
+      }
+      setMediaType("video");
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setMediaPreview(evt.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setMediaType("image");
+      // Compress image for lightweight and fast synchronization
+      const compressedDataUrl = await compressImage(file, 800, 0.75);
+      setMediaPreview(compressedDataUrl);
+    }
   };
 
   const handleRemoveMedia = () => {
@@ -136,12 +215,14 @@ export default function TimelineFeed({
     }
   };
 
-  const handleCreatePost = (e?: React.FormEvent) => {
+  const handleCreatePost = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!postText.trim() && !mediaPreview) {
       alert("Silakan tuliskan caption atau lampirkan foto/video kegiatan renang.");
       return;
     }
+
+    setIsPosting(true);
 
     let roleLabel = "Anggota Klub";
     if (isAdminRole) {
@@ -152,7 +233,7 @@ export default function TimelineFeed({
       roleLabel = "Orang Tua / Siswa";
     }
 
-    const newPost: TimelinePost = {
+    const optimisticPost: TimelinePost = {
       id: `post-${Date.now()}`,
       authorName: sessionUser || "Pengguna",
       authorRole: roleLabel,
@@ -166,14 +247,39 @@ export default function TimelineFeed({
       likedBy: [],
     };
 
-    const updated = [newPost, ...timelinePosts];
-    savePosts(updated);
+    // 1. Optimistic UI update
+    const updated = [optimisticPost, ...timelinePosts];
+    savePostsToCache(updated);
     setPostText("");
     handleRemoveMedia();
+
+    // 2. Persist to server API so other roles & devices immediately see it
+    try {
+      const serverPost = await createTimelinePost({
+        authorName: optimisticPost.authorName,
+        authorRole: optimisticPost.authorRole,
+        authorAvatar: optimisticPost.authorAvatar,
+        caption: optimisticPost.caption,
+        mediaUrl: optimisticPost.mediaUrl,
+        mediaType: optimisticPost.mediaType,
+        category: optimisticPost.category,
+      });
+
+      if (serverPost) {
+        const synced = [serverPost, ...timelinePosts.filter((p) => p.id !== optimisticPost.id)];
+        savePostsToCache(synced);
+      }
+    } catch (err) {
+      console.warn("Server post creation error, saved locally:", err);
+    } finally {
+      setIsPosting(false);
+    }
   };
 
-  const handleToggleLike = (postId: string) => {
+  const handleToggleLike = async (postId: string) => {
     const userKey = sessionUser || "anonymous";
+
+    // Optimistic like toggle
     const updated = timelinePosts.map((p) => {
       if (p.id === postId) {
         const likedBy = p.likedBy || [];
@@ -187,13 +293,26 @@ export default function TimelineFeed({
       }
       return p;
     });
-    savePosts(updated);
+    savePostsToCache(updated);
+
+    // Sync like to server
+    try {
+      await likeTimelinePost(postId, userKey);
+    } catch (err) {
+      // Ignore
+    }
   };
 
-  const handleDeletePost = (postId: string) => {
+  const handleDeletePost = async (postId: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus postingan ini?")) {
       const updated = timelinePosts.filter((p) => p.id !== postId);
-      savePosts(updated);
+      savePostsToCache(updated);
+
+      try {
+        await deleteTimelinePost(postId);
+      } catch (err) {
+        // Ignore
+      }
     }
   };
 
@@ -310,11 +429,12 @@ export default function TimelineFeed({
 
             <button
               type="button"
+              disabled={isPosting}
               onClick={() => handleCreatePost()}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black transition cursor-pointer shadow-md shadow-blue-600/20 active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black transition cursor-pointer shadow-md shadow-blue-600/20 active:scale-95 disabled:opacity-50"
             >
-              <Send size={13} />
-              <span>Posting</span>
+              {isPosting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+              <span>{isPosting ? "Mengirim..." : "Posting"}</span>
             </button>
           </div>
         </div>

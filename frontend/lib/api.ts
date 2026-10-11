@@ -9,6 +9,7 @@ import {
   PoolVenue,
   ClassProgram,
   CoachPayroll,
+  TimelinePost,
 } from "../components/apps/types";
 import { getAuthToken } from "./authSession";
 
@@ -1634,6 +1635,80 @@ export async function deleteCoachPayroll(id: string): Promise<boolean> {
     throw err;
   }
 }
+
+// ================= TIMELINE POSTS =================
+
+export async function fetchTimelinePosts(): Promise<TimelinePost[]> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/timeline-posts`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Gagal mengambil data timeline");
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.warn("fetchTimelinePosts error:", err);
+    return [];
+  }
+}
+
+export async function createTimelinePost(payload: {
+  authorName: string;
+  authorRole: string;
+  authorAvatar?: string;
+  caption: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
+  category?: string;
+}): Promise<TimelinePost | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/timeline-posts`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || "Gagal membuat postingan");
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.warn("createTimelinePost error:", err);
+    return null;
+  }
+}
+
+export async function deleteTimelinePost(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/timeline-posts/${id}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("deleteTimelinePost error:", err);
+    return false;
+  }
+}
+
+export async function likeTimelinePost(id: string, username: string): Promise<TimelinePost | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/timeline-posts/${id}/like`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ username }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.warn("likeTimelinePost error:", err);
+    return null;
+  }
+}
+
 
 
 
