@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AdminNotification } from "../types";
 import { broadcastPushNotification } from "../../../lib/api";
+import TimelineFeed from "./TimelineFeed";
 import {
   Megaphone,
   RotateCw,
@@ -27,6 +28,7 @@ interface PengumumanTabProps {
 }
 
 export default function PengumumanTab({
+  sessionUser,
   sessionRole,
   notifications = [],
   onMarkNotificationRead,
@@ -351,6 +353,12 @@ export default function PengumumanTab({
             )}
           </div>
         </div>
+
+        {/* Timeline & Aktivitas Komunitas */}
+        <TimelineFeed
+          sessionUser={sessionUser}
+          sessionRole={sessionRole}
+        />
       </div>
     </div>
   );

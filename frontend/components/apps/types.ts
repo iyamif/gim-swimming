@@ -182,3 +182,18 @@ export interface CoachPayroll {
   updated_at?: string;
 }
 
+export interface TimelinePost {
+  id: string;
+  authorName: string;
+  authorRole: string;
+  authorAvatar?: string;
+  caption: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
+  category: string;
+  createdAt: string;
+  likes: number;
+  likedBy?: string[];
+}
+
+

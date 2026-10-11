@@ -4,6 +4,7 @@ import { Student, Coach, Invoice, ScheduleSession, AttendanceRecord, CheckInInpu
 import EditProfileModal from "../EditProfileModal";
 import PushNotificationCard from "../PushNotificationCard";
 import StudentCameraPresensi from "./StudentCameraPresensi";
+import TimelineFeed from "./TimelineFeed";
 import {
   isImageAvatar,
   getAvatarImageUrl,
@@ -2256,19 +2257,15 @@ export default function ParentBody({
               )}
             </div>
 
-            {/* Announcements */}
-            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-3.5">
-              <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-                <Megaphone size={16} className="text-cyan-600" />
-                <span>Pengumuman Akademik</span>
-              </h3>
-              <div className="p-4 rounded-2xl bg-cyan-50/40 border border-cyan-100/50 space-y-1">
-                <p className="text-xs font-bold text-slate-800">Ujian Naik Tingkatan Renang</p>
-                <p className="text-slate-600 leading-relaxed text-xs">
-                  Dilaksanakan pada tanggal 14 September 2026. Mohon untuk memantau kesiapan stamina anak dan instruksi pakaian renang ujian dari pelatih.
-                </p>
-              </div>
-            </div>
+            {/* Timeline & Aktivitas Section */}
+            <TimelineFeed
+              sessionUser={sessionUser}
+              sessionRole={sessionRole}
+              userAvatar={userAvatar}
+              setActiveTab={(tab) => {
+                if (tab === "pengumuman") setParentActiveTab("pengumuman");
+              }}
+            />
           </>
         )}
 
@@ -4085,6 +4082,13 @@ export default function ParentBody({
                 </div>
               </div>
             </div>
+
+            {/* Timeline & Aktivitas Komunitas */}
+            <TimelineFeed
+              sessionUser={sessionUser}
+              sessionRole={sessionRole}
+              userAvatar={userAvatar}
+            />
           </div>
         )}
       </div>
