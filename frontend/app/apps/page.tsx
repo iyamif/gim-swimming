@@ -731,12 +731,18 @@ export default function AppsPage() {
 
   // Dynamic Navigation Items with mobile-friendly short labels (Admin & Pelatih)
   const isCoach = (sessionRole || "").toLowerCase().trim() === "pelatih";
+  const isAdmin = (sessionRole || "").toLowerCase().trim() === "admin";
   const navItems: NavItem[] = [
     { id: "dashboard", label: "Overview", fullLabel: "Dashboard Overview", icon: "📊" },
     { id: "jadwal", label: "Jadwal", fullLabel: "Jadwal Les Renang", icon: "📅" },
     { id: "daftar_hadir", label: "Siswa", fullLabel: "Daftar Hadir Siswa", icon: "📋" },
     { id: "pelatih", label: "Pelatih", fullLabel: "Daftar Pelatih & Instruktur", icon: "🏊‍♂️" },
-    { id: "kehadiran", label: "Kehadiran", fullLabel: "Rekap Kehadiran", icon: "✅" },
+    {
+      id: "kehadiran",
+      label: isAdmin ? "Absensi" : "Kehadiran",
+      fullLabel: isAdmin ? "Absensi" : "Rekap Kehadiran",
+      icon: "✅",
+    },
     { id: "absensi", label: "Absensi", fullLabel: "Input Absensi Harian", icon: "⏱️" },
     {
       id: "gaji_spp",

@@ -387,7 +387,7 @@ export default function DashboardOverviewTab({
       },
       {
         id: "kehadiran",
-        label: "Kehadiran",
+        label: "Absensi",
         icon: <Clock size={22} />,
         bgCircle: "bg-orange-50 border-orange-100 text-orange-500",
         action: () => setActiveTab && setActiveTab("kehadiran"),

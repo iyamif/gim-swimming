@@ -288,10 +288,12 @@ export default function KehadiranTab({
         <div className="max-w-4xl mx-auto relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Pusat Kehadiran &amp; Jadwal
+              {isCoachRole ? "Pusat Kehadiran & Jadwal" : "Pusat Absensi & Jadwal"}
             </h2>
             <p className="text-xs text-cyan-100 font-medium mt-1">
-              Pantau jadwal harian dan riwayat presensi kehadiran Pelatih &amp; Siswa secara lengkap.
+              {isCoachRole
+                ? "Pantau jadwal harian dan riwayat presensi kehadiran Pelatih & Siswa secara lengkap."
+                : "Pantau jadwal harian dan riwayat absensi Pelatih & Siswa secara lengkap."}
             </p>
           </div>
 
